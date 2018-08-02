@@ -164,6 +164,12 @@ Receive& Receive::build()
 	return *this;
 }
 
+//_____________________________________________________________________ ActorContext
+//
+ActorContext::ActorContext(){
+	
+}
+
 //_____________________________________________________________________ Actor
 
 Actor::Actor(ActorSystem& system, const char* name) :

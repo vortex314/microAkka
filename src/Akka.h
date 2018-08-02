@@ -135,10 +135,14 @@ public:
 		return t->self();
 	}
 };
-
-class Context: public ActorSystem
+//_____________________________________________________________________ ActorContext
+class ActorContext
 {
-
+	uint64_t timeout;
+public :
+	ActorContext();
+	void cancelReceiveTimeout();
+	void setReceiveTimeout(uint32_t msec);
 };
 
 //_____________________________________________________________________ Receive
@@ -149,6 +153,24 @@ public:
 	Receive& match(ActorRef dst, MsgClass msgClass, MessageHandler f);
 	Receive& build();
 };
+//_____________________________________________________________________ Timer
+//
+class Timer {
+	uid_type key;
+	bool active;
+	bool periodic;
+	uint64_t expiresAt;
+public :
+	Timer(uid_type key,bool active,bool periodic,uint64_t interval);
+};
+
+class TimerScheduler {
+	void startPeriodicTimer(uid_type key,Message& msg,uint32_t msec);
+	void startSingleTimer(uid_type key,Message& msg,uint32_t msec);
+	void cancel(uid_type key);
+	void cancelAll();
+	bool isTimerActive(uid_type key);
+};
 //_____________________________________________________________________ Actor
 class Actor
 {
@@ -158,11 +180,11 @@ public:
 	const char* name;
 	const ActorSystem& system;
 	const ActorRef self;
+	const ActorContext context;
 
 	Actor(ActorSystem& system, const char* name);
 	virtual ~Actor();
 	ActorRef getDestination();
-	Erc getMessage(const char* fmt, ...);
 
 	void event(MsgClass type, const char* fmt, ...); // queue message src,ANY_ACTOR,msgType,idx,...
 	void ask(ActorRef dst, Message& msg);
@@ -172,11 +194,11 @@ public:
 	const char* getName();
 	virtual Receive& createReceive() =0;
 	ActorSystem& getSystem();
-	Context& getContext();
 	Receive& receiveBuilder();
 	virtual void preStart();
 	virtual void postStop();
 	virtual void unhandled(Message& msg);
+	Timer getTimers();
 };
 
 class Dispatcher

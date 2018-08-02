@@ -37,6 +37,7 @@ public:
 int main() {
 	Wifi wifi(actorSystem);
 	Echo echo(actorSystem);
+	
 //	actorSystem.loop();
 	return 0;
 }
