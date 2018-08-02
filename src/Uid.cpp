@@ -18,7 +18,7 @@ Uid::Uid(const char *name) {
   _next = 0;
 }
 
-uid_t Uid::add(const char *label) {
+uid_type Uid::add(const char *label) {
   Uid *uid = 0;
   uid = find(label);
   if (uid) {
@@ -41,14 +41,14 @@ Uid *Uid::find(const char *label) {
   return 0;
 }
 
-uid_t Uid::id(const char *label) {
+uid_type Uid::id(const char *label) {
   Uid *p = find(label);
   if (p)
     return p->_id;
   return 0;
 }
 
-Uid *Uid::find(uid_t id) {
+Uid *Uid::find(uid_type id) {
   Uid *p = LinkedList::first();
   while (p) {
     if (p->_id == id) {
@@ -59,7 +59,7 @@ Uid *Uid::find(uid_t id) {
   return 0;
 }
 
-const char *Uid::label(uid_t id) {
+const char *Uid::label(uid_type id) {
   Uid *p = find(id);
   if (p)
     return p->_label;

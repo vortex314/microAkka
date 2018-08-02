@@ -2,7 +2,7 @@
 #define _UID_H_
 
 #include <LinkedList.hpp>
-typedef uint16_t uid_t;
+typedef uint16_t uid_type;
 #define UID_LENGTH 16
 #define UID_MAX 200
 
@@ -35,15 +35,15 @@ constexpr uint16_t H(const char *s) {
 
 
 class Uid : public LinkedList<Uid> {
-  uid_t _id;
+  uid_type _id;
   const char *_label;
 
 public:
   Uid(const char *label);
-  static uid_t add(const char *label);
-  static uid_t id(const char *label);
-  static const char *label(uid_t id);
-  static Uid *find(uid_t id);
+  static uid_type add(const char *label);
+  static uid_type id(const char *label);
+  static const char *label(uid_type id);
+  static Uid *find(uid_type id);
   static Uid *find(const char *label);
   static void debug(const char *, Uid *);
 };
