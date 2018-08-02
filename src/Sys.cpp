@@ -6,6 +6,8 @@ uint64_t Sys::_upTime;
 #include <unistd.h>
 #include <string.h>
 
+char Sys::_hostname[30];
+
 uint64_t Sys::millis()   // time in msec since boot, only increasing
 {
 	struct timespec deadline;

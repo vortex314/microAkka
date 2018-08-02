@@ -43,12 +43,14 @@ using namespace std;
 typedef uid_t MsgClass;
 typedef void (*MsgHandler)(void);
 
-class MessageQueue: public CborQueue {
+class MessageQueue: public CborQueue
+{
 public:
 	MessageQueue(uint32_t size);
 };
 
-class MailBox: public MessageQueue {
+class MailBox: public MessageQueue
+{
 public:
 	MailBox(uint32_t size);
 	bool hasMessages();
@@ -58,10 +60,12 @@ public:
 
 class Message;
 
-class ActorRef {
+class ActorRef
+{
 
 public:
 	uid_t uid;
+	ActorRef();
 	ActorRef(uid_type id);
 	void ask(ActorRef dst, MsgClass type, Message& msg, uint32_t timeout);
 	void forward(Message& msg);
@@ -71,54 +75,48 @@ public:
 };
 
 //_____________________________________________________________________ Envelope
-class Envelope {
+class Message
+{
 	static uint32_t idCounter;
 public:
-	const ActorRef sender;
-	const ActorRef receiver;
-	const MsgClass msgClass;
-	const uint32_t id;
-	Envelope();
-	Envelope(ActorRef snd, ActorRef rcv, MsgClass clz);
-	bool read(Cbor& message);
-	void write(Cbor& message);
+	ActorRef sender;
+	ActorRef receiver;
+	MsgClass msgClass;
+	uint32_t id;
+	Cbor payload;
+	Message(uint32_t size);
+	void setHeader(ActorRef snd, ActorRef rcv, MsgClass clz);
+	static uint32_t newId();
+	bool read(const char* fmt,...);
+	bool deserialize(Cbor& message);
+	void serialize(Cbor& message);
+};
+
+//_____________________________________________________________________ Mailbox
+class Mailbox {
+	CborQueue cborQueue;
+public :
+	Mailbox(uint32_t size);
+	bool hasMessages();
+	void enqueue(Message& msg);
+	void dequeue(Message& msg);
 };
 
 //_____________________________________________________________________ Message
-/*
- * S : String
- * s : const char*
- * i : int
- * l : long
- * f : double
- * b : boolean
- *
- * iiiis... == sender,receiver,msgClass,id,format,...
- *
- * 	bytes.get("iiiis",&_sender,&_receiver,&_msgClass,&_id)
- *
- *
- */
-class Message: public Envelope {
-public:
-	Cbor& payload;
-	bool read(Cbor& message, const char* fmt, ...);
-	Message(ActorRef snd, ActorRef rcv, MsgClass clz, uint32_t size);
-	Message(Cbor& in);
-	void writeEnvelope();
-	bool readEnvelope();
-};
+
+
 typedef bool (*MsgMatch)(Message& msg);
 typedef std::function<void(Message&)> MessageHandler;
 
 class Actor;
 //_____________________________________________________________________ ActorSystem
-class ActorSystem {
+class ActorSystem
+{
 	const char* _name;
-	MessageQueue _queue;
-	LinkedList<MailBox> mailboxes;
+
 
 public:
+	Mailbox mailbox;
 	ActorSystem(const char* name, uint32_t queueSize);
 	Erc queue(Cbor& message);
 	void registerActor(Actor&);
@@ -130,26 +128,30 @@ public:
 	void setReceiveTimeout(uint32_t msec);
 	uint32_t getReceiveTimeout();
 	void stop(ActorRef);
-	template<class T> ActorRef actorOf(const char* name, ...) {
+	template<class T> ActorRef actorOf(const char* name, ...)
+	{
 		T* t = new T(name);
 		addActor(t);
 		return t->self();
 	}
 };
 
-class Context: public ActorSystem {
+class Context: public ActorSystem
+{
 
 };
 
 //_____________________________________________________________________ Receive
-class Receive {
+class Receive
+{
 	// table of src,msgType,bool func, function(Message)
 public:
 	Receive& match(ActorRef dst, MsgClass msgClass, MessageHandler f);
 	Receive& build();
 };
 //_____________________________________________________________________ Actor
-class Actor {
+class Actor
+{
 
 	// Linkedlist<MsgHandler> first;
 public:
@@ -177,7 +179,14 @@ public:
 	virtual void unhandled(Message& msg);
 };
 
+class Dispatcher
+{
+public :
+
+};
+
 extern ActorRef AnyActor;
 extern uid_type AnyClass;
+extern ActorSystem actorSystem;
 
 #endif /* SRC_AKKA_H_ */

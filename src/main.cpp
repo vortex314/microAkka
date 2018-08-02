@@ -34,11 +34,9 @@ public:
 	}
 };
 
-ActorSystem sys("sys", 20000);
-
 int main() {
-	Wifi wifi(sys);
-	Echo echo(sys);
-	sys.loop();
+	Wifi wifi(actorSystem);
+	Echo echo(actorSystem);
+//	actorSystem.loop();
 	return 0;
 }

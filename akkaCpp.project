@@ -17,6 +17,9 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="src/Sys.cpp"/>
+    <File Name="src/Akka.h"/>
+    <File Name="src/Akka.cpp"/>
     <File Name="src/main.cpp"/>
     <File Name="src/Uid.h"/>
     <File Name="src/Uid.cpp"/>
@@ -38,7 +41,10 @@
         <IncludePath Value=".."/>
         <IncludePath Value="src"/>
       </Compiler>
-      <Linker Options="" Required="yes"/>
+      <Linker Options="-pthread" Required="yes">
+        <LibraryPath Value="../Common/Debug"/>
+        <Library Value="Common"/>
+      </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Debug" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
       <BuildSystem Name="Default"/>
