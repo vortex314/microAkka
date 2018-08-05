@@ -1,4 +1,5 @@
-# Akka Cpp Actor Framework for Embedded systems - CAFES
+# DRAFT -- DRAFT -- WORK IN PROGRESS
+# Akka Cpp Actor Framework for Embedded systems - µAkka
 
 C++ Actor Framework for Embedded Systems - akka alike
 
@@ -68,13 +69,13 @@ Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c6
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/vortex314/microAkka/tags). 
 
 ## Authors
 
-* **Lieven Merckx** - *Initial work* - [PurpleBooth](https://github.com/vortex314)
+* **Lieven Merckx** - *Initial work* - 
 
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+
 
 ## License
 
