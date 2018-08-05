@@ -1,67 +1,52 @@
 
 #include <Log.h>
-#include <malloc.h>
 #include <Uid.h>
+#include <malloc.h>
 
+// LinkedList<UidEntry*> Uid::list;
+Uid UID;
 
-void Uid::debug(const char *s, Uid *p) {
-  INFO("%s '%s':%d at 0x%X next : 0x%X\n", s, p->_label, p->_id, p, p->_next);
+Uid::Uid() {}
+
+UidEntry::UidEntry(const char* name) : _id(H(name)) {
+    DEBUG(" new : label %s:0x%X\n", name, name);
+    _label = (const char*)malloc(strlen(name) + 1);
+    strcpy((char*)_label, name);
 }
 
-Uid::Uid(const char *name) {
-  DEBUG(" new : label %s:0x%X\n", name, name);
-  
-    _label = (const char *)malloc(strlen(name) + 1);
-    strcpy((char *)_label, name);
-  
-  _id = H(_label);
-  _next = 0;
-}
-
-uid_type Uid::add(const char *label) {
-  Uid *uid = 0;
-  uid = find(label);
-  if (uid) {
-    return uid->_id;
-  }
-  uid = new Uid(label);
-  Uid **ppU = lastLink();
-  *ppU = uid;
-  return uid->_id;
-}
-
-Uid *Uid::find(const char *label) {
-  Uid *p = LinkedList::first();
-  while (p) {
-    if (strcmp(p->_label, label) == 0) {
-      return p;
+uid_type Uid::get(const char* label) {
+    UidEntry* uid = 0;
+    uid = find(label);
+    if (uid) {
+        return uid->id();
+    } else {
+        uid = new UidEntry(label);
+        add(uid);
+        return uid->id();
     }
-    p = p->LinkedList::next();
-  }
-  return 0;
 }
 
-uid_type Uid::id(const char *label) {
-  Uid *p = find(label);
-  if (p)
-    return p->_id;
-  return 0;
+UidEntry* Uid::find(const char* label) {
+    UidEntry* p = findFirst(
+        [label](UidEntry* uid) { return (strcmp(uid->_label, label) == 0); });
+    return p;
 }
 
-Uid *Uid::find(uid_type id) {
-  Uid *p = LinkedList::first();
-  while (p) {
-    if (p->_id == id) {
-      return p;
-    }
-    p = p->LinkedList::next();
-  }
-  return 0;
+uid_type Uid::id(const char* label) {
+    UidEntry* p = find(label);
+    if (p)
+        return p->id();
+    return 0;
 }
 
-const char *Uid::label(uid_type id) {
-  Uid *p = find(id);
-  if (p)
-    return p->_label;
-  return "UNKNOWN";
+UidEntry* Uid::find(uid_type id) {
+    UidEntry* p = findFirst([id](UidEntry* uid) { return (uid->id() == id); });
+    return p;
+}
+
+const char* Uid::label(uid_type id) {
+    UidEntry* p = find(id);
+    if (p)
+        return p->_label;
+    return "UNKNOWN";
 }

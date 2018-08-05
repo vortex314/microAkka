@@ -23,29 +23,34 @@ typedef uint16_t uid_type;
 #define FNV_OFFSET 14695981039346656037ull
 #endif
 
-constexpr uint32_t fnv1(uint32_t h, const char *s) {
-  return (*s == 0) ? h
-                   : fnv1((h * FNV_PRIME) ^ static_cast<uint32_t>(*s), s + 1);
+constexpr uint32_t fnv1(uint32_t h, const char* s) {
+    return (*s == 0) ? h
+                     : fnv1((h * FNV_PRIME) ^ static_cast<uint32_t>(*s), s + 1);
 }
 
-constexpr uint16_t H(const char *s) {
-  //    uint32_t  h = fnv1(FNV_OFFSET, s) ;
-  return (fnv1(FNV_OFFSET, s) & FNV_MASK);
+constexpr uint16_t H(const char* s) {
+    //    uint32_t  h = fnv1(FNV_OFFSET, s) ;
+    return (fnv1(FNV_OFFSET, s) & FNV_MASK);
 }
 
+class UidEntry {
+  public:
+    UidEntry(const char* label);
+    const uid_type _id;
+    const char* _label;
+    inline const char* label() { return _label; }
+    inline const uid_type id() { return _id; };
+};
 
-class Uid : public LinkedList<Uid> {
-  uid_type _id;
-  const char *_label;
+class Uid : public LinkedList<UidEntry*> {
 
-public:
-  Uid(const char *label);
-  static uid_type add(const char *label);
-  static uid_type id(const char *label);
-  static const char *label(uid_type id);
-  static Uid *find(uid_type id);
-  static Uid *find(const char *label);
-  static void debug(const char *, Uid *);
+  public:
+    Uid();
+    uid_type get(const char* label);
+    uid_type id(const char* label);
+    const char* label(uid_type id);
+    UidEntry* find(uid_type id);
+    UidEntry* find(const char* label);
 };
 
 extern Uid UID;

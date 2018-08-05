@@ -2,42 +2,73 @@
 
 Log logger(1024);
 
-class Echo: public Actor {
+class Echo : public Actor {
+    Str str;
 
-public:
-	Echo(ActorSystem& system) :
-			Actor(system, "echo") {
-	}
-	~Echo() {
-	}
+  public:
+    const static MsgClass DO_ECHO = H("DO_ECHO");
+    const static MsgClass DONE_ECHO = H("DONE_ECHO");
 
-	void preStart() {
-	}
-	Receive& createReceive() {
-		return receiveBuilder().match(AnyActor, H("echo"), [this](Message& msg) {
-			msg.sender.tell(self,msg.msgClass,"s","echo");
-		}).build();
-	}
+    Echo(const char* name) : Actor(name), str(80) {}
+    ~Echo() {}
+
+    void preStart() {}
+    Receive& createReceive() {
+        return receiveBuilder()
+            .match(DO_ECHO,
+                   [this](Message& msg) {
+                       uint32_t counter;
+                       msg.scanf("uS", &counter, &str);
+                       //                       INFO(" received DO_ECHO %d",
+                       //                       counter);
+                       getSender().tell(self, DONE_ECHO, "us", counter,
+                                        "Doe maar een echo");
+                   })
+            .build();
+    }
 };
-class Wifi: public Actor {
-public:
-	Wifi(ActorSystem& system) :
-			Actor(system, "wifi") {
-	}
-	~Wifi() {
-	}
-	Receive& createReceive() {
-		return receiveBuilder();
-	}
-	void onConnected() {
-		AnyActor.tell(self, H("connected"), "");
-	}
+
+class Sender : public Actor {
+    uint64_t startTime;
+    Str str;
+
+  public:
+    Sender(const char* name) : Actor(name), str(80) {}
+    ~Sender() {}
+
+    Receive& createReceive() {
+        return receiveBuilder()
+            .match(Echo::DONE_ECHO,
+                   [this](Message& msg) {
+                       uint32_t counter;
+                       msg.scanf("uS", &counter, &str);
+                       //                      INFO(" received DONE_ECHO %d ",
+                       //                      counter);
+                       if (counter == 0) {
+                           startTime = Sys::millis();
+                       }
+                       if (counter < 1000000)
+                           msg.sender.tell(self, Echo::DO_ECHO, "us", ++counter,
+                                           "Hi ");
+                       if (counter == 1000000) {
+                           INFO(" done in %ld msec %s ",
+                                Sys::millis() - startTime, str.c_str());
+                       }
+                   })
+            .build();
+    }
 };
+
+ActorSystem actorSystem("system", 2000, 1024);
 
 int main() {
-	Wifi wifi(actorSystem);
-	Echo echo(actorSystem);
-	
-//	actorSystem.loop();
-	return 0;
+    ActorRef echo = actorSystem.actorOf<Echo>("echo");
+    ActorRef sender = actorSystem.actorOf<Sender>("sender");
+
+    echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
+
+    actorSystem.mailbox.handleMessages();
+
+    //	actorSystem.loop();
+    return 0;
 }
