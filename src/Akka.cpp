@@ -35,7 +35,7 @@ using namespace std;
 //_____________________________________________- STATIC
 ActorRef AnyActor(0);
 uid_type AnyClass = 0;
-ActorSystem actorSystem("system",20000);
+ActorSystem actorSystem("system",2000,1024);
 //_______________________________________________
 
 //#define MAX_FMT_LEN 22
@@ -48,10 +48,6 @@ ActorSystem actorSystem("system",20000);
 typedef uid_t MsgClass;
 typedef void (*MsgHandler)(void);
 
-MessageQueue::MessageQueue(uint32_t size) :
-	CborQueue(size)
-{
-}
 
 ActorRef::ActorRef(){
 	
@@ -122,17 +118,24 @@ bool Message::read(const char* fmt, ...)
 typedef bool (*MsgMatch)(Message& msg);
 typedef std::function<void(Message&)> MessageHandler;
 //_____________________________________________________________________ Mailbox
-Mailbox::Mailbox(uint32_t size) : cborQueue(size) {
+Mailbox::Mailbox(uint32_t queueSize,uint32_t messageSize) : cborQueue(queueSize),rxdMessage(messageSize),txdMessage(messageSize) {
 	
 }
 
 void Mailbox::enqueue(Message& msg) {
 	cborQueue.put(msg.payload);
 }
+void Mailbox::dequeue(Message& msg) {
+	cborQueue.get(msg.payload);
+}
+
+bool Mailbox::hasMessages(){
+	return cborQueue.hasData();
+}
 //_____________________________________________________________________ ActorSystem
 //
-ActorSystem::ActorSystem(const char* name, uint32_t queueSize) :
-	_name(name), mailbox(queueSize)
+ActorSystem::ActorSystem(const char* name, uint32_t queueSize,uint32_t messageSize) :
+	_name(name), mailbox(queueSize,messageSize)
 {
 
 }

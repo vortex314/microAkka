@@ -43,20 +43,6 @@ using namespace std;
 typedef uid_t MsgClass;
 typedef void (*MsgHandler)(void);
 
-class MessageQueue: public CborQueue
-{
-public:
-	MessageQueue(uint32_t size);
-};
-
-class MailBox: public MessageQueue
-{
-public:
-	MailBox(uint32_t size);
-	bool hasMessages();
-	void awake();
-	void run();
-};
 
 class Message;
 
@@ -74,10 +60,11 @@ public:
 
 };
 
-//_____________________________________________________________________ Envelope
+//_____________________________________________________________________ Message
 class Message
 {
 	static uint32_t idCounter;
+
 public:
 	ActorRef sender;
 	ActorRef receiver;
@@ -93,10 +80,13 @@ public:
 };
 
 //_____________________________________________________________________ Mailbox
-class Mailbox {
+class Mailbox
+{
 	CborQueue cborQueue;
+	Message rxdMessage;
+	Message txdMessage;
 public :
-	Mailbox(uint32_t size);
+	Mailbox(uint32_t queueSize,uint32_t messageSize);
 	bool hasMessages();
 	void enqueue(Message& msg);
 	void dequeue(Message& msg);
@@ -117,7 +107,7 @@ class ActorSystem
 
 public:
 	Mailbox mailbox;
-	ActorSystem(const char* name, uint32_t queueSize);
+	ActorSystem(const char* name, uint32_t queueSize,uint32_t messageSize);
 	Erc queue(Cbor& message);
 	void registerActor(Actor&);
 	void addActor(Actor& actor);
@@ -155,7 +145,8 @@ public:
 };
 //_____________________________________________________________________ Timer
 //
-class Timer {
+class Timer
+{
 	uid_type key;
 	bool active;
 	bool periodic;
@@ -164,7 +155,8 @@ public :
 	Timer(uid_type key,bool active,bool periodic,uint64_t interval);
 };
 
-class TimerScheduler {
+class TimerScheduler
+{
 	void startPeriodicTimer(uid_type key,Message& msg,uint32_t msec);
 	void startSingleTimer(uid_type key,Message& msg,uint32_t msec);
 	void cancel(uid_type key);
