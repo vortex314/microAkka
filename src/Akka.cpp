@@ -34,29 +34,35 @@ using namespace std;
 
 //_____________________________________________- STATIC
 ActorRef AnyActor(0);
+ActorRef NoSender(1);
 uid_type AnyClass = 0;
+Mailbox deadLetter(1, 10);
 
-typedef uid_t MsgClass;
+typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
 
-ActorRef::ActorRef() {}
+ActorRef::ActorRef() : uid(NoSender.uid), mailbox(&deadLetter) {}
+ActorRef::ActorRef(uid_type id) : uid(id), mailbox(&deadLetter) {}
+ActorRef::ActorRef(uid_type id, Mailbox* mb) : uid(id), mailbox(mb) {}
 
-ActorRef::ActorRef(uid_type id) { uid = id; }
+bool ActorRef::operator==(ActorRef& dst) { return (uid == dst.uid); };
+
 void ActorRef::ask(ActorRef dst, MsgClass type, Message& msg,
                    uint32_t timeout) {}
 
-void ActorRef::forward(Message& msg) {}
-
 void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
 
-    Mailbox* mailbox = Actor::mailbox(*this);
-    if (mailbox == 0)
-        return;
     va_list args;
     va_start(args, fmt);
     mailbox->txdMessage.setHeader(src, uid, cls).payload.vaddf(fmt, args);
     va_end(args);
 
+    mailbox->enqueue(mailbox->txdMessage);
+}
+
+void ActorRef::forward(Message& msg) {
+    mailbox->txdMessage.setHeader(msg.sender, uid, msg.msgClass);
+    mailbox->txdMessage.payload.append(msg.payload);
     mailbox->enqueue(mailbox->txdMessage);
 }
 
@@ -233,4 +239,5 @@ void Mailbox::handleMessages() {
         dequeue(rxdMessage); // load envelope and payload
         handleMessage(rxdMessage);
     }
+    // TODO handle timeouts
 }

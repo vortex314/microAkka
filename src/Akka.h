@@ -46,10 +46,10 @@ using namespace std;
 
 // ( Actor -> mailbox -> thread )
 // all coRoutines == same mailbox, a single thread
-//  ActorRef : shorthand uid_t reference
+//  ActorRef : shorthand uid_type reference
 //
 
-typedef uid_t MsgClass;
+typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
 
 class Message;
@@ -59,16 +59,20 @@ class Mailbox;
 class ActorRef {
 
   public:
-    uid_t uid;
+    uid_type uid;
+    Mailbox* mailbox;
 
     ActorRef();
     ActorRef(uid_type id);
+    ActorRef(uid_type id, Mailbox*);
+    bool operator==(ActorRef&);
     //    bool operator==(const ActorRef& dst) const;
-    Mailbox* mailbox();
     void ask(ActorRef dst, MsgClass type, Message& msg, uint32_t timeout);
     void forward(Message& msg);
     void tell(Message& message, ActorRef sender);
-    void tell(ActorRef dst, MsgClass type, const char* format, ...);
+    void tell(ActorRef sender, MsgClass type, const char* format, ...);
+    void operator<<(Message& message);
+    const char* path();
 };
 
 //_____________________________________________________________________ Message
@@ -242,8 +246,16 @@ class Actor {
     Timer getTimers();
 };
 
+class Thread {};
+
 class Dispatcher {
   public:
+    Mailbox& mailbox;
+    Thread& thread;
+    void dispatch() {
+        // add message to mailbox
+        // wakeup thread
+    }
 };
 
 extern ActorRef AnyActor;
