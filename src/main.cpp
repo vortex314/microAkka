@@ -62,6 +62,7 @@ class Sender : public Actor {
 ActorSystem actorSystem("system", 2000, 1024);
 
 int main() {
+	INFO(" starting micorAkka test ");
     ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
 
