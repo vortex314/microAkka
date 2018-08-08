@@ -18,7 +18,8 @@
 //
 // Mailbox 1 >-----> N Actor 1 <----> 1 ActorRef
 //
-// Actor 1 >---> 1 Receive 1 ----> N Receiver ----> ( filter, method )
+// Actor 1 >---> ActorContext -> system
+//                            ->  Receive 1 ----> N Receiver ----> ( filter, method )
 //
 // 1 mailbox == 1 Thread
 // to avoid overhead of RTTI in embedded systems, a string identifier ( hashed )
@@ -42,6 +43,8 @@ using namespace std;
 #include <Str.h>
 #include <Uid.h>
 
+#define MAX_ACTOR_CELLS 20
+
 //#define MAX_FMT_LEN 22
 
 // ( Actor -> mailbox -> thread )
@@ -52,29 +55,90 @@ using namespace std;
 typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
 
-class Message;
+class Envelope;
 class Receiver;
 class Mailbox;
+class ActorContext;
+class ActorRef;
+class ActorSystem;
+class ActorCell;
+class Envelope;
+class Message;
+class SystemMessage;
+class Receive;
+
+extern ActorRef anyActor;
+extern ActorRef noSender;
+extern uid_type AnyClass;
+extern ActorSystem defaultActorSystem;
+extern Receive& nullReceive;
+extern Mailbox defaultMailbox;
+extern Mailbox deadLetterMailbox;
 
 class ActorRef {
 
 public:
-	uid_type uid;
-
+	uint16_t id;
 	ActorRef();
 	ActorRef(uid_type id);
 	ActorRef(uid_type id, Mailbox*);
+
 	bool operator==(ActorRef&);
-	void ask(ActorRef dst, MsgClass type, Message& msg, uint32_t timeout);
-	void forward(Message& msg);
-	void tell(Message& message, ActorRef sender);
+	void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
+	void forward(Envelope& msg);
+	void tell(Envelope& message, ActorRef sender);
 	void tell(ActorRef sender, MsgClass type, const char* format, ...);
-	void operator<<(Message& message);
+	void operator<<(Envelope& message);
 	const char* path();
 };
 
+//_____________________________________________________________________
+// ActorContext
+class ActorContext {
+	ActorRef _self;
+	ActorSystem& _system;
+	Mailbox& _mailbox;
+	Receive& _receive;
+	uint64_t _timeout;
+
+public:
+
+	ActorContext(ActorRef& self, ActorSystem& system, Mailbox& mailbox);
+
+	void become(Receive& receive);
+	void unbecome();
+	void cancelReceiveTimeout();
+	void setReceiveTimeout(uint32_t msec);
+
+	ActorSystem& system();
+	Mailbox& mailbox();
+	ActorRef sender();
+	ActorRef self();
+	Receive& receive();
+
+
+};
+
+class ActorCell {
+	ActorRef _ref;
+	ActorContext& _context;
+public:
+
+	static uint32_t _actorCellCounter;
+	static ActorCell* _actorCells[MAX_ACTOR_CELLS];
+
+	static ActorCell& get(uint32_t id);
+	static Mailbox& mailbox(uint32_t id);
+	static Mailbox& mailbox(ActorRef ref);
+	void mailbox(Mailbox*);
+	ActorRef ref();
+	ActorCell();
+	static ActorCell& create();
+
+};
+
 //_____________________________________________________________________ Message
-class Message {
+class Envelope {
 	static uint16_t idCounter;
 
 public:
@@ -82,9 +146,10 @@ public:
 	ActorRef receiver;
 	MsgClass msgClass;
 	uint32_t id;
-	Cbor payload;
-	Message(uint32_t size);
-	Message& setHeader(ActorRef snd, ActorRef rcv, MsgClass clz);
+	Cbor message;
+
+	Envelope(uint32_t size);
+	Envelope& setHeader(ActorRef snd, ActorRef rcv, MsgClass clz);
 	bool getHeader();
 	static uint32_t newId();
 	bool scanf(const char* fmt, ...);
@@ -95,18 +160,17 @@ public:
 
 //_____________________________________________________________________ Mailbox
 class Mailbox {
-	CborQueue cborQueue;
-	LinkedList<Receiver*> receivers;
-	static LinkedList<Mailbox*> mailboxes;
+	CborQueue _cborQueue;
+	static LinkedList<Mailbox*> _mailboxes;
 
 public:
-	Message rxdMessage;
-	Message txdMessage;
+	Envelope rxdEnvelope;
+	Envelope txdEnvelope;
 	Mailbox(uint32_t queueSize, uint32_t messageSize);
 	bool hasMessages();
-	void enqueue(Message& msg);
-	void dequeue(Message& msg);
-	void handleMessage(Message& msg);
+	void enqueue(Envelope& msg);
+	void dequeue(Envelope& msg);
+	void handleMessage(Envelope& msg);
 	void handleMessages();
 	void addReceiver(Receiver* rcv);
 	Str& toString(Str& str);
@@ -116,19 +180,20 @@ extern Mailbox deadLetterMailbox;
 
 //_____________________________________________________________________ Message
 
-typedef bool (*MsgMatch)(Message& msg);
-typedef std::function<void(Message&)> MessageHandler;
-typedef std::function<bool(Message&)> MessageMatcher;
+typedef bool (*MsgMatch)(Envelope& msg);
+typedef std::function<void(Envelope&)> MessageHandler;
+typedef std::function<bool(Envelope&)> MessageMatcher;
 
 class Actor;
 //_____________________________________________________________________
 // ActorSystem
 class ActorSystem {
 	const char* _name;
+	LinkedList<Actor*> actors;
 
 public:
-	Mailbox mailbox;
-	ActorSystem(const char* name, uint32_t queueSize, uint32_t messageSize);
+
+	ActorSystem(const char* name);
 	Erc queue(Cbor& message);
 	void registerActor(Actor&);
 	ActorRef addActor(Actor& actor);
@@ -146,33 +211,21 @@ public:
 		return actor->self;
 	}
 };
-//_____________________________________________________________________
-// ActorContext
-class ActorContext {
-	uint64_t timeout;
-
-public:
-	ActorContext();
-	void cancelReceiveTimeout();
-	void setReceiveTimeout(uint32_t msec);
-};
 
 //_____________________________________________________________________ Receiver
 //
 
 class Receiver {
-	ActorRef _src;
-	ActorRef _dst;
 	MsgClass _msgClass;
 	MessageMatcher _matcher;
 	MessageHandler _handler;
 
 public:
-	Receiver(ActorRef src, ActorRef dst, MsgClass msgClass,
-			MessageMatcher matcher, MessageHandler handler);
-	bool match(Message& msg);
-	void handle(Message& msg);
-	const static bool alwaysTrue(Message&) {
+	Receiver(MsgClass msgClass, MessageMatcher matcher, MessageHandler handler);
+	Receiver(MsgClass msgClass, MessageHandler handler);
+	bool match(Envelope& msg);
+	void handle(Envelope& msg);
+	const static bool alwaysTrue(Envelope&) {
 		return true;
 	}
 	Str& toString(Str& s);
@@ -180,12 +233,13 @@ public:
 //_____________________________________________________________________ Receive
 //
 class Receive {
-	Actor& dst;
+	LinkedList<Receiver*> receivers;
 
 public:
-	Receive(Actor& dst);
+	Receive();
 	Receive& match(MsgClass msgClass, MessageHandler doSome);
 	Receive& build();
+	void handle(Envelope&);
 };
 //_____________________________________________________________________ Timer
 //
@@ -200,8 +254,8 @@ public:
 };
 
 class TimerScheduler {
-	void startPeriodicTimer(uid_type key, Message& msg, uint32_t msec);
-	void startSingleTimer(uid_type key, Message& msg, uint32_t msec);
+	void startPeriodicTimer(uid_type key, Envelope& msg, uint32_t msec);
+	void startSingleTimer(uid_type key, Envelope& msg, uint32_t msec);
 	void cancel(uid_type key);
 	void cancelAll();
 	bool isTimerActive(uid_type key);
@@ -212,26 +266,20 @@ class Actor {
 	static LinkedList<Actor*> actors;
 
 public:
-	const char* name;
-	ActorSystem& _system;
-	Mailbox& _mailbox;
-	ActorRef self;
-	Receive receive;
-
-	static Mailbox* mailbox(ActorRef);
-
-	const ActorContext context;
+	const char* _name;
+	ActorContext& _context;
 
 	Actor(const char* name);
 	virtual ~Actor();
 	ActorRef getDestination();
 
 	void event(MsgClass type, const char* fmt, ...); // queue message src,ANY_ACTOR,msgType,idx,...
-	void ask(ActorRef dst, Message& msg);
+	void ask(ActorRef dst, Envelope& msg);
 	// 	AbstractActor
 	//------------------
 	void setReceiveTimeout(uint32_t msec);
 	uint32_t getReceiveTimeout();
+	ActorContext& context();
 	ActorSystem& system();
 	void system(ActorSystem& sys);
 
@@ -242,7 +290,7 @@ public:
 	Receive& receiveBuilder();
 	virtual void preStart();
 	virtual void postStop();
-	virtual void unhandled(Message& msg);
+	virtual void unhandled(Envelope& msg);
 	Timer getTimers();
 };
 
@@ -258,28 +306,5 @@ public:
 		// wakeup thread
 	}
 };
-
-#define MAX_ACTOR_CELLS 20
-
-class ActorCell {
-public:
-	int _id;
-	ActorRef _ref;
-	Mailbox& _mailbox;
-	static uint32_t _actorCellCounter;
-	static ActorCell* _actorCells[MAX_ACTOR_CELLS];
-	static ActorCell& get(uint32_t id);
-	static Mailbox& mailbox(uint32_t id);
-	static Mailbox& mailbox(ActorRef ref);
-	void mailbox(Mailbox*);
-	ActorRef ref();
-	ActorCell();
-	static ActorCell& create();
-};
-
-extern ActorRef AnyActor;
-extern ActorRef noSender;
-extern uid_type AnyClass;
-extern ActorSystem defaultActorSystem;
 
 #endif /* SRC_AKKA_H_ */

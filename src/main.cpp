@@ -16,7 +16,7 @@ class Echo : public Actor {
     Receive& createReceive() {
         return receiveBuilder()
             .match(DO_ECHO,
-                   [this](Message& msg) {
+                   [this](Envelope& msg) {
                        uint32_t counter;
                        msg.scanf("uS", &counter, &str);
                        //                       INFO(" received DO_ECHO %d",
@@ -33,13 +33,13 @@ class Sender : public Actor {
     Str str;
 
   public:
-    Sender(const char* name) : Actor(name), str(80) {}
+    Sender(const char* name) : Actor(name),startTime(0), str(80) {}
     ~Sender() {}
 
     Receive& createReceive() {
         return receiveBuilder()
             .match(Echo::DONE_ECHO,
-                   [this](Message& msg) {
+                   [this](Envelope& msg) {
                        uint32_t counter;
                        msg.scanf("uS", &counter, &str);
                        //                      INFO(" received DONE_ECHO %d ",
@@ -62,7 +62,7 @@ class Sender : public Actor {
 ActorSystem actorSystem("system", 2000, 1024);
 
 int main() {
-	INFO(" starting micorAkka test ");
+	INFO(" starting microAkka test ");
     ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
 
