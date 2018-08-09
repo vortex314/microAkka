@@ -2,74 +2,97 @@
 
 Log logger(1024);
 
-class Echo : public Actor {
-    Str str;
+#define ID(cls) H(#cls)
 
-  public:
-    const static MsgClass DO_ECHO = H("DO_ECHO");
-    const static MsgClass DONE_ECHO = H("DONE_ECHO");
+class DoEcho {
+	const static int myId=ID(DoEcho);
+public:
+	uint32_t counter;
+	const char* message;
 
-    Echo(const char* name) : Actor(name), str(80) {}
-    ~Echo() {}
-
-    void preStart() {}
-    Receive& createReceive() {
-        return receiveBuilder()
-            .match(DO_ECHO,
-                   [this](Envelope& msg) {
-                       uint32_t counter;
-                       msg.scanf("uS", &counter, &str);
-                       //                       INFO(" received DO_ECHO %d",
-                       //                       counter);
-                       getSender().tell(self, DONE_ECHO, "us", counter,
-                                        "Doe maar een echo");
-                   })
-            .build();
-    }
+	void serialize(Cbor& dst) {
+		dst.add(ID(DoEcho));
+		dst.addf("us", counter, message);
+	}
+	bool deserialize(Cbor& src) {
+		int id;
+		if (src.get(id) && id == ID(DoEcho))
+			return src.scanf("us", &counter, &message);
+		return false;
+	}
 };
 
-class Sender : public Actor {
-    uint64_t startTime;
-    Str str;
+class Echo: public Actor {
+	Str str;
 
-  public:
-    Sender(const char* name) : Actor(name),startTime(0), str(80) {}
-    ~Sender() {}
+public:
+	const static MsgClass DO_ECHO = H("DO_ECHO");
+	const static MsgClass DONE_ECHO = H("DONE_ECHO");
+	const static MsgClass DoEchoId = ID(DoEcho);
 
-    Receive& createReceive() {
-        return receiveBuilder()
-            .match(Echo::DONE_ECHO,
-                   [this](Envelope& msg) {
-                       uint32_t counter;
-                       msg.scanf("uS", &counter, &str);
-                       //                      INFO(" received DONE_ECHO %d ",
-                       //                      counter);
-                       if (counter == 0) {
-                           startTime = Sys::millis();
-                       }
-                       if (counter < 1000000)
-                           msg.sender.tell(self, Echo::DO_ECHO, "us", ++counter,
-                                           "Hi ");
-                       if (counter == 1000000) {
-                           INFO(" done in %ld msec %s ",
-                                Sys::millis() - startTime, str.c_str());
-                       }
-                   })
-            .build();
-    }
+	Echo(const char* name) :
+			Actor(name), str(80) {
+	}
+	~Echo() {
+	}
+
+	void preStart() {
+	}
+	Receive& createReceive() {
+		return receiveBuilder().match(DO_ECHO, [this](Envelope& msg) {
+			uint32_t counter;
+			msg.scanf("uS", &counter, &str);
+			//                       INFO(" received DO_ECHO %d",
+			//                       counter);
+				sender().tell(self(), DONE_ECHO, "us", counter,
+						"Doe maar een echo");
+			}).build();
+	}
 };
 
-ActorSystem actorSystem("system", 2000, 1024);
+class Sender: public Actor {
+	uint64_t startTime;
+	Str str;
+
+public:
+	Sender(const char* name) :
+			Actor(name), startTime(0), str(80) {
+	}
+	~Sender() {
+	}
+
+	Receive& createReceive() {
+		return receiveBuilder().match(Echo::DONE_ECHO, [this](Envelope& msg) {
+			uint32_t counter;
+			msg.scanf("uS", &counter, &str);
+			//                      INFO(" received DONE_ECHO %d ",
+			//                      counter);
+				if (counter == 0) {
+					startTime = Sys::millis();
+				}
+				if (counter < 1000000)
+				msg.sender.tell(self(), Echo::DO_ECHO, "us", ++counter,
+						"Hi ");
+				if (counter == 1000000) {
+					INFO(" done in %ld msec %s ",
+							Sys::millis() - startTime, str.c_str());
+				}
+			}).build();
+	}
+};
+
+Mailbox defaultMailbox(20000,1000);
+ActorSystem actorSystem("system");
 
 int main() {
 	INFO(" starting microAkka test ");
-    ActorRef echo = actorSystem.actorOf<Echo>("echo");
-    ActorRef sender = actorSystem.actorOf<Sender>("sender");
+	ActorRef echo = actorSystem.actorOf<Echo>("echo");
+	ActorRef sender = actorSystem.actorOf<Sender>("sender");
 
-    echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
+	echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
 
-    actorSystem.mailbox.handleMessages();
+	sender.context().mailbox();
 
-    //	actorSystem.loop();
-    return 0;
+	//	actorSystem.loop();
+	return 0;
 }

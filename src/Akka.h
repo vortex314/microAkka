@@ -9,23 +9,36 @@
 #define SRC_AKKA_H_
 #include <stdio.h>
 
-//============================================================================
+/*============================================================================
 // Name        : akkaMicro.cpp
 // Author      : Lieven
 // Version     :
 // Copyright   : Enjoy teh source
 // Description : Akka alike framework in C++ for embedded systems : low RAM
+ * Actor creation -> ActorCell
+ * 				-> ActorRef
+ * 				-> ActorContext -> empty Receive
 //
 // Mailbox 1 >-----> N Actor 1 <----> 1 ActorRef
 //
-// Actor 1 >---> ActorContext -> system
-//                            ->  Receive 1 ----> N Receiver ----> ( filter, method )
+// Actor -> ActorContext -> ActorSystem
+//                       -> Receive -> N Receiver ----> ( MsgClass,filter, method )
+ *						 -> ActorRef
+//
+// ActorRef -> ActorCell -> Mailbox
+ *  Creation sequence
+ *  	ActorCell
+ *  	ActorRef
+ *  	ActorContext
+ *  	Actor
+
+Mailbox -> dispatches message based on ActorRef destination , ActorRef points to ActorContext , points to Receive active
 //
 // 1 mailbox == 1 Thread
 // to avoid overhead of RTTI in embedded systems, a string identifier ( hashed )
 // was used to interprete the message format
 //
-//============================================================================
+//============================================================================*/
 
 #include <functional>
 #include <iostream>
@@ -58,6 +71,7 @@ typedef void (*MsgHandler)(void);
 class Envelope;
 class Receiver;
 class Mailbox;
+class Actor;
 class ActorContext;
 class ActorRef;
 class ActorSystem;
@@ -66,6 +80,7 @@ class Envelope;
 class Message;
 class SystemMessage;
 class Receive;
+class Props;
 
 extern ActorRef anyActor;
 extern ActorRef noSender;
@@ -74,6 +89,14 @@ extern ActorSystem defaultActorSystem;
 extern Receive& nullReceive;
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
+
+class Props {
+//	Mailbox& mailbox;
+
+public:
+	Props& withMailbox(Mailbox& mailbox);
+	template <class T>  static Props create(const char* name,const char* fmt,...);
+};
 
 class ActorRef {
 
@@ -89,21 +112,23 @@ public:
 	void tell(Envelope& message, ActorRef sender);
 	void tell(ActorRef sender, MsgClass type, const char* format, ...);
 	void operator<<(Envelope& message);
+	Mailbox& mailbox();
+	ActorRef& withMailbox();
 	const char* path();
 };
 
 //_____________________________________________________________________
 // ActorContext
 class ActorContext {
-	ActorRef _self;
-	ActorSystem& _system;
-	Mailbox& _mailbox;
-	Receive& _receive;
+	ActorRef* _self;
+	ActorSystem* _system;
+	Mailbox* _mailbox;
+	Receive* _receive;
 	uint64_t _timeout;
 
 public:
 
-	ActorContext(ActorRef& self, ActorSystem& system, Mailbox& mailbox);
+	ActorContext(ActorRef* self, ActorSystem* system, Mailbox* mailbox);
 
 	void become(Receive& receive);
 	void unbecome();
@@ -111,6 +136,7 @@ public:
 	void setReceiveTimeout(uint32_t msec);
 
 	ActorSystem& system();
+	void system(ActorSystem&);
 	Mailbox& mailbox();
 	ActorRef sender();
 	ActorRef self();
@@ -120,20 +146,17 @@ public:
 };
 
 class ActorCell {
-	ActorRef _ref;
-	ActorContext& _context;
+	ActorRef* _ref;
+	ActorContext* _context;
 public:
-
 	static uint32_t _actorCellCounter;
 	static ActorCell* _actorCells[MAX_ACTOR_CELLS];
 
-	static ActorCell& get(uint32_t id);
-	static Mailbox& mailbox(uint32_t id);
-	static Mailbox& mailbox(ActorRef ref);
-	void mailbox(Mailbox*);
-	ActorRef ref();
 	ActorCell();
-	static ActorCell& create();
+	ActorRef& ref();
+	Mailbox& mailbox();
+	ActorContext& context();
+	void context(ActorContext&);
 
 };
 
@@ -184,7 +207,7 @@ typedef bool (*MsgMatch)(Envelope& msg);
 typedef std::function<void(Envelope&)> MessageHandler;
 typedef std::function<bool(Envelope&)> MessageMatcher;
 
-class Actor;
+
 //_____________________________________________________________________
 // ActorSystem
 class ActorSystem {
@@ -208,7 +231,7 @@ public:
 		actor->system(*this);
 		addActor(*actor);
 		actor->createReceive();
-		return actor->self;
+		return actor->self();
 	}
 };
 
@@ -264,10 +287,12 @@ class TimerScheduler {
 class Actor {
 
 	static LinkedList<Actor*> actors;
+	ActorContext& _context;
+	const char* _name;
 
 public:
-	const char* _name;
-	ActorContext& _context;
+
+
 
 	Actor(const char* name);
 	virtual ~Actor();
@@ -280,11 +305,12 @@ public:
 	void setReceiveTimeout(uint32_t msec);
 	uint32_t getReceiveTimeout();
 	ActorContext& context();
+	void context(ActorContext&);
 	ActorSystem& system();
 	void system(ActorSystem& sys);
 
-	ActorRef getSelf();
-	ActorRef getSender();
+	ActorRef self();
+	ActorRef sender();
 	const char* getName();
 	virtual Receive& createReceive() = 0;
 	Receive& receiveBuilder();

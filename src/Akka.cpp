@@ -12,7 +12,7 @@
 // Name        : akkaMicro.cpp
 // Author      : Lieven
 // Version     :
-// Copyright   : Enjoy teh source
+// Copyright   : Enjoy the source
 // Description : Akka alike framework in C++ for embedded systems : low RAM
 //============================================================================
 
@@ -58,8 +58,8 @@ void ActorRef::ask(ActorRef dst, MsgClass type, Envelope& msg,
 
 void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
 
-	Mailbox& srcMailbox = ActorCell::mailbox(src);
-	Mailbox& dstMailbox = ActorCell::mailbox(id);
+	Mailbox& srcMailbox = src.mailbox();
+	Mailbox& dstMailbox = mailbox();
 	va_list args;
 	va_start(args, fmt);
 	srcMailbox.txdEnvelope.setHeader(src, id, cls).message.vaddf(fmt, args);
@@ -69,8 +69,8 @@ void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
 }
 
 void ActorRef::forward(Envelope& msg) {
-	Mailbox& rcvMailbox = ActorCell::mailbox(id);
-	Mailbox& sndMailbox = ActorCell::mailbox(msg.receiver);
+	Mailbox& rcvMailbox = mailbox();
+	Mailbox& sndMailbox = msg.receiver.mailbox();
 	sndMailbox.txdEnvelope.setHeader(msg.sender, id, msg.msgClass);
 	sndMailbox.txdEnvelope.message.append(msg.message);
 	rcvMailbox.enqueue(sndMailbox.txdEnvelope);
@@ -204,9 +204,9 @@ Receive& Receive::build() {
 // ActorContext
 //
 
-ActorContext::ActorContext(ActorRef& self, ActorSystem& system,
-		Mailbox& mailbox) :
-		_self(self), _system(system), _mailbox(mailbox), _receive(nullReceive), _timeout(
+ActorContext::ActorContext(ActorRef* self, ActorSystem* system,
+		Mailbox* mailbox) :
+		_self(self), _system(system), _mailbox(mailbox), _receive(&nullReceive), _timeout(
 				UINT64_MAX) {
 
 }
@@ -217,7 +217,11 @@ ActorContext::ActorContext(ActorRef& self, ActorSystem& system,
 LinkedList<Actor*> Actor::actors;
 
 Actor::Actor(const char* name) :
-		_name(name),_context(*new ActorContext(ActorCell::create().ref(),defaultActorSystem,defaultMailbox)){
+		_name(name){
+	ActorCell* cell=new ActorCell();
+	ActorRef& self=cell->ref();
+	ActorContext* ctx = new ActorContext(self,defaultActorSystem,defaultMailbox);
+	context(*ctx);
 
 	actors.add(this);
 }
@@ -236,7 +240,7 @@ void Actor::postStop() {
 }
 
 void Actor::unhandled(Envelope& msg) {
-	INFO("unhandled message for Actor : %s ", name);
+	INFO("unhandled message for Actor : %s ", _name);
 }
 
 void Actor::setReceiveTimeout(uint32_t msec) {
@@ -246,12 +250,12 @@ uint32_t Actor::getReceiveTimeout() {
 	return 0;
 }
 
-ActorRef Actor::getSender() {
+ActorRef Actor::sender() {
 	return context().mailbox().rxdEnvelope.sender;
 }
 
 void Actor::system(ActorSystem& sys) {
-	return context().system();
+	context().system(sys);
 }
 
 //________________________________________________________________________________
@@ -267,23 +271,17 @@ ActorCell& ActorCell::get(uint32_t id) {
 	return *_actorCells[id];
 }
 
-ActorCell& ActorCell::create() {
-	ActorCell* cell = new ActorCell();
-	_actorCells[_actorCellCounter++] = cell;
-	return *cell;
+
+ActorCell::ActorCell(){
 }
 
-ActorCell::ActorCell() :
-		_id(_actorCellCounter), _ref(_id), _mailbox(deadLetterMailbox) {
-}
-
-inline Mailbox& ActorCell::mailbox(ActorRef ref) {
-	return mailbox(ref.uid);
+inline Mailbox& ActorCell::mailbox() {
+	return mailbox(ref.id);
 }
 
 inline Mailbox& ActorCell::mailbox(uint32_t id) {
 	ASSERT(id < MAX_ACTOR_CELLS);
-	return _actorCells[id]->_mailbox;
+	return _actorCells[id]->create(;
 }
 
 inline ActorRef ActorCell::ref() {
@@ -291,4 +289,4 @@ inline ActorRef ActorCell::ref() {
 }
 
 Mailbox deadLetterMailbox(1, 100);
-ActorSystem defaultActorSystem("system", 10000, 1000);
+ActorSystem defaultActorSystem("system");
