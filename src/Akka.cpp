@@ -37,6 +37,7 @@ ActorRef AnyActor(0);
 ActorRef NoSender(1);
 uid_type AnyClass = 0;
 Mailbox deadLetter(1, 10);
+Receive nullReceive;
 
 typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
@@ -49,7 +50,19 @@ bool ActorRef::operator==(ActorRef& dst) {
 	return (_id == dst._id);
 }
 
-Mailbox& ActorRef::mailbox(){
+inline uint16_t ActorRef::id() {
+	return _id;
+}
+
+void ActorRef::id(uint16_t id) {
+	_id = id;
+}
+
+const char* ActorRef::path() {
+	return "no path yet";
+}
+
+Mailbox& ActorRef::mailbox() {
 	return ActorCell::cell(*this).mailbox();
 }
 
@@ -87,8 +100,8 @@ uint32_t Envelope::newId() {
 //
 
 Envelope::Envelope(uint32_t size) :
-		 sender(AnyActor), receiver(AnyActor), msgClass(
-				AnyClass),id(0),message(size) {
+		sender(AnyActor), receiver(AnyActor), msgClass(AnyClass), id(0), message(
+				size) {
 }
 
 Envelope& Envelope::setHeader(ActorRef snd, ActorRef rcv, MsgClass clz) {
@@ -102,7 +115,13 @@ Envelope& Envelope::setHeader(ActorRef snd, ActorRef rcv, MsgClass clz) {
 }
 
 bool Envelope::getHeader() {
-	return message.scanf("2222", &sender.id, &receiver.id, &msgClass, &id);
+	uint16_t s, r;
+	bool b = message.scanf("2222", &s, &r, &msgClass, &id);
+	if (b) {
+		sender.id(s);
+		receiver.id(r);
+	}
+	return b;
 }
 
 bool Envelope::scanf(const char* fmt, ...) {
@@ -115,8 +134,8 @@ bool Envelope::scanf(const char* fmt, ...) {
 }
 
 Str& Envelope::toString(Str& s) {
-	return s.format(" dst : %s , src : %s , class : %s  ",
-			receiver.path(),sender.path(), UID.label(msgClass));
+	return s.format(" dst : %s , src : %s , class : %s  ", receiver.path(),
+			sender.path(), UID.label(msgClass));
 }
 
 typedef bool (*MsgMatch)(Envelope& msg);
@@ -128,7 +147,8 @@ typedef std::function<void(Envelope&)> MessageHandler;
 LinkedList<Mailbox*> mailboxes();
 
 Mailbox::Mailbox(uint32_t queueSize, uint32_t messageSize) :
-		_cborQueue(queueSize), rxdEnvelope(messageSize), txdEnvelope(messageSize) {
+		_cborQueue(queueSize), rxdEnvelope(messageSize), txdEnvelope(
+				messageSize) {
 }
 
 void Mailbox::enqueue(Envelope& msg) {
@@ -137,7 +157,6 @@ void Mailbox::enqueue(Envelope& msg) {
 
 void Mailbox::dequeue(Envelope& msg) {
 	_cborQueue.get(msg.message);
-	msg.getHeader();
 }
 
 bool Mailbox::hasMessages() {
@@ -147,6 +166,9 @@ bool Mailbox::hasMessages() {
 void Mailbox::handleMessages() {
 	while (hasMessages()) {
 		dequeue(rxdEnvelope); // load envelope and payload
+		rxdEnvelope.getHeader();
+		ActorContext::context(rxdEnvelope.receiver).receive().handle(
+				rxdEnvelope);
 //		ref => context => receive => handleMessage(rxdMessage);
 	}
 	// TODO handle timeouts
@@ -169,7 +191,7 @@ Receiver::Receiver(MsgClass msgClass, MessageHandler handler) :
 		_msgClass(msgClass), _matcher(alwaysTrue), _handler(handler) {
 }
 
-void Receiver::handle(Envelope& msg) {
+inline void Receiver::handle(Envelope& msg) {
 	_handler(msg);
 }
 bool Receiver::match(Envelope& msg) {
@@ -198,6 +220,15 @@ Receive& Receive::build() {
 	return *this;
 }
 
+void Receive::handle(Envelope& envelope) {
+	receivers.forEach([&envelope](Receiver* receiver) {
+		if (receiver->match(envelope)) {
+			receiver->handle(envelope);
+		}
+	});
+
+}
+
 //_____________________________________________________________________
 // Receive
 
@@ -206,10 +237,10 @@ Receive& Receive::build() {
 //
 
 ActorContext::ActorContext(ActorRef& self, ActorSystem& system,
-		Mailbox& mailbox,Receive& receive) :
+		Mailbox& mailbox, Receive& receive) :
 		_self(self), _system(system), _mailbox(mailbox), _receive(receive), _timeout(
-				UINT64_MAX) {
-
+		UINT64_MAX) {
+	_idx = self.id();
 }
 
 //_____________________________________________________________________
@@ -218,11 +249,11 @@ ActorContext::ActorContext(ActorRef& self, ActorSystem& system,
 LinkedList<Actor*> Actor::actors;
 
 Actor::Actor(const char* name) :
-		_name(name),_context(*(new ActorContext())){
-	ActorCell* cell=new ActorCell();
+		_name(name), _context(*(new ActorContext())) {
+	ActorCell* cell = new ActorCell();
 	cell->mailbox(defaultMailbox);
+	_context.self(cell->ref());
 //	_context=*(new ActorContext(cell->ref(),defaultActorSystem,defaultMailbox,nullReceive));
-
 
 	actors.add(this);
 }
@@ -230,8 +261,17 @@ Actor::Actor(const char* name) :
 Actor::~Actor() {
 }
 
+ActorRef Actor::self() {
+	return _context.self();
+}
+
 Receive& Actor::receiveBuilder() {
+	context().receive(*(new Receive()));
 	return context().receive();
+}
+
+ActorContext& Actor::context() {
+	return _context;
 }
 
 void Actor::preStart() {
@@ -255,7 +295,6 @@ ActorRef Actor::sender() {
 	return context().mailbox().rxdEnvelope.sender;
 }
 
-
 //________________________________________________________________________________
 
 void ActorSystem::stop(ActorRef) {
@@ -264,26 +303,73 @@ void ActorSystem::stop(ActorRef) {
 uint32_t ActorCell::_actorCellCounter = 0;
 ActorCell* ActorCell::_actorCells[MAX_ACTOR_CELLS];
 
-
-
-
-ActorCell::ActorCell():_ref(*(new ActorRef(_actorCellCounter))),_mailbox(defaultMailbox){
-	_idx = _actorCellCounter;
-	_actorCells[_idx]=this;
+ActorCell::ActorCell() :
+		_idx(_actorCellCounter), _ref(*(new ActorRef(_idx))), _mailbox(
+				defaultMailbox) {
+	_actorCells[_idx] = this;
 //	_ref =  *(new ActorRef(_idx));
 	_actorCellCounter++;
 }
 
-ActorCell& ActorCell::cell(ActorRef ref){
+ActorCell& ActorCell::cell(ActorRef ref) {
 	return *(_actorCells[ref.id()]);
+}
+
+ActorRef& ActorCell::ref() {
+	return _ref;
 }
 
 inline Mailbox& ActorCell::mailbox() {
 	return _mailbox;
 }
 
+void ActorCell::mailbox(Mailbox& mb) {
+	_mailbox = mb;
+}
 
+//_________________________________________________________________________ ActorContext
+//
 
+uint32_t ActorContext::_actorContextCounter = 0;
+ActorContext* ActorContext::_actorContexts[MAX_ACTOR_CELLS];
+
+ActorContext::ActorContext() :
+		_idx(_actorContextCounter), _self(*(new ActorRef(_idx))), _system(
+				defaultActorSystem), _mailbox(defaultMailbox), _receive(
+				nullReceive), _timeout(
+		UINT64_MAX) {
+	_actorContexts[_idx] = this;
+	_actorContextCounter++;
+}
+
+ActorContext& ActorContext::context(ActorRef& ref) {
+	return *_actorContexts[ref.id()];
+}
+
+Mailbox& ActorContext::mailbox() {
+	return _mailbox;
+}
+
+Receive& ActorContext::receive() {
+	return _receive;
+}
+
+void ActorContext::receive(Receive& r) {
+	_receive = r;
+}
+
+ActorRef ActorContext::self() {
+	return _self;
+}
+
+void ActorContext::self(ActorRef& ref) {
+	ASSERT(ref.id() == _self.id());
+	_self = ref;
+}
+
+void ActorContext::system(ActorSystem& sys) {
+	_system = sys;
+}
 
 Mailbox deadLetterMailbox(1, 100);
 ActorSystem defaultActorSystem("system");

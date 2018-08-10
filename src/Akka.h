@@ -110,6 +110,7 @@ public:
 	ActorRef(uid_type id, Mailbox*);
 
 	uint16_t id();
+	void id(uint16_t);
 
 	bool operator==(ActorRef&);
 	void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
@@ -125,6 +126,7 @@ public:
 //_____________________________________________________________________
 // ActorContext
 class ActorContext {
+	uint16_t _idx;
 	ActorRef& _self;
 	ActorSystem& _system;
 	Mailbox& _mailbox;
@@ -139,6 +141,8 @@ public:
 	ActorContext();
 	ActorContext(ActorRef&,ActorSystem&,Mailbox&,Receive&);
 
+	static ActorContext& context(ActorRef& );
+
 	void become(Receive& receive);
 	void unbecome();
 	void cancelReceiveTimeout();
@@ -148,12 +152,11 @@ public:
 	void system(ActorSystem&);
 	Mailbox& mailbox();
 	void mailbox(Mailbox&);
-	void self(ActorSystem&);
+	void self(ActorRef&);
 	ActorRef sender();
 	ActorRef self();
 	Receive& receive();
-
-
+	void receive(Receive&);
 };
 
 class ActorCell {
@@ -240,7 +243,6 @@ public:
 	template<class T> ActorRef actorOf(const char* name, ...) {
 		T* actor = new T(name);
 		actor->context().system(*this);
-		addActor(*actor);
 		actor->createReceive();
 		return actor->self();
 	}

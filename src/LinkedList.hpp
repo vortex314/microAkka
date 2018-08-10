@@ -20,7 +20,7 @@ public:
 template<typename T>
 class LinkedList {
 public:
-	Node<T>* _first;
+	Node<T>* _first=0;
 	//    uid_t _id;
 	//    const char *_label;
 
