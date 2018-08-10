@@ -31,8 +31,10 @@
  *  	ActorRef
  *  	ActorContext
  *  	Actor
+ *
+ *  	ActorRef contains id which is index to ActorCell and index to ActorContext
 
-Mailbox -> dispatches message based on ActorRef destination , ActorRef points to ActorContext , points to Receive active
+Mailbox -> dispatches message based on ActorRef destination , ActorRef points to Mailbox  , points to Receive active
 //
 // 1 mailbox == 1 Thread
 // to avoid overhead of RTTI in embedded systems, a string identifier ( hashed )
@@ -82,11 +84,12 @@ class SystemMessage;
 class Receive;
 class Props;
 
+
 extern ActorRef anyActor;
 extern ActorRef noSender;
 extern uid_type AnyClass;
 extern ActorSystem defaultActorSystem;
-extern Receive& nullReceive;
+extern Receive nullReceive;
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
 
@@ -99,12 +102,14 @@ public:
 };
 
 class ActorRef {
-
+	uint16_t _id;
 public:
-	uint16_t id;
+
 	ActorRef();
 	ActorRef(uid_type id);
 	ActorRef(uid_type id, Mailbox*);
+
+	uint16_t id();
 
 	bool operator==(ActorRef&);
 	void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
@@ -120,15 +125,19 @@ public:
 //_____________________________________________________________________
 // ActorContext
 class ActorContext {
-	ActorRef* _self;
-	ActorSystem* _system;
-	Mailbox* _mailbox;
-	Receive* _receive;
+	ActorRef& _self;
+	ActorSystem& _system;
+	Mailbox& _mailbox;
+	Receive& _receive;
 	uint64_t _timeout;
+
+	static uint32_t _actorContextCounter;
+	static ActorContext* _actorContexts[MAX_ACTOR_CELLS];
 
 public:
 
-	ActorContext(ActorRef* self, ActorSystem* system, Mailbox* mailbox);
+	ActorContext();
+	ActorContext(ActorRef&,ActorSystem&,Mailbox&,Receive&);
 
 	void become(Receive& receive);
 	void unbecome();
@@ -138,6 +147,8 @@ public:
 	ActorSystem& system();
 	void system(ActorSystem&);
 	Mailbox& mailbox();
+	void mailbox(Mailbox&);
+	void self(ActorSystem&);
 	ActorRef sender();
 	ActorRef self();
 	Receive& receive();
@@ -146,17 +157,19 @@ public:
 };
 
 class ActorCell {
-	ActorRef* _ref;
-	ActorContext* _context;
-public:
+	uint16_t _idx;	// auto initialized
+	ActorRef& _ref; // auto initialized
+	Mailbox& _mailbox; // set
 	static uint32_t _actorCellCounter;
 	static ActorCell* _actorCells[MAX_ACTOR_CELLS];
+public:
 
+	static ActorCell& cell(ActorRef ref);
 	ActorCell();
+	void mailbox(Mailbox&);
+
 	ActorRef& ref();
 	Mailbox& mailbox();
-	ActorContext& context();
-	void context(ActorContext&);
 
 };
 
@@ -195,8 +208,6 @@ public:
 	void dequeue(Envelope& msg);
 	void handleMessage(Envelope& msg);
 	void handleMessages();
-	void addReceiver(Receiver* rcv);
-	Str& toString(Str& str);
 };
 
 extern Mailbox deadLetterMailbox;
@@ -228,7 +239,7 @@ public:
 	void stop(ActorRef);
 	template<class T> ActorRef actorOf(const char* name, ...) {
 		T* actor = new T(name);
-		actor->system(*this);
+		actor->context().system(*this);
 		addActor(*actor);
 		actor->createReceive();
 		return actor->self();
@@ -287,8 +298,8 @@ class TimerScheduler {
 class Actor {
 
 	static LinkedList<Actor*> actors;
-	ActorContext& _context;
 	const char* _name;
+	ActorContext& _context;
 
 public:
 
@@ -305,9 +316,9 @@ public:
 	void setReceiveTimeout(uint32_t msec);
 	uint32_t getReceiveTimeout();
 	ActorContext& context();
-	void context(ActorContext&);
+	void context(ActorContext*);
 	ActorSystem& system();
-	void system(ActorSystem& sys);
+	void system(ActorSystem* sys);
 
 	ActorRef self();
 	ActorRef sender();

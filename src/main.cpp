@@ -91,7 +91,7 @@ int main() {
 
 	echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
 
-	sender.context().mailbox();
+	sender.mailbox().handleMessages();
 
 	//	actorSystem.loop();
 	return 0;
