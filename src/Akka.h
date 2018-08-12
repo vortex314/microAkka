@@ -270,6 +270,8 @@ public:
 //
 class Receive {
 	LinkedList<Receiver*> receivers;
+	uint32_t v;
+	static uint32_t vCount;
 
 public:
 	Receive();

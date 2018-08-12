@@ -207,7 +207,7 @@ Str& Receiver::toString(Str& s) {
 //_____________________________________________________________________
 // Receive
 //
-Receive::Receive() {
+Receive::Receive() : v(vCount++){
 }
 
 Receive& Receive::match(MsgClass msgClass, MessageHandler doSome) {
@@ -266,7 +266,7 @@ ActorRef Actor::self() {
 }
 
 Receive& Actor::receiveBuilder() {
-	context().receive(*(new Receive()));
+//	context().receive(*(new Receive()));
 	return context().receive();
 }
 
@@ -335,8 +335,7 @@ ActorContext* ActorContext::_actorContexts[MAX_ACTOR_CELLS];
 
 ActorContext::ActorContext() :
 		_idx(_actorContextCounter), _self(*(new ActorRef(_idx))), _system(
-				defaultActorSystem), _mailbox(defaultMailbox), _receive(
-				nullReceive), _timeout(
+				defaultActorSystem), _mailbox(defaultMailbox), _receive(*(new Receive())), _timeout(
 		UINT64_MAX) {
 	_actorContexts[_idx] = this;
 	_actorContextCounter++;
@@ -370,6 +369,8 @@ void ActorContext::self(ActorRef& ref) {
 void ActorContext::system(ActorSystem& sys) {
 	_system = sys;
 }
+
+uint32_t Receive::vCount=0;
 
 Mailbox deadLetterMailbox(1, 100);
 ActorSystem defaultActorSystem("system");

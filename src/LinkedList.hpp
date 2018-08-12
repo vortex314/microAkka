@@ -14,7 +14,6 @@ public:
 	inline Node<T>* next() {
 		return _next;
 	}
-	;
 };
 
 template<typename T>
