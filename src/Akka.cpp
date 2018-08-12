@@ -6,7 +6,6 @@
  */
 
 #include <Akka.h>
-#include <stdio.h>
 
 //============================================================================
 // Name        : akkaMicro.cpp
@@ -17,16 +16,14 @@
 //============================================================================
 
 #include <functional>
-#include <iostream>
 #include <stdarg.h>
 #include <stdint.h>
-#include <string.h>
+
 
 using namespace std;
 
 #include <Cbor.h>
 #include <CborQueue.h>
-#include <Erc.h>
 #include <LinkedList.hpp>
 #include <Log.h>
 #include <Str.h>
@@ -169,6 +166,9 @@ void Mailbox::handleMessages() {
 		rxdEnvelope.getHeader();
 		ActorContext::context(rxdEnvelope.receiver).receive().handle(
 				rxdEnvelope);
+#ifdef ARDUINO
+		::yield();
+#endif
 //		ref => context => receive => handleMessage(rxdMessage);
 	}
 	// TODO handle timeouts
@@ -237,7 +237,7 @@ void Receive::handle(Envelope& envelope) {
 //
 
 ActorContext::ActorContext(ActorRef& self, ActorSystem& system,
-		Mailbox& mailbox, Receive& receive) :
+		Mailbox& mailbox, Receive* receive) :
 		_self(self), _system(system), _mailbox(mailbox), _receive(receive), _timeout(
 		UINT64_MAX) {
 	_idx = self.id();
@@ -335,7 +335,7 @@ ActorContext* ActorContext::_actorContexts[MAX_ACTOR_CELLS];
 
 ActorContext::ActorContext() :
 		_idx(_actorContextCounter), _self(*(new ActorRef(_idx))), _system(
-				defaultActorSystem), _mailbox(defaultMailbox), _receive(*(new Receive())), _timeout(
+				defaultActorSystem), _mailbox(defaultMailbox), _receive(&nullReceive), _timeout(
 		UINT64_MAX) {
 	_actorContexts[_idx] = this;
 	_actorContextCounter++;
@@ -350,11 +350,12 @@ Mailbox& ActorContext::mailbox() {
 }
 
 Receive& ActorContext::receive() {
-	return _receive;
+	ASSERT(_receive!=0);
+	return *_receive;
 }
 
 void ActorContext::receive(Receive& r) {
-	_receive = r;
+	_receive = &r;
 }
 
 ActorRef ActorContext::self() {

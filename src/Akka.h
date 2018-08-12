@@ -43,10 +43,10 @@ Mailbox -> dispatches message based on ActorRef destination , ActorRef points to
 //============================================================================*/
 
 #include <functional>
-#include <iostream>
+//#include <iostream>
 #include <stdarg.h>
 #include <stdint.h>
-#include <string.h>
+//#include <string.h>
 
 using namespace std;
 
@@ -130,7 +130,7 @@ class ActorContext {
 	ActorRef& _self;
 	ActorSystem& _system;
 	Mailbox& _mailbox;
-	Receive& _receive;
+	Receive* _receive;
 	uint64_t _timeout;
 
 	static uint32_t _actorContextCounter;
@@ -139,7 +139,7 @@ class ActorContext {
 public:
 
 	ActorContext();
-	ActorContext(ActorRef&,ActorSystem&,Mailbox&,Receive&);
+	ActorContext(ActorRef&,ActorSystem&,Mailbox&,Receive*);
 
 	static ActorContext& context(ActorRef& );
 

@@ -22,73 +22,75 @@ Log logger(1024);
  }
  };*/
 
-class Echo: public Actor {
-	Str str;
+#define MAX_MESSAGES 1000000
 
-public:
-	const static MsgClass DO_ECHO = H("DO_ECHO");
-	const static MsgClass DONE_ECHO = H("DONE_ECHO");
-//	const static MsgClass DoEchoId = ID(DoEcho);
+class Echo : public Actor {
+    Str str;
 
-	Echo(const char* name) :
-			Actor(name), str(80) {
-	}
-	~Echo() {
-	}
+  public:
+    const static MsgClass DO_ECHO = H("DO_ECHO");
+    const static MsgClass DONE_ECHO = H("DONE_ECHO");
+    //	const static MsgClass DoEchoId = ID(DoEcho);
 
-	void preStart() {
-	}
-	Receive& createReceive() {
-		return receiveBuilder().match(DO_ECHO, [this](Envelope& msg) {
-			uint32_t counter;
-			msg.scanf("uS", &counter, &str);
-			sender().tell(self(), DONE_ECHO, "us", counter,
-					"Doe maar een echo");
-		}).build();
-	}
+    Echo(const char* name) : Actor(name), str(80) {}
+    ~Echo() {}
+
+    void preStart() {}
+    Receive& createReceive() {
+        return receiveBuilder()
+            .match(DO_ECHO,
+                   [this](Envelope& msg) {
+                       uint32_t counter;
+                       msg.scanf("uS", &counter, &str);
+                       sender().tell(self(), DONE_ECHO, "us", counter,
+                                     "Doe maar een echo");
+                   })
+            .build();
+    }
 };
 //______________________________________________________________
 //
-class Sender: public Actor {
-	uint64_t startTime;
-	Str str;
+class Sender : public Actor {
+    uint64_t startTime;
+    Str str;
 
-public:
-	Sender(const char* name) :
-			Actor(name), startTime(0), str(80) {
-	}
-	~Sender() {
-	}
+  public:
+    Sender(const char* name) : Actor(name), startTime(0), str(80) {}
+    ~Sender() {}
 
-	Receive& createReceive() {
-		return receiveBuilder().match(Echo::DONE_ECHO, [this](Envelope& msg) {
-			uint32_t counter;
-			msg.scanf("uS", &counter, &str);
-			if (counter == 0) {
-				startTime = Sys::millis();
-			}
-			if (counter < 1000000)
-			msg.sender.tell(self(), Echo::DO_ECHO, "us", ++counter,"Hi ");
-			if (counter == 1000000) {
-				INFO(" done in %ld msec %s ",
-						Sys::millis() - startTime, str.c_str());
-			}
-		}).build();
-	}
+    Receive& createReceive() {
+        return receiveBuilder()
+            .match(Echo::DONE_ECHO,
+                   [this](Envelope& msg) {
+                       uint32_t counter;
+                       msg.scanf("uS", &counter, &str);
+                       if (counter == 0) {
+                           startTime = Sys::millis();
+                       } else if (counter == MAX_MESSAGES) {
+                           float delta = Sys::millis() - startTime;
+                           INFO(" done in %f msec %s ", delta, str.c_str());
+                           INFO(" %f msg/sec ", MAX_MESSAGES * 1000.0 / delta);
+                       }
+                       if (counter < MAX_MESSAGES)
+                           msg.sender.tell(self(), Echo::DO_ECHO, "us",
+                                           ++counter, "Hi ");
+                   })
+            .build();
+    }
 };
 
 Mailbox defaultMailbox(20000, 1000);
 ActorSystem actorSystem("system");
 
 int main() {
-	INFO(" starting microAkka test ");
-	ActorRef echo = actorSystem.actorOf<Echo>("echo");
-	ActorRef sender = actorSystem.actorOf<Sender>("sender");
+    INFO(" starting microAkka test ");
+    ActorRef echo = actorSystem.actorOf<Echo>("echo");
+    ActorRef sender = actorSystem.actorOf<Sender>("sender");
 
-	echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
+    echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
 
-	sender.mailbox().handleMessages();
+    sender.mailbox().handleMessages();
 
-	//	actorSystem.loop();
-	return 0;
+    //	actorSystem.loop();
+    return 0;
 }

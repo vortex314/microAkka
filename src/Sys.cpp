@@ -7,7 +7,7 @@ uint64_t Sys::_upTime;
 #include <unistd.h>
 
 char Sys::_hostname[30];
-
+//_____________________________________________________________ LINUX and CYGWIN
 #if defined(__linux__) || defined(__CYGWIN__)
 
 uint64_t Sys::millis() // time in msec since boot, only increasing
@@ -26,9 +26,28 @@ void Sys::hostname(const char* hostname) {
 
 const char* Sys::hostname() { return _hostname; }
 
+
 void Sys::delay(uint32_t delta){
 	uint64_t t1=Sys::millis()+delta;
 	while( Sys::millis()<t1);
 }
+
+#endif
+
+//________________________________________________________ ARDUINO
+
+#ifdef ARDUINO
+
+uint64_t Sys::millis() // time in msec since boot, only increasing
+{
+    return ::millis();
+}
+
+void Sys::hostname(const char* hostname) {
+    strncpy(_hostname, hostname, sizeof(_hostname));
+}
+
+const char* Sys::hostname() { return _hostname; }
+
 
 #endif
