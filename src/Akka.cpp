@@ -39,6 +39,54 @@ Receive nullReceive;
 typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
 
+//_____________________________________________________________________
+// Actor
+
+LinkedList<AbstractActor*> AbstractActor::actors;
+
+AbstractActor::AbstractActor() :
+		 _context(*(new ActorContext())) {
+	ActorCell* cell = new ActorCell();
+	cell->mailbox(defaultMailbox);
+	_context.self(cell->ref());
+	actors.add(this);
+}
+
+AbstractActor::~AbstractActor() {
+}
+
+ActorRef AbstractActor::self() {
+	return _context.self();
+}
+
+Receive& AbstractActor::receiveBuilder() {
+//	context().receive(*(new Receive()));
+	return context().receive();
+}
+
+ActorContext& AbstractActor::context() {
+	return _context;
+}
+
+void AbstractActor::preStart() {
+}
+
+void AbstractActor::postStop() {
+}
+
+void AbstractActor::unhandled(Envelope& msg) {
+	INFO("unhandled message for Actor : %s ", self().path());
+}
+
+ActorRef AbstractActor::sender() {
+	return context().mailbox().rxdEnvelope.sender;
+}
+
+void AbstractActor::handle(Envelope& msg) {
+	context().receive().handle(msg);
+}
+//____________________________________________________________ ActorRef
+
 ActorRef::ActorRef(uid_type id) :
 		_id(id) {
 }
@@ -56,7 +104,12 @@ void ActorRef::id(uint16_t id) {
 }
 
 const char* ActorRef::path() {
-	return "no path yet";
+	// TODO path
+	return ActorCell::cell(*this).path();
+}
+
+void ActorRef::path(const char* p){
+	ActorCell::cell(*this).path(p);
 }
 
 Mailbox& ActorRef::mailbox() {
@@ -141,7 +194,7 @@ typedef std::function<void(Envelope&)> MessageHandler;
 
 //_____________________________________________________________________ Mailbox
 
-LinkedList<Mailbox*> mailboxes();
+LinkedList<Mailbox*> mailboxes;
 
 Mailbox::Mailbox(uint32_t queueSize, uint32_t messageSize) :
 		_cborQueue(queueSize), rxdEnvelope(messageSize), txdEnvelope(
@@ -169,7 +222,6 @@ void Mailbox::handleMessages() {
 #ifdef ARDUINO
 		::yield();
 #endif
-//		ref => context => receive => handleMessage(rxdMessage);
 	}
 	// TODO handle timeouts
 }
@@ -243,57 +295,6 @@ ActorContext::ActorContext(ActorRef& self, ActorSystem& system,
 	_idx = self.id();
 }
 
-//_____________________________________________________________________
-// Actor
-
-LinkedList<Actor*> Actor::actors;
-
-Actor::Actor(const char* name) :
-		_name(name), _context(*(new ActorContext())) {
-	ActorCell* cell = new ActorCell();
-	cell->mailbox(defaultMailbox);
-	_context.self(cell->ref());
-//	_context=*(new ActorContext(cell->ref(),defaultActorSystem,defaultMailbox,nullReceive));
-
-	actors.add(this);
-}
-
-Actor::~Actor() {
-}
-
-ActorRef Actor::self() {
-	return _context.self();
-}
-
-Receive& Actor::receiveBuilder() {
-//	context().receive(*(new Receive()));
-	return context().receive();
-}
-
-ActorContext& Actor::context() {
-	return _context;
-}
-
-void Actor::preStart() {
-}
-
-void Actor::postStop() {
-}
-
-void Actor::unhandled(Envelope& msg) {
-	INFO("unhandled message for Actor : %s ", _name);
-}
-
-void Actor::setReceiveTimeout(uint32_t msec) {
-}
-
-uint32_t Actor::getReceiveTimeout() {
-	return 0;
-}
-
-ActorRef Actor::sender() {
-	return context().mailbox().rxdEnvelope.sender;
-}
 
 //________________________________________________________________________________
 
@@ -305,7 +306,7 @@ ActorCell* ActorCell::_actorCells[MAX_ACTOR_CELLS];
 
 ActorCell::ActorCell() :
 		_idx(_actorCellCounter), _ref(*(new ActorRef(_idx))), _mailbox(
-				defaultMailbox) {
+				defaultMailbox),_path("NO-PATH") {
 	_actorCells[_idx] = this;
 //	_ref =  *(new ActorRef(_idx));
 	_actorCellCounter++;
@@ -325,6 +326,14 @@ inline Mailbox& ActorCell::mailbox() {
 
 void ActorCell::mailbox(Mailbox& mb) {
 	_mailbox = mb;
+}
+
+void ActorCell::path(const char* p){
+	_path=p;
+}
+
+const char* ActorCell::path(){
+	return _path;
 }
 
 //_________________________________________________________________________ ActorContext

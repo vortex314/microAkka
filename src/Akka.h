@@ -73,7 +73,7 @@ typedef void (*MsgHandler)(void);
 class Envelope;
 class Receiver;
 class Mailbox;
-class Actor;
+class AbstractActor;
 class ActorContext;
 class ActorRef;
 class ActorSystem;
@@ -83,6 +83,7 @@ class Message;
 class SystemMessage;
 class Receive;
 class Props;
+class Timer;
 
 
 extern ActorRef anyActor;
@@ -101,6 +102,36 @@ public:
 	template <class T>  static Props create(const char* name,const char* fmt,...);
 };
 
+//_____________________________________________________________________ Actor
+class AbstractActor {
+
+	static LinkedList<AbstractActor*> actors;
+
+	ActorContext& _context;
+
+public:
+	AbstractActor();
+	virtual ~AbstractActor();
+
+	void ask(ActorRef dst, Envelope& msg);
+
+	ActorContext& context();
+	void context(ActorContext*);
+	ActorSystem& system();
+	void system(ActorSystem* sys);
+
+	ActorRef self();
+	ActorRef sender();
+
+	virtual Receive& createReceive() = 0;
+	Receive& receiveBuilder();
+	virtual void preStart();
+	virtual void postStop();
+	virtual void unhandled(Envelope& msg);
+	virtual void handle(Envelope& msg);
+	Timer getTimers();
+};
+//__________________________________________________________ ActorRef
 class ActorRef {
 	uint16_t _id;
 public:
@@ -117,10 +148,10 @@ public:
 	void forward(Envelope& msg);
 	void tell(Envelope& message, ActorRef sender);
 	void tell(ActorRef sender, MsgClass type, const char* format, ...);
-	void operator<<(Envelope& message);
 	Mailbox& mailbox();
 	ActorRef& withMailbox();
 	const char* path();
+	void path(const char* p);
 };
 
 //_____________________________________________________________________
@@ -158,11 +189,12 @@ public:
 	Receive& receive();
 	void receive(Receive&);
 };
-
+//________________________________________________________________ ActorCell
 class ActorCell {
 	uint16_t _idx;	// auto initialized
 	ActorRef& _ref; // auto initialized
 	Mailbox& _mailbox; // set
+	const char* _path;
 	static uint32_t _actorCellCounter;
 	static ActorCell* _actorCells[MAX_ACTOR_CELLS];
 public:
@@ -173,6 +205,9 @@ public:
 
 	ActorRef& ref();
 	Mailbox& mailbox();
+
+	const char* path();
+	void path(const char* p);
 
 };
 
@@ -226,23 +261,24 @@ typedef std::function<bool(Envelope&)> MessageMatcher;
 // ActorSystem
 class ActorSystem {
 	const char* _name;
-	LinkedList<Actor*> actors;
+	LinkedList<AbstractActor*> actors;
 
 public:
 
 	ActorSystem(const char* name);
 	Erc queue(Cbor& message);
-	void registerActor(Actor&);
-	ActorRef addActor(Actor& actor);
-	Actor* findActor(ActorRef);
+	void registerActor(AbstractActor&);
+	ActorRef addActor(AbstractActor& actor);
+	AbstractActor* findActor(ActorRef);
 	void deleteActor(ActorRef);
 	void callHandlers(ActorRef src, MsgClass type);
 	void loop();
 
 	void stop(ActorRef);
 	template<class T> ActorRef actorOf(const char* name, ...) {
-		T* actor = new T(name);
+		T* actor = new T();
 		actor->context().system(*this);
+		actor->context().self().path(name);
 		actor->createReceive();
 		return actor->self();
 	}
@@ -298,42 +334,7 @@ class TimerScheduler {
 	void cancelAll();
 	bool isTimerActive(uid_type key);
 };
-//_____________________________________________________________________ Actor
-class Actor {
 
-	static LinkedList<Actor*> actors;
-	const char* _name;
-	ActorContext& _context;
-
-public:
-
-
-
-	Actor(const char* name);
-	virtual ~Actor();
-	ActorRef getDestination();
-
-	void event(MsgClass type, const char* fmt, ...); // queue message src,ANY_ACTOR,msgType,idx,...
-	void ask(ActorRef dst, Envelope& msg);
-	// 	AbstractActor
-	//------------------
-	void setReceiveTimeout(uint32_t msec);
-	uint32_t getReceiveTimeout();
-	ActorContext& context();
-	void context(ActorContext*);
-	ActorSystem& system();
-	void system(ActorSystem* sys);
-
-	ActorRef self();
-	ActorRef sender();
-	const char* getName();
-	virtual Receive& createReceive() = 0;
-	Receive& receiveBuilder();
-	virtual void preStart();
-	virtual void postStop();
-	virtual void unhandled(Envelope& msg);
-	Timer getTimers();
-};
 
 class Thread {
 };
