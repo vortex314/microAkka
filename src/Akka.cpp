@@ -32,14 +32,13 @@ using namespace std;
 //_____________________________________________- STATIC
 ActorRef AnyActor(0);
 ActorRef NoSender(1);
-uid_type AnyClass = 0;
+MsgClass AnyClass("ANY");
 Mailbox deadLetter(1, 10);
 Receive nullReceive;
 ActorMsgBus bus;
 Mailbox deadLetterMailbox(1, 100);
 ActorSystem defaultActorSystem("system");
 
-typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
 
 //_____________________________________________________________________
@@ -192,7 +191,7 @@ bool Envelope::scanf(const char* fmt, ...) {
 
 Str& Envelope::toString(Str& s) {
 	return s.format(" dst : %s , src : %s , class : %s  ", receiver.path(),
-			sender.path(), UID.label(msgClass));
+			sender.path(), msgClass.name());
 }
 
 typedef bool (*MsgMatch)(Envelope& msg);
@@ -260,7 +259,7 @@ bool Receiver::match(Envelope& msg) {
 }
 
 Str& Receiver::toString(Str& s) {
-	return s.format(" class : %s  ", UID.label(_msgClass));
+	return s.format(" class : %s  ", _msgClass.name());
 }
 
 //_____________________________________________________________________

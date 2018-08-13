@@ -24,14 +24,14 @@ Log logger(1024);
 
 #define MAX_MESSAGES 1000000
 
+//const static MsgClass DO_ECHO =Uid::hash("DO_ECHO");
+const static MsgClass DONE_ECHO("DONE_ECHO");
+const static MsgClass DO_ECHO("DO_ECHO");
+
 class Echo: public AbstractActor {
 	Str str;
 
 public:
-	 const static MsgClass DO_ECHO =H("DO_ECHO");
-	 const static MsgClass DONE_ECHO = H("DONE_ECHO");
-	//	const static MsgClass DoEchoId = ID(DoEcho);
-
 	Echo() : str(80) {
 	}
 	~Echo() {
@@ -45,8 +45,8 @@ public:
 			msg.scanf("uS", &counter, &str);
 			sender().tell(self(), DONE_ECHO, "us", counter,
 					"Give me an echo");
-		}).match(H("ikke"), [this](Envelope& msg) {
-			INFO(" ikke message received %d:%d:%d ",msg.sender.id(),msg.receiver.id(),msg.msgClass);
+		}).match(("ikke"), [this](Envelope& msg) {
+			INFO(" message received %s:%s:%s in %s",msg.sender.path(),msg.receiver.path(),msg.msgClass.name(),context().self().path());
 		}).build();
 	}
 };
@@ -69,7 +69,7 @@ public:
 	}
 
 	Receive& createReceive() {
-		return receiveBuilder().match(Echo::DONE_ECHO, [this](Envelope& msg) {
+		return receiveBuilder().match(DONE_ECHO, [this](Envelope& msg) {
 			uint32_t counter;
 			msg.scanf("uS", &counter, &str);
 			if (counter == 0) {
@@ -78,13 +78,13 @@ public:
 				finished();
 			}
 			if (counter < MAX_MESSAGES)
-			msg.sender.tell(self(), Echo::DO_ECHO, "us",
+			msg.sender.tell(self(), DO_ECHO, "us",
 					++counter, "Hi ");
 		}).build();
 	}
 
 	void handle(Envelope& msg) {
-		if (msg.msgClass == Echo::DONE_ECHO) {
+		if (msg.msgClass == DONE_ECHO) {
 			uint32_t counter;
 			msg.scanf("uS", &counter, &str);
 			if (counter == 0) {
@@ -93,7 +93,7 @@ public:
 				finished();
 			}
 			if (counter < MAX_MESSAGES)
-				msg.sender.tell(self(), Echo::DO_ECHO, "us", ++counter, "Hi ");
+				msg.sender.tell(self(), DO_ECHO, "us", ++counter, "Hi ");
 		}
 	}
 };
@@ -107,12 +107,12 @@ int main() {
 	ActorRef echo = actorSystem.actorOf<Echo>("echo");
 	ActorRef sender = actorSystem.actorOf<Sender>("sender");
 
-	bus.subscribe(echo,*(new SenderMsgClass(sender,H("ikke"))));
+	bus.subscribe(echo,*(new SenderMsgClass(sender,("ikke"))));
 	Envelope env(10);
-	env.setHeader(sender,echo,H("ikke"));
+	env.setHeader(sender,AnyActor,("ikke"));
 	bus.publish(env);
 
-	echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
+	echo.tell(sender, DO_ECHO, "us", 0, "hello World");
 
 	sender.mailbox().handleMessages();
 

@@ -67,7 +67,6 @@ using namespace std;
 //  ActorRef : shorthand uid_type reference
 //
 
-typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
 
 class Envelope;
@@ -85,15 +84,30 @@ class Receive;
 class Props;
 class Timer;
 class ActorMsgBus;
+class MsgClass;
 
 extern ActorRef AnyActor;
 extern ActorRef NoSender;
-extern uid_type AnyClass;
+extern MsgClass AnyClass;
 extern ActorSystem defaultActorSystem;
 extern Receive NullReceive;
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
 extern ActorMsgBus bus;
+
+class MsgClass {
+	uid_type _id;
+public:
+	MsgClass(const char* name) : _id(Uid::hash(name)){
+
+	}
+	const char* name(){
+		return Uid::label(_id);
+	}
+	inline bool operator==(MsgClass m){
+		return m._id==_id;
+	}
+};
 
 class Props {
 //	Mailbox& mailbox;

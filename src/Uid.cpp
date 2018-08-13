@@ -1,52 +1,46 @@
-
 #include <Log.h>
 #include <Uid.h>
 #include <malloc.h>
 
-// LinkedList<UidEntry*> Uid::list;
-Uid UID;
+LinkedList<Uid*> Uid::_uids;
 
-Uid::Uid() {}
-
-UidEntry::UidEntry(const char* name) : _id(H(name)) {
-    DEBUG(" new : label %s:0x%X\n", name, name);
-    _label = (const char*)malloc(strlen(name) + 1);
-    strcpy((char*)_label, name);
+Uid::Uid(const char* name) :
+		_id(H(name)) {
+	if (find(_id) == 0) {
+		_label = (const char*) malloc(strlen(name) + 1);
+		strcpy((char*) _label, name);
+		_uids.add(this);
+	}
 }
 
-const uid_type Uid::get(const char* label) {
-    UidEntry* uid = 0;
-    uid = find(label);
-    if (uid) {
-        return uid->id();
-    } else {
-        uid = new UidEntry(label);
-        add(uid);
-        return uid->id();
-    }
+inline uid_type Uid::id() {
+	return _id;
 }
 
-UidEntry* Uid::find(const char* label) {
-    UidEntry* p = findFirst(
-        [label](UidEntry* uid) { return (strcmp(uid->_label, label) == 0); });
-    return p;
+uid_type Uid::hash(const char* label) {
+	Uid* uid = 0;
+	uid = find(label);
+	if (uid) {
+		return uid->id();
+	} else {
+		uid = new Uid(label);
+		return uid->id();
+	}
 }
 
-uid_type Uid::id(const char* label) {
-    UidEntry* p = find(label);
-    if (p)
-        return p->id();
-    return 0;
+Uid* Uid::find(const char* label) {
+	Uid* p = _uids.findFirst(
+			[label](Uid* uid) {return (strcmp(uid->_label, label) == 0);});
+	return p;
 }
 
-UidEntry* Uid::find(uid_type id) {
-    UidEntry* p = findFirst([id](UidEntry* uid) { return (uid->id() == id); });
-    return p;
+Uid* Uid::find(uid_type id) {
+	return _uids.findFirst([id](Uid* uid) {return (uid->id() == id);});
 }
 
 const char* Uid::label(uid_type id) {
-    UidEntry* p = find(id);
-    if (p)
-        return p->_label;
-    return "UNKNOWN";
+	Uid* p = find(id);
+	if (p)
+		return p->_label;
+	return "UNKNOWN";
 }
