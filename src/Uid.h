@@ -46,7 +46,7 @@ class Uid : public LinkedList<UidEntry*> {
 
   public:
     Uid();
-    uid_type get(const char* label);
+    const uid_type get(const char* label);
     uid_type id(const char* label);
     const char* label(uid_type id);
     UidEntry* find(uid_type id);

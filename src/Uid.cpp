@@ -14,7 +14,7 @@ UidEntry::UidEntry(const char* name) : _id(H(name)) {
     strcpy((char*)_label, name);
 }
 
-uid_type Uid::get(const char* label) {
+const uid_type Uid::get(const char* label) {
     UidEntry* uid = 0;
     uid = find(label);
     if (uid) {

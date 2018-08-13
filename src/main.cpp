@@ -28,8 +28,8 @@ class Echo: public AbstractActor {
 	Str str;
 
 public:
-	const static MsgClass DO_ECHO = H("DO_ECHO");
-	const static MsgClass DONE_ECHO = H("DONE_ECHO");
+	 const static MsgClass DO_ECHO =H("DO_ECHO");
+	 const static MsgClass DONE_ECHO = H("DONE_ECHO");
 	//	const static MsgClass DoEchoId = ID(DoEcho);
 
 	Echo() : str(80) {
@@ -45,6 +45,8 @@ public:
 			msg.scanf("uS", &counter, &str);
 			sender().tell(self(), DONE_ECHO, "us", counter,
 					"Give me an echo");
+		}).match(H("ikke"), [this](Envelope& msg) {
+			INFO(" ikke message received %d:%d:%d ",msg.sender.id(),msg.receiver.id(),msg.msgClass);
 		}).build();
 	}
 };
@@ -100,9 +102,15 @@ Mailbox defaultMailbox(20000, 1000);
 ActorSystem actorSystem("system");
 
 int main() {
+	Sys::init();
 	INFO(" starting microAkka test ");
 	ActorRef echo = actorSystem.actorOf<Echo>("echo");
 	ActorRef sender = actorSystem.actorOf<Sender>("sender");
+
+	bus.subscribe(echo,*(new SenderMsgClass(sender,H("ikke"))));
+	Envelope env(10);
+	env.setHeader(sender,echo,H("ikke"));
+	bus.publish(env);
 
 	echo.tell(sender, Echo::DO_ECHO, "us", 0, "hello World");
 

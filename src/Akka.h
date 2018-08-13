@@ -10,22 +10,22 @@
 #include <stdio.h>
 
 /*============================================================================
-// Name        : akkaMicro.cpp
-// Author      : Lieven
-// Version     :
-// Copyright   : Enjoy teh source
-// Description : Akka alike framework in C++ for embedded systems : low RAM
+ // Name        : akkaMicro.cpp
+ // Author      : Lieven
+ // Version     :
+ // Copyright   : Enjoy teh source
+ // Description : Akka alike framework in C++ for embedded systems : low RAM
  * Actor creation -> ActorCell
  * 				-> ActorRef
  * 				-> ActorContext -> empty Receive
-//
-// Mailbox 1 >-----> N Actor 1 <----> 1 ActorRef
-//
-// Actor -> ActorContext -> ActorSystem
-//                       -> Receive -> N Receiver ----> ( MsgClass,filter, method )
+ //
+ // Mailbox 1 >-----> N Actor 1 <----> 1 ActorRef
+ //
+ // Actor -> ActorContext -> ActorSystem
+ //                       -> Receive -> N Receiver ----> ( MsgClass,filter, method )
  *						 -> ActorRef
-//
-// ActorRef -> ActorCell -> Mailbox
+ //
+ // ActorRef -> ActorCell -> Mailbox
  *  Creation sequence
  *  	ActorCell
  *  	ActorRef
@@ -34,13 +34,13 @@
  *
  *  	ActorRef contains id which is index to ActorCell and index to ActorContext
 
-Mailbox -> dispatches message based on ActorRef destination , ActorRef points to Mailbox  , points to Receive active
-//
-// 1 mailbox == 1 Thread
-// to avoid overhead of RTTI in embedded systems, a string identifier ( hashed )
-// was used to interprete the message format
-//
-//============================================================================*/
+ Mailbox -> dispatches message based on ActorRef destination , ActorRef points to Mailbox  , points to Receive active
+ //
+ // 1 mailbox == 1 Thread
+ // to avoid overhead of RTTI in embedded systems, a string identifier ( hashed )
+ // was used to interprete the message format
+ //
+ //============================================================================*/
 
 #include <functional>
 //#include <iostream>
@@ -84,22 +84,24 @@ class SystemMessage;
 class Receive;
 class Props;
 class Timer;
+class ActorMsgBus;
 
-
-extern ActorRef anyActor;
-extern ActorRef noSender;
+extern ActorRef AnyActor;
+extern ActorRef NoSender;
 extern uid_type AnyClass;
 extern ActorSystem defaultActorSystem;
-extern Receive nullReceive;
+extern Receive NullReceive;
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
+extern ActorMsgBus bus;
 
 class Props {
 //	Mailbox& mailbox;
 
 public:
 	Props& withMailbox(Mailbox& mailbox);
-	template <class T>  static Props create(const char* name,const char* fmt,...);
+	template<class T> static Props create(const char* name, const char* fmt,
+			...);
 };
 
 //_____________________________________________________________________ Actor
@@ -146,7 +148,7 @@ public:
 	bool operator==(ActorRef&);
 	void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
 	void forward(Envelope& msg);
-	void tell(Envelope& message, ActorRef sender);
+	void tell(ActorRef sender, Envelope& message);
 	void tell(ActorRef sender, MsgClass type, const char* format, ...);
 	Mailbox& mailbox();
 	ActorRef& withMailbox();
@@ -170,9 +172,9 @@ class ActorContext {
 public:
 
 	ActorContext();
-	ActorContext(ActorRef&,ActorSystem&,Mailbox&,Receive*);
+	ActorContext(ActorRef&, ActorSystem&, Mailbox&, Receive*);
 
-	static ActorContext& context(ActorRef& );
+	static ActorContext& context(ActorRef&);
 
 	void become(Receive& receive);
 	void unbecome();
@@ -256,7 +258,6 @@ typedef bool (*MsgMatch)(Envelope& msg);
 typedef std::function<void(Envelope&)> MessageHandler;
 typedef std::function<bool(Envelope&)> MessageMatcher;
 
-
 //_____________________________________________________________________
 // ActorSystem
 class ActorSystem {
@@ -335,6 +336,78 @@ class TimerScheduler {
 	bool isTimerActive(uid_type key);
 };
 
+template<typename Subscriber, typename Classifier>
+class SubscriberClassifier {
+public:
+	Subscriber _subscriber;
+	Classifier _classifier;
+	SubscriberClassifier(Subscriber subscriber, Classifier classifier) :
+			_subscriber(subscriber), _classifier(classifier) {
+	}
+};
+
+template<typename ...> class EventBus;
+template<typename Subscriber, typename Classifier, typename Event>
+class EventBus<Event, Subscriber, Classifier> {
+	LinkedList<SubscriberClassifier<Subscriber, Classifier>*> _list;
+public:
+	void publish(Event event) {
+		_list.forEach(
+				[&event,this](SubscriberClassifier<Subscriber,Classifier>* sc) {
+					if ( classify(event)==sc->_classifier) push(event,sc->_subscriber);
+				});
+	}
+	bool subscribe(Subscriber subscriber, Classifier classifier) {
+		SubscriberClassifier<Subscriber, Classifier>* sc =
+				new SubscriberClassifier<Subscriber, Classifier>(subscriber,
+						classifier);
+		_list.add(sc);
+		return true;
+	}
+	bool unsubscribe(Subscriber, Classifier) {
+		return false; //TOD not implemented yet
+	}
+	void unsubscribe(Subscriber) {
+		return;
+	}
+	virtual Classifier classify(Event event)=0;
+	virtual void push(Event event, Subscriber subscriber)=0;
+	virtual int compareSubscribers(Subscriber a, Subscriber b)=0;
+	virtual ~EventBus() {
+	}
+
+};
+
+class SenderMsgClass {
+public:
+	ActorRef _sender;
+	MsgClass _msgClass;
+	SenderMsgClass(ActorRef sender, MsgClass msgClass) :
+			_sender(sender), _msgClass(msgClass) {
+	}
+
+	bool operator==(SenderMsgClass a) {
+		return a._sender == _sender && a._msgClass == _msgClass;
+	}
+};
+
+class ActorMsgBus: public EventBus<Envelope&, ActorRef, SenderMsgClass> {
+public:
+
+	void push(Envelope& envelope, ActorRef ref) {
+		ref.tell(NoSender, envelope);
+	}
+	SenderMsgClass classify(Envelope& envelope) {
+		return *(new SenderMsgClass(envelope.sender, envelope.msgClass));
+	}
+	int compareSubscribers(ActorRef a, ActorRef b) {
+		return 1;
+	}
+	~ActorMsgBus() {
+
+	}
+
+};
 
 class Thread {
 };

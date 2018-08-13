@@ -35,6 +35,9 @@ ActorRef NoSender(1);
 uid_type AnyClass = 0;
 Mailbox deadLetter(1, 10);
 Receive nullReceive;
+ActorMsgBus bus;
+Mailbox deadLetterMailbox(1, 100);
+ActorSystem defaultActorSystem("system");
 
 typedef uid_type MsgClass;
 typedef void (*MsgHandler)(void);
@@ -130,6 +133,10 @@ void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
 	va_end(args);
 
 	dstMailbox.enqueue(srcMailbox.txdEnvelope);
+}
+
+void ActorRef::tell(ActorRef sender,Envelope& envelope){
+	mailbox().enqueue(envelope);
 }
 
 void ActorRef::forward(Envelope& msg) {
@@ -382,5 +389,7 @@ void ActorContext::system(ActorSystem& sys) {
 
 uint32_t Receive::vCount=0;
 
-Mailbox deadLetterMailbox(1, 100);
-ActorSystem defaultActorSystem("system");
+
+
+
+
