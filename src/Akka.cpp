@@ -19,7 +19,6 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-
 using namespace std;
 
 #include <Cbor.h>
@@ -30,13 +29,11 @@ using namespace std;
 #include <Uid.h>
 
 //_____________________________________________- STATIC
-ActorRef AnyActor(0);
-ActorRef NoSender(1);
-MsgClass AnyClass("ANY");
-Mailbox deadLetter(1, 10);
-Receive nullReceive;
+
+MsgClass AnyClass("$ANY");
+Receive Receive::nullReceive;
 ActorMsgBus bus;
-Mailbox deadLetterMailbox(1, 100);
+Mailbox deadLetterMailbox("deadletterMailbox",1, 100);
 ActorSystem defaultActorSystem("system");
 
 typedef void (*MsgHandler)(void);
@@ -44,21 +41,25 @@ typedef void (*MsgHandler)(void);
 //_____________________________________________________________________
 // Actor
 
+Actor::~Actor() {
+
+}
+
 LinkedList<AbstractActor*> AbstractActor::actors;
 
-AbstractActor::AbstractActor() :
-		 _context(*(new ActorContext())) {
-	ActorCell* cell = new ActorCell();
-	cell->mailbox(defaultMailbox);
-	_context.self(cell->ref());
-	actors.add(this);
+AbstractActor::AbstractActor() : _context(0) {
 }
 
 AbstractActor::~AbstractActor() {
 }
 
+void AbstractActor::context(ActorContext* ctx){
+	_context=ctx;
+}
+
 ActorRef AbstractActor::self() {
-	return _context.self();
+	return _context->self();
+//	return ActorContext::context(this).self();
 }
 
 Receive& AbstractActor::receiveBuilder() {
@@ -67,7 +68,8 @@ Receive& AbstractActor::receiveBuilder() {
 }
 
 ActorContext& AbstractActor::context() {
-	return _context;
+	return *_context;
+//	return ActorContext::context(this);
 }
 
 void AbstractActor::preStart() {
@@ -83,11 +85,13 @@ void AbstractActor::unhandled(Envelope& msg) {
 ActorRef AbstractActor::sender() {
 	return context().mailbox().rxdEnvelope.sender;
 }
-
-void AbstractActor::handle(Envelope& msg) {
-	context().receive().handle(msg);
-}
+/*
+ void AbstractActor::handle(Envelope& msg) {
+ context().receive().handle(msg);
+ }*/
 //____________________________________________________________ ActorRef
+ActorRef ActorRef::noSender(0);
+ActorRef ActorRef::anyActor(1);
 
 ActorRef::ActorRef(uid_type id) :
 		_id(id) {
@@ -106,42 +110,42 @@ void ActorRef::id(uint16_t id) {
 }
 
 const char* ActorRef::path() {
-	// TODO path
-	return ActorCell::cell(*this).path();
-}
-
-void ActorRef::path(const char* p){
-	ActorCell::cell(*this).path(p);
+	ActorContext* context =  ActorContext::context(*this);
+	if ( context ) return context->path();
+	else return "unknown ref";
 }
 
 Mailbox& ActorRef::mailbox() {
-	return ActorCell::cell(*this).mailbox();
+	ActorContext* context =  ActorContext::context(*this);
+	if ( context ) return context->mailbox();
+	else return deadLetterMailbox;
 }
 
-void ActorRef::ask(ActorRef dst, MsgClass type, Envelope& msg,
-		uint32_t timeout) {
-}
-
+/*
+ void ActorRef::ask(ActorRef dst, MsgClass type, Envelope& msg,
+ uint32_t timeout) {
+ }
+ */
 void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
 
 	Mailbox& srcMailbox = src.mailbox();
 	Mailbox& dstMailbox = mailbox();
 	va_list args;
 	va_start(args, fmt);
-	srcMailbox.txdEnvelope.setHeader(src, _id, cls).message.vaddf(fmt, args);
+	srcMailbox.txdEnvelope.setHeader(src, *this, cls).message.vaddf(fmt, args);
 	va_end(args);
 
 	dstMailbox.enqueue(srcMailbox.txdEnvelope);
 }
 
-void ActorRef::tell(ActorRef sender,Envelope& envelope){
+void ActorRef::tell(ActorRef sender, Envelope& envelope) {
 	mailbox().enqueue(envelope);
 }
 
 void ActorRef::forward(Envelope& msg) {
 	Mailbox& rcvMailbox = mailbox();
 	Mailbox& sndMailbox = msg.receiver.mailbox();
-	sndMailbox.txdEnvelope.setHeader(msg.sender, _id, msg.msgClass);
+	sndMailbox.txdEnvelope.setHeader(msg.sender, *this, msg.msgClass);
 	sndMailbox.txdEnvelope.message.append(msg.message);
 	rcvMailbox.enqueue(sndMailbox.txdEnvelope);
 }
@@ -156,8 +160,8 @@ uint32_t Envelope::newId() {
 //
 
 Envelope::Envelope(uint32_t size) :
-		sender(AnyActor), receiver(AnyActor), msgClass(AnyClass), id(0), message(
-				size) {
+		sender(ActorRef::anyActor), receiver(ActorRef::anyActor), msgClass(
+				AnyClass), id(0), message(size) {
 }
 
 Envelope& Envelope::setHeader(ActorRef snd, ActorRef rcv, MsgClass clz) {
@@ -202,8 +206,8 @@ typedef std::function<void(Envelope&)> MessageHandler;
 
 LinkedList<Mailbox*> mailboxes;
 
-Mailbox::Mailbox(uint32_t queueSize, uint32_t messageSize) :
-		_cborQueue(queueSize), rxdEnvelope(messageSize), txdEnvelope(
+Mailbox::Mailbox(const char* name,uint32_t queueSize, uint32_t messageSize) :
+		_name(name),_cborQueue(queueSize), rxdEnvelope(messageSize), txdEnvelope(
 				messageSize) {
 }
 
@@ -223,8 +227,13 @@ void Mailbox::handleMessages() {
 	while (hasMessages()) {
 		dequeue(rxdEnvelope); // load envelope and payload
 		rxdEnvelope.getHeader();
-		ActorContext::context(rxdEnvelope.receiver).receive().handle(
-				rxdEnvelope);
+		ActorContext* context =  ActorContext::context(rxdEnvelope.receiver);
+		if ( context )  {
+			context->receive().handle(rxdEnvelope);
+		}
+		else {
+			WARN(" unknown destination ref %d ! ",rxdEnvelope.receiver.id());
+		}
 #ifdef ARDUINO
 		::yield();
 #endif
@@ -235,7 +244,29 @@ void Mailbox::handleMessages() {
 // ActorSystem
 //
 ActorSystem::ActorSystem(const char* name) :
-		_name(name) {
+		_name(name), _defaultMailbox(defaultMailbox), _deadLetterMailbox(
+				deadLetterMailbox) {
+}
+
+uid_type ActorSystem::uniqueId(const char* name) {
+	std::string s,t;
+	s += Sys::hostname();
+	s += "/";
+	s += name;
+	uid_type hash = H(s.c_str());
+	if (UID.find(hash) == 0)
+		return (new Uid(s.c_str()))->id();
+	s += "#";
+	int i=1;
+	while (true) {
+		t = s;
+		t += i;
+		hash = H(t.c_str());
+		if (UID.find(hash) == 0)
+				return (new Uid(t.c_str()))->id();
+		else
+			i++;
+	};
 }
 
 //_____________________________________________________________________ Receiver
@@ -265,7 +296,7 @@ Str& Receiver::toString(Str& s) {
 //_____________________________________________________________________
 // Receive
 //
-Receive::Receive() : v(vCount++){
+Receive::Receive()  {
 }
 
 Receive& Receive::match(MsgClass msgClass, MessageHandler doSome) {
@@ -290,74 +321,36 @@ void Receive::handle(Envelope& envelope) {
 //_____________________________________________________________________
 // Receive
 
-//_____________________________________________________________________
-// ActorContext
-//
-
-ActorContext::ActorContext(ActorRef& self, ActorSystem& system,
-		Mailbox& mailbox, Receive* receive) :
-		_self(self), _system(system), _mailbox(mailbox), _receive(receive), _timeout(
-		UINT64_MAX) {
-	_idx = self.id();
-}
-
-
-//________________________________________________________________________________
-
-void ActorSystem::stop(ActorRef) {
-}
-
-uint32_t ActorCell::_actorCellCounter = 0;
-ActorCell* ActorCell::_actorCells[MAX_ACTOR_CELLS];
-
-ActorCell::ActorCell() :
-		_idx(_actorCellCounter), _ref(*(new ActorRef(_idx))), _mailbox(
-				defaultMailbox),_path("NO-PATH") {
-	_actorCells[_idx] = this;
-//	_ref =  *(new ActorRef(_idx));
-	_actorCellCounter++;
-}
-
-ActorCell& ActorCell::cell(ActorRef ref) {
-	return *(_actorCells[ref.id()]);
-}
-
-ActorRef& ActorCell::ref() {
-	return _ref;
-}
-
-inline Mailbox& ActorCell::mailbox() {
-	return _mailbox;
-}
-
-void ActorCell::mailbox(Mailbox& mb) {
-	_mailbox = mb;
-}
-
-void ActorCell::path(const char* p){
-	_path=p;
-}
-
-const char* ActorCell::path(){
-	return _path;
-}
-
 //_________________________________________________________________________ ActorContext
 //
+LinkedList<ActorContext*> ActorContext::_actorContexts;
 
-uint32_t ActorContext::_actorContextCounter = 0;
-ActorContext* ActorContext::_actorContexts[MAX_ACTOR_CELLS];
-
-ActorContext::ActorContext() :
-		_idx(_actorContextCounter), _self(*(new ActorRef(_idx))), _system(
-				defaultActorSystem), _mailbox(defaultMailbox), _receive(&nullReceive), _timeout(
-		UINT64_MAX) {
-	_actorContexts[_idx] = this;
-	_actorContextCounter++;
+ActorContext::ActorContext(uid_type id, ActorRef self, AbstractActor& actor,
+		ActorSystem& system, Mailbox& mailbox, Receive& receive) :
+		_id(id), _self(self), _actor(actor), _system(system), _mailbox(mailbox), _receive(
+				receive) {
+	_receiveTimeout = UINT64_MAX;
+	_actorContexts.add(this);
 }
 
-ActorContext& ActorContext::context(ActorRef& ref) {
-	return *_actorContexts[ref.id()];
+ActorContext* ActorContext::context(ActorRef& ref) {
+	return _actorContexts.findFirst([&ref](ActorContext* ctx) {
+		return ref.id()==ctx->id();
+	});
+}
+
+ActorContext& ActorContext::context(AbstractActor* actor) {
+	return *_actorContexts.findFirst([actor](ActorContext* ctx) {
+		return & ctx->_actor == actor;
+	});
+}
+
+uid_type ActorContext::id() {
+	return _id;
+}
+
+const char* ActorContext::path() {
+	return UID.label(_id);
 }
 
 Mailbox& ActorContext::mailbox() {
@@ -365,12 +358,12 @@ Mailbox& ActorContext::mailbox() {
 }
 
 Receive& ActorContext::receive() {
-	ASSERT(_receive!=0);
-	return *_receive;
+
+	return _receive;
 }
 
 void ActorContext::receive(Receive& r) {
-	_receive = &r;
+	_receive = r;
 }
 
 ActorRef ActorContext::self() {
@@ -381,14 +374,5 @@ void ActorContext::self(ActorRef& ref) {
 	ASSERT(ref.id() == _self.id());
 	_self = ref;
 }
-
-void ActorContext::system(ActorSystem& sys) {
-	_system = sys;
-}
-
-uint32_t Receive::vCount=0;
-
-
-
 
 

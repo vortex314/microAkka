@@ -4,6 +4,8 @@
 
 LinkedList<Uid*> Uid::_uids;
 
+Uid UID("UID");
+
 Uid::Uid(const char* name) :
 		_id(H(name)) {
 	if (find(_id) == 0) {
@@ -13,7 +15,7 @@ Uid::Uid(const char* name) :
 	}
 }
 
-inline uid_type Uid::id() {
+uid_type Uid::id() {
 	return _id;
 }
 
