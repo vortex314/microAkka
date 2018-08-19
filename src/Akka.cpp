@@ -33,7 +33,7 @@ using namespace std;
 MsgClass AnyClass("$ANY");
 Receive Receive::nullReceive;
 ActorMsgBus bus;
-Mailbox deadLetterMailbox("deadletterMailbox",1, 100);
+Mailbox deadLetterMailbox("deadletterMailbox", 1, 100);
 ActorSystem defaultActorSystem("system");
 
 typedef void (*MsgHandler)(void);
@@ -47,14 +47,15 @@ Actor::~Actor() {
 
 LinkedList<AbstractActor*> AbstractActor::actors;
 
-AbstractActor::AbstractActor() : _context(0) {
+AbstractActor::AbstractActor() :
+		_context(0) {
 }
 
 AbstractActor::~AbstractActor() {
 }
 
-void AbstractActor::context(ActorContext* ctx){
-	_context=ctx;
+void AbstractActor::context(ActorContext* ctx) {
+	_context = ctx;
 }
 
 ActorRef AbstractActor::self() {
@@ -110,15 +111,19 @@ void ActorRef::id(uint16_t id) {
 }
 
 const char* ActorRef::path() {
-	ActorContext* context =  ActorContext::context(*this);
-	if ( context ) return context->path();
-	else return "unknown ref";
+	ActorContext* context = ActorContext::context(*this);
+	if (context)
+		return context->path();
+	else
+		return "unknown ref";
 }
 
 Mailbox& ActorRef::mailbox() {
-	ActorContext* context =  ActorContext::context(*this);
-	if ( context ) return context->mailbox();
-	else return deadLetterMailbox;
+	ActorContext* context = ActorContext::context(*this);
+	if (context)
+		return context->mailbox();
+	else
+		return deadLetterMailbox;
 }
 
 /*
@@ -206,8 +211,8 @@ typedef std::function<void(Envelope&)> MessageHandler;
 
 LinkedList<Mailbox*> mailboxes;
 
-Mailbox::Mailbox(const char* name,uint32_t queueSize, uint32_t messageSize) :
-		_name(name),_cborQueue(queueSize), rxdEnvelope(messageSize), txdEnvelope(
+Mailbox::Mailbox(const char* name, uint32_t queueSize, uint32_t messageSize) :
+		_name(name), _cborQueue(queueSize), rxdEnvelope(messageSize), txdEnvelope(
 				messageSize) {
 }
 
@@ -227,12 +232,12 @@ void Mailbox::handleMessages() {
 	while (hasMessages()) {
 		dequeue(rxdEnvelope); // load envelope and payload
 		rxdEnvelope.getHeader();
-		ActorContext* context =  ActorContext::context(rxdEnvelope.receiver);
-		if ( context )  {
+		ActorContext* context = ActorContext::context(rxdEnvelope.receiver);
+		if (context) {
 			context->receive().handle(rxdEnvelope);
-		}
-		else {
-			WARN(" unknown destination ref %d ! ",rxdEnvelope.receiver.id());
+		} else {
+			WARN(" unknown destination ref %d ! trying remote. ",
+					rxdEnvelope.receiver.id());
 		}
 #ifdef ARDUINO
 		::yield();
@@ -249,7 +254,7 @@ ActorSystem::ActorSystem(const char* name) :
 }
 
 uid_type ActorSystem::uniqueId(const char* name) {
-	std::string s,t;
+	std::string s, t;
 	s += Sys::hostname();
 	s += "/";
 	s += name;
@@ -257,13 +262,13 @@ uid_type ActorSystem::uniqueId(const char* name) {
 	if (UID.find(hash) == 0)
 		return (new Uid(s.c_str()))->id();
 	s += "#";
-	int i=1;
+	int i = 1;
 	while (true) {
 		t = s;
 		t += i;
 		hash = H(t.c_str());
 		if (UID.find(hash) == 0)
-				return (new Uid(t.c_str()))->id();
+			return (new Uid(t.c_str()))->id();
 		else
 			i++;
 	};
@@ -296,7 +301,7 @@ Str& Receiver::toString(Str& s) {
 //_____________________________________________________________________
 // Receive
 //
-Receive::Receive()  {
+Receive::Receive() {
 }
 
 Receive& Receive::match(MsgClass msgClass, MessageHandler doSome) {
@@ -375,4 +380,19 @@ void ActorContext::self(ActorRef& ref) {
 	_self = ref;
 }
 
+class DeadLetterActor: public AbstractActor {
+
+public:
+	DeadLetterActor() {
+	}
+	~DeadLetterActor() {
+	}
+	Receive& createReceive() {
+		return receiveBuilder().match(AnyClass,
+				[this](Envelope& msg) {
+					INFO(" DeadLetter Actor from '%s' to '%s' msg '%s' ",msg.sender.path(),msg.receiver.path(),msg.msgClass.name());
+
+				}).build();
+	}
+} deadLetterActor;
 

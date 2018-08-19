@@ -86,6 +86,7 @@ class Props;
 class Timer;
 class ActorMsgBus;
 class MsgClass;
+class Uid;
 
 //_____________________________________________________________________ Message
 
@@ -118,27 +119,7 @@ public:
 	}
 };
 
-class Dispatcher {
 
-};
-
-class DispatcherFirstMatch : public Dispatcher {
-
-};
-
-class DispatcherAllMatch : public Dispatcher {
-
-};
-
-class Props {
-	Mailbox& _mailbox;
-	Dispatcher& _dispatcher;
-
-public:
-	Props& withMailbox(Mailbox& mailbox);
-	template<class T> static Props create(const char* name, const char* fmt,
-			...);
-};
 //_____________________________________________________________________ Receive
 //
 class Receive {
@@ -196,12 +177,14 @@ public:
 //__________________________________________________________ ActorRef
 class ActorRef {
 	uid_type _id;
+	ActorContext* _context; // could be zero for remote
+
 public:
 	static ActorRef noSender;
 	static ActorRef anyActor;
 	ActorRef();
 	ActorRef(uid_type id);
-	ActorRef(uid_type id, Mailbox*);
+//	ActorRef(uid_type id, Mailbox*);
 
 	uid_type id();
 	void id(uid_type);

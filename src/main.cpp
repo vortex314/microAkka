@@ -113,6 +113,7 @@ int main() {
 	INFO(" starting microAkka test ");
 	ActorRef echo = actorSystem.actorOf<Echo>("echo");
 	ActorRef sender = actorSystem.actorOf<Sender>("sender");
+	ActorRef anchor("mqtt://limero.ddns.net:1883/dwm1000");
 	for (int i = 0; i < 10; i++) {
 		echo.tell(sender, DO_ECHO, "us", 0, "hi!");
 		sender.mailbox().handleMessages();
