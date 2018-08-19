@@ -72,6 +72,7 @@ typedef void (*MsgHandler)(void);
 class Envelope;
 class Receiver;
 class Mailbox;
+class Dispatcher;
 class AbstractActor;
 class ActorContext;
 class ActorRef;
@@ -117,8 +118,21 @@ public:
 	}
 };
 
+class Dispatcher {
+
+};
+
+class DispatcherFirstMatch : public Dispatcher {
+
+};
+
+class DispatcherAllMatch : public Dispatcher {
+
+};
+
 class Props {
-//	Mailbox& mailbox;
+	Mailbox& _mailbox;
+	Dispatcher& _dispatcher;
 
 public:
 	Props& withMailbox(Mailbox& mailbox);
@@ -296,6 +310,7 @@ public:
 	bool getHeader();
 	static uint32_t newId();
 	bool scanf(const char* fmt, ...);
+	void copyMessage(Envelope& dst);
 	bool deserialize(Cbor& message);
 	void serialize(Cbor& message);
 	Str& toString(Str&);
@@ -437,17 +452,5 @@ public:
 
 };
 
-class Thread {
-};
-
-class Dispatcher {
-public:
-	Mailbox& mailbox;
-	Thread& thread;
-	void dispatch() {
-		// add message to mailbox
-		// wakeup thread
-	}
-};
 
 #endif /* SRC_AKKA_H_ */
