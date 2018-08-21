@@ -35,6 +35,8 @@ Receive Receive::nullReceive;
 ActorMsgBus bus;
 Mailbox deadLetterMailbox("deadletterMailbox", 1, 100);
 ActorSystem defaultActorSystem("system");
+MsgClass ReceiveTimeout("ReceiveTimeout");
+MsgClass TimerExpired("TimerExpired");
 
 typedef void (*MsgHandler)(void);
 
@@ -87,6 +89,8 @@ void AbstractActor::unhandled(Envelope& msg) {
 ActorRef AbstractActor::sender() {
     return context().mailbox().rxdEnvelope.sender;
 }
+
+TimerScheduler& AbstractActor::timers() { return context().timers(); }
 /*
  void AbstractActor::handle(Envelope& msg) {
  context().receive().handle(msg);
@@ -101,7 +105,7 @@ bool ActorRef::operator==(ActorRef& dst) { return (_id == dst._id); }
 
 void ActorRef::id(UidType id) { _id = id; }
 
-UidType ActorRef::id() { return _id;}
+UidType ActorRef::id() { return _id; }
 
 const char* ActorRef::path() {
     return _id.label();
@@ -276,6 +280,69 @@ bool Receiver::match(Envelope& msg) {
 Str& Receiver::toString(Str& s) {
     return s.format(" class : %s  ", _msgClass.name());
 }
+//_____________________________________________ Timer
+
+Timer::Timer(UidType key, bool active, bool periodic, uint64_t interval)
+    : _key(key), _active(active), _periodic(periodic), _interval(interval) {
+    reload();
+}
+bool Timer::operator==(Timer& other) { return _key == other._key; }
+bool Timer::active() { return _active; }
+void Timer::active(bool t) { _active = t; }
+UidType Timer::key() { return _key; }
+void Timer::reload() { _expiresAt = Sys::millis() + _interval; }
+bool Timer::expired() { return Sys::millis() > _expiresAt; }
+void Timer::set(bool active, bool periodic, uint32_t msec) {
+    _active = active;
+    _periodic = periodic;
+    _interval = msec;
+    reload();
+}
+//__________________________________________________________ TimerScheduler
+
+Timer* TimerScheduler::find(UidType key) {
+    return _timers.findFirst([key](Timer* t) { return t->key() == key; });
+}
+
+void TimerScheduler::startPeriodicTimer(UidType key, MsgClass cls,
+                                        uint32_t msec) {
+    Timer* timer = find(key);
+
+    if (timer == 0) {
+        _timers.add(new Timer(key, true, false, msec));
+    } else {
+        timer->set(true, false, msec);
+    }
+}
+void TimerScheduler::startSingleTimer(UidType key, MsgClass, uint32_t msec) {
+    Timer* timer = find(key);
+
+    if (timer == 0) {
+        _timers.add(new Timer(key, true, true, msec));
+    } else {
+        timer->set(true, true, msec);
+    }
+}
+void TimerScheduler::cancel(UidType key) {
+    Timer* timer = find(key);
+    if (timer)
+        timer->active(false);
+    else
+        WARN(" timer.cancel()  key not found : %s ", key.label());
+}
+void TimerScheduler::cancelAll() {
+    _timers.forEach([](Timer* t) { t->active(false); });
+}
+bool TimerScheduler::isTimerActive(UidType key) {
+    Timer* timer =
+        _timers.findFirst([key](Timer* t) { return t->key() == key; });
+    if (timer)
+        return timer->active();
+    else {
+        WARN(" timer.isTimerActive()  key not found : %s ", key.label());
+        return false;
+    }
+}
 
 //_____________________________________________________________________
 // Receive
@@ -326,6 +393,7 @@ ActorContext::ActorContext(UidType id, ActorRef self, AbstractActor& actor,
     : ActorCell(id, mailbox, self), _actor(actor), _system(system),
       _receive(receive) {
     _receiveTimeout = UINT64_MAX;
+    _inactivityPeriod = UINT32_MAX;
     _actorContexts.add(this);
 }
 
@@ -342,6 +410,12 @@ ActorContext& ActorContext::context(AbstractActor* actor) {
 Receive& ActorContext::receive() { return _receive; }
 
 void ActorContext::receive(Receive& r) { _receive = r; }
+
+TimerScheduler& ActorContext::timers() {
+    if (_timers == 0)
+        _timers = new TimerScheduler();
+    return *_timers;
+}
 
 class DeadLetterActor : public AbstractActor {
 

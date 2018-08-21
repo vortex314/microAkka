@@ -15,29 +15,36 @@
  // Version     :
  // Copyright   : Enjoy teh source
  // Description : Akka alike framework in C++ for embedded systems : low RAM
- // 
- // MQTT convention : src/DEVICE/ACTOR/MSGCLASS for events 
- // or dst/DEVICE2/ACTOR2/MSGCLASS2 mailbox with sender==DEVICE1/ACTOR1 ,  
- // dst/DEVICE2/ACTOR2/DEVICE1/ACTOR1/MSGCLASS 
+ //
+ // MQTT convention : src/DEVICE/ACTOR/MSGCLASS for events
+ // or dst/DEVICE2/ACTOR2/MSGCLASS2 mailbox with sender==DEVICE1/ACTOR1 ,
+ // dst/DEVICE2/ACTOR2/DEVICE1/ACTOR1/MSGCLASS
  // dst/steer/angle/master/direction/degrees [1,"abc",2.5,true,null]
- // src/master/vector/value [10.6,3.4,-90,10] {"x=m":10.6,"y=m":3.4,"angle=rad":-90,"speed=m/s":10}
+ // src/master/vector/value [10.6,3.4,-90,10]
+ {"x=m":10.6,"y=m":3.4,"angle=rad":-90,"speed=m/s":10}
  // tell : dst/device ["master/vector","device/steer","angle",23123,-20]
- // tell : dst/device ["master/sender","device/uart0","txdBin",23123,"SGVsbG8gd29ybGQgIQ=="]
- // tell : dst/system/actor ["master/sender","txdBin",23123,"SGVsbG8gd29ybGQgIQ=="]
- // event : src/device/steer/angle -20 
+ // tell : dst/device
+ ["master/sender","device/uart0","txdBin",23123,"SGVsbG8gd29ybGQgIQ=="]
+ // tell : dst/system/actor
+ ["master/sender","txdBin",23123,"SGVsbG8gd29ybGQgIQ=="]
+ // event : src/device/steer/angle -20
  // event : src/device/actors ["uart0","steer"]
  // Object : long,double,boolean,string,null,array,hashmap
- // tell dst/device/actor ["device2/actor2","cmdA",1234,{"x":1234,"y":34.7,"z":33.3}]
- // ActorRef(_id) => ActorCell(_id,_mailbox,_remote) => Mailbox(_queue,_rxd,_txd)
+ // tell dst/device/actor
+ ["device2/actor2","cmdA",1234,{"x":1234,"y":34.7,"z":33.3}]
+ // ActorRef(_id) => ActorCell(_id,_mailbox,_remote) =>
+ Mailbox(_queue,_rxd,_txd)
  // Actor(_id,) => ActorContext(ActorCell,_receive,_system, )
  // Mqtt:// mailbox_mqtt  =>
  //
- // mailbox handler reads receiver _id => looks for ActorContext and invokes Receive
+ // mailbox handler reads receiver _id => looks for ActorContext and invokes
+ Receive
  // ActorRef -> ActorCell -> mailbox, actor,
  // Actor -> ActorContext -> ActorSystem
  //                       -> Receive -> N Receiver ----> ( MsgClass,filter,
  method ) *						 -> ActorRef
  
+
  Mailbox -> dispatches message based on ActorRef destination , ActorRef points
  to Mailbox  , points to Receive active
  //
@@ -93,6 +100,7 @@ class Timer;
 class ActorMsgBus;
 class MsgClass;
 class UidType;
+class TimerScheduler;
 
 //_____________________________________________________________________ Message
 
@@ -101,12 +109,15 @@ typedef std::function<void(Envelope&)> MessageHandler;
 typedef std::function<bool(Envelope&)> MessageMatcher;
 
 extern ActorRef AnyActor;
+extern ActorRef NoSender;
 extern MsgClass AnyClass;
 
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
 extern Mailbox remoteMailbox;
 extern ActorMsgBus bus;
+extern MsgClass ReceiveTimeout;
+extern MsgClass TimerExpired;
 
 class UidType {
     uid_type _id;
@@ -127,6 +138,36 @@ class MsgClass {
     MsgClass(const char* name) : _id(name) {}
     const char* name() { return _id.label(); }
     inline bool operator==(MsgClass m) { return m._id == _id; }
+};
+//_____________________________________________________________________ Timer
+//
+class Timer {
+    UidType _key;
+    bool _active;
+    bool _periodic;
+    uint64_t _expiresAt;
+    uint32_t _interval;
+
+  public:
+    Timer(UidType key, bool active, bool periodic, uint64_t interval);
+    void set(bool active, bool periodic, uint32_t interval);
+    bool operator==(Timer&);
+    bool active();
+    void active(bool);
+    UidType key();
+    void reload();
+    bool expired();
+}; //__________________________________________________________ TimerScheduler
+class TimerScheduler {
+    LinkedList<Timer*> _timers;
+    Timer* find(UidType key);
+
+  public:
+    void startPeriodicTimer(UidType key, MsgClass, uint32_t msec);
+    void startSingleTimer(UidType key, MsgClass, uint32_t msec);
+    void cancel(UidType key);
+    void cancelAll();
+    bool isTimerActive(UidType key);
 };
 
 //_____________________________________________________________________ Receive
@@ -153,6 +194,19 @@ class Actor {
     virtual void postStop() = 0;
     virtual void unhandled(Envelope& msg) = 0;
 };
+//__________________________________________________________ MessageDispatcher
+class MessageDispatcher {
+  public:
+    void attach(ActorCell&);
+    void detach(ActorCell&);
+    //   void execute (Runnable&);
+    void resume(ActorCell&);
+    void suspend(ActorCell&);
+    void handle(Envelope&);
+};
+//__________________________________________________________ CoRoutineDispatcher
+//
+class CoRoutineDispatcher : public MessageDispatcher {};
 //_____________________________________________________________________
 // AbstractActor
 //
@@ -181,7 +235,7 @@ class AbstractActor : public Actor {
     virtual void postStop();
     virtual void unhandled(Envelope& msg);
     //	virtual void handle(Envelope& msg){};
-    Timer getTimers();
+    TimerScheduler& timers();
 };
 //__________________________________________________________ ActorRef
 class ActorRef {
@@ -214,9 +268,11 @@ class ActorCell {
     UidType _id;
     Mailbox& _mailbox;
     ActorRef _self;
+    bool _isLocal;
+    ActorContext* _context;
 
   public:
-    ActorCell(UidType id,Mailbox& mailbox,ActorRef& self);
+    ActorCell(UidType id, Mailbox& mailbox, ActorRef& self);
     Mailbox& mailbox();
     void mailbox(Mailbox&);
     void self(ActorRef&);
@@ -230,7 +286,10 @@ class ActorContext : public ActorCell {
     const AbstractActor& _actor;
     const ActorSystem& _system;
     Receive& _receive;
+    uint32_t _inactivityPeriod;
     uint64_t _receiveTimeout;
+    bool _enable;
+    TimerScheduler* _timers;
 
     static LinkedList<ActorContext*> _actorContexts;
 
@@ -255,6 +314,7 @@ class ActorContext : public ActorCell {
     ActorRef sender();
     Receive& receive();
     void receive(Receive&);
+    TimerScheduler& timers();
 };
 
 //_____________________________________________________________________
@@ -281,7 +341,7 @@ class ActorSystem {
     ActorRef actorFor(const char* address) {
         // TODO check local or remote
         ActorRef ref(address);
-        new ActorCell(ref.id(),remoteMailbox,ref);
+        new ActorCell(ref.id(), remoteMailbox, ref);
         return ref;
     }
 
@@ -298,7 +358,6 @@ class ActorSystem {
         return *actorRef;
     }
 };
-
 //_____________________________________________________________________ Message
 class Envelope {
     static uid_type idCounter;
@@ -311,10 +370,12 @@ class Envelope {
     Cbor message;
 
     Envelope(uint32_t size);
+    Envelope(ActorRef snd, ActorRef rcv, MsgClass clz, uint32_t size);
     Envelope& setHeader(ActorRef snd, ActorRef rcv, MsgClass clz);
     bool getHeader();
     static uint32_t newId();
     bool scanf(const char* fmt, ...);
+    void addf(const char* fmt, ...);
     void copyMessage(Envelope& dst);
     bool deserialize(Cbor& message);
     void serialize(Cbor& message);
@@ -355,26 +416,6 @@ class Receiver {
     void handle(Envelope& msg);
     const static bool alwaysTrue(Envelope&) { return true; }
     Str& toString(Str& s);
-};
-
-//_____________________________________________________________________ Timer
-//
-class Timer {
-    UidType key;
-    bool active;
-    bool periodic;
-    uint64_t expiresAt;
-
-  public:
-    Timer(UidType key, bool active, bool periodic, uint64_t interval);
-};
-
-class TimerScheduler {
-    void startPeriodicTimer(UidType key, Envelope& msg, uint32_t msec);
-    void startSingleTimer(UidType key, Envelope& msg, uint32_t msec);
-    void cancel(UidType key);
-    void cancelAll();
-    bool isTimerActive(UidType key);
 };
 
 template <typename Subscriber, typename Classifier> class SubscriberClassifier {
@@ -439,6 +480,14 @@ class ActorMsgBus : public EventBus<Envelope&, ActorRef, SenderMsgClass> {
     }
     int compareSubscribers(ActorRef a, ActorRef b) { return 1; }
     ~ActorMsgBus() {}
+};
+
+class Thread {
+    uint32_t _signal;
+
+  public:
+    void wakeup(uint32_t signal);
+    uint32_t sleep(uint32_t msec);
 };
 
 #endif /* SRC_AKKA_H_ */

@@ -6,7 +6,7 @@ uint64_t Sys::_upTime;
 #include <time.h>
 #include <unistd.h>
 
-char Sys::_hostname[30];
+char Sys::_hostname[30] = "";
 //_____________________________________________________________ LINUX and CYGWIN
 #if defined(__linux__) || defined(__CYGWIN__)
 
@@ -24,12 +24,16 @@ void Sys::hostname(const char* hostname) {
     strncpy(_hostname, hostname, sizeof(_hostname));
 }
 
-const char* Sys::hostname() { return _hostname; }
+const char* Sys::hostname() {
+    if (_hostname[0] == 0)
+        Sys::init();
+    return _hostname;
+}
 
-
-void Sys::delay(uint32_t delta){
-	uint64_t t1=Sys::millis()+delta;
-	while( Sys::millis()<t1);
+void Sys::delay(uint32_t delta) {
+    uint64_t t1 = Sys::millis() + delta;
+    while (Sys::millis() < t1)
+        ;
 }
 
 #endif
@@ -48,6 +52,5 @@ void Sys::hostname(const char* hostname) {
 }
 
 const char* Sys::hostname() { return _hostname; }
-
 
 #endif
