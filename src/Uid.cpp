@@ -44,5 +44,5 @@ const char* Uid::label(uid_type id) {
 	Uid* p = find(id);
 	if (p)
 		return p->_label;
-	return "UNKNOWN";
+	return 0;
 }

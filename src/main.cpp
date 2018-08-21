@@ -1,26 +1,7 @@
-#include <Akka.h>
+#include "Akka.h"
 
 Log logger(1024);
-/*
- #define ID(cls) H(#cls)
 
- class DoEcho {
- const static int myId = ID(DoEcho);
- public:
- uint32_t counter;
- const char* message;
-
- void serialize(Cbor& dst) {
- dst.add(ID(DoEcho));
- dst.addf("us", counter, message);
- }
- bool deserialize(Cbor& src) {
- int id;
- if (src.get(id) && id == ID(DoEcho))
- return src.scanf("us", &counter, &message);
- return false;
- }
- };*/
 
 #define MAX_MESSAGES 1000000
 
@@ -103,17 +84,26 @@ public:
 	}
 };
 
+class RemoteMqtt : public AbstractActor {
+	public:
+	RemoteMqtt(){
+
+	}
+};
+
 Mailbox defaultMailbox("default", 20000, 1000);
 Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
+Mailbox remoteMailbox("$remote", 20000, 1000);
 
-ActorSystem actorSystem("system");
+ActorSystem actorSystem(Sys::hostname());
 
 int main() {
 	Sys::init();
 	INFO(" starting microAkka test ");
 	ActorRef echo = actorSystem.actorOf<Echo>("echo");
 	ActorRef sender = actorSystem.actorOf<Sender>("sender");
-	ActorRef anchor("mqtt://limero.ddns.net:1883/dwm1000");
+	ActorRef anchor = actorSystem.actorFor("mqtt://limero.ddns.net:1883/dwm1000");
+	INFO(" paths %s %s %s",echo.path(),sender.path(),anchor.path());
 	for (int i = 0; i < 10; i++) {
 		echo.tell(sender, DO_ECHO, "us", 0, "hi!");
 		sender.mailbox().handleMessages();
