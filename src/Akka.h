@@ -363,6 +363,7 @@ class ActorSystem {
         actor->context(context);
         context->receive(actor->createReceive());
         INFO(" new actor '%s' created", actorRef->path());
+        actor->preStart();
         return *actorRef;
     }
 };

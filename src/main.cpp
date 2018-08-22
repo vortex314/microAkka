@@ -8,6 +8,8 @@ Log logger(1024);
 const static MsgClass DONE_ECHO("DONE_ECHO");
 const static MsgClass DO_ECHO("DO_ECHO");
 
+ActorSystem actorSystem(Sys::hostname());
+
 class Echo : public AbstractActor {
     Str str;
 
@@ -37,14 +39,20 @@ class Echo : public AbstractActor {
 };
 //______________________________________________________________
 //
-ActorRef _echo=AnyActor;
+
 class Sender : public AbstractActor {
     uint64_t startTime;
     Str str;
+    ActorRef echo;
 
   public:
     Sender() : startTime(0), str(80) {}
     ~Sender() {}
+
+    void preStart() {
+        echo = actorSystem.actorOf<Echo>("echo");
+        timers().startPeriodicTimer("STARTER", TimerExpired, 5000);
+    }
 
     void finished() {
         float delta = Sys::millis() - startTime;
@@ -71,10 +79,10 @@ class Sender : public AbstractActor {
             .match(TimerExpired,
                    [this](Envelope& msg) {
                        UidType key("");
-                       msg.scanf("2",&key);
-                       INFO(" timer expired ! %s ",key.label());
-//                       timers().cancel("STARTER");
-                       _echo.tell(self(), DO_ECHO, "us", 0, "hi!");
+                       msg.scanf("2", &key);
+                       INFO(" timer expired ! %s ", key.label());
+                       //                       timers().cancel("STARTER");
+                       echo.tell(self(), DO_ECHO, "us", 0, "hi!");
                    })
             .build();
     }
@@ -111,45 +119,38 @@ Mailbox defaultMailbox("default", 20000, 1000);
 Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
 Mailbox remoteMailbox("$remote", 20000, 1000);
 
-ActorSystem actorSystem(Sys::hostname());
+;
 
 extern void loop();
 
 int main() {
     Sys::init();
     INFO(" starting microAkka test ");
-    ActorRef echo = actorSystem.actorOf<Echo>("echo");
+    //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
     ActorRef anchor =
         actorSystem.actorFor("mqtt://limero.ddns.net:1883/dwm1000");
-	_echo=echo;
-    ActorContext::context(sender)->timers().startPeriodicTimer(
-        "STARTER", TimerExpired, 5000);
     while (true) {
         loop();
         millisleep(10);
-    }
-    INFO(" paths %s %s %s", echo.path(), sender.path(), anchor.path());
-    for (int i = 0; i < 10; i++) {
-        echo.tell(sender, DO_ECHO, "us", 0, "hi!"); 
-        sender.mailbox().handleMessages();
-    }
+    };
+
     //	ActorRef master =
     // defaultActorSystem.actorFor("mqtt://test.mosquitto.org:1883/anchor3/system");
 
     //	master.tell(sender,"alive","b",true);
+    /*
+        bus.subscribe(echo, *(new SenderMsgClass(sender, "ikke")));
 
-    bus.subscribe(echo, *(new SenderMsgClass(sender, "ikke")));
+        for (int i = 0; i < 10; i++) {
+            Envelope env(10);
+            env.setHeader(sender, AnyActor, ("ikke"));
+            bus.publish(env);
 
-    for (int i = 0; i < 10; i++) {
-        Envelope env(10);
-        env.setHeader(sender, AnyActor, ("ikke"));
-        bus.publish(env);
+            //		echo.tell(sender, DO_ECHO, "us", 0, "hello World");
 
-        //		echo.tell(sender, DO_ECHO, "us", 0, "hello World");
-
-        sender.mailbox().handleMessages();
-    }
+            sender.mailbox().handleMessages();
+        }*/
     //	actorSystem.loop();
-    return 0; 
+    return 0;
 }

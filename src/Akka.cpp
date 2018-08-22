@@ -98,6 +98,8 @@ TimerScheduler& AbstractActor::timers() { return context().timers(); }
 
 ActorRef::ActorRef(UidType id) : _id(id) {}
 
+ActorRef::ActorRef() : _id(NoSender.id()) {}
+
 bool ActorRef::operator==(ActorRef& dst) { return (_id == dst._id); }
 
 void ActorRef::id(UidType id) { _id = id; }
