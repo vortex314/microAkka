@@ -155,14 +155,18 @@ class Timer {
     bool active();
     void active(bool);
     UidType key();
+    void load();
     void reload();
     bool expired();
+    uint64_t expiresAt();
 }; //__________________________________________________________ TimerScheduler
 class TimerScheduler {
     LinkedList<Timer*> _timers;
-    Timer* find(UidType key);
 
   public:
+    TimerScheduler();
+    Timer* find(UidType key);
+    Timer* findNextTimeout();
     void startPeriodicTimer(UidType key, MsgClass, uint32_t msec);
     void startSingleTimer(UidType key, MsgClass, uint32_t msec);
     void cancel(UidType key);
@@ -196,7 +200,10 @@ class Actor {
 };
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
+    LinkedList<Mailbox&> _mailboxes;
+
   public:
+    void addMailbox(Mailbox&);
     void attach(ActorCell&);
     void detach(ActorCell&);
     //   void execute (Runnable&);
@@ -240,11 +247,8 @@ class AbstractActor : public Actor {
 //__________________________________________________________ ActorRef
 class ActorRef {
     UidType _id;
-    //    ActorContext* _context; // could be zero for remote
 
   public:
-    static ActorRef noSender;
-    static ActorRef anyActor;
     ActorRef();
     ActorRef(UidType id);
     //	ActorRef(UidType id, Mailbox*);
@@ -280,6 +284,8 @@ class ActorCell {
     const char* path();
     UidType id();
     void id(UidType id);
+    /*   ActorContext* context();
+       void context(ActorContext*);*/
 };
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorCell {
@@ -315,6 +321,8 @@ class ActorContext : public ActorCell {
     Receive& receive();
     void receive(Receive&);
     TimerScheduler& timers();
+    bool hasTimers();
+    static LinkedList<ActorContext*>& actorContexts();
 };
 
 //_____________________________________________________________________
@@ -370,6 +378,7 @@ class Envelope {
     Cbor message;
 
     Envelope(uint32_t size);
+    Envelope(ActorRef snd, ActorRef rcv, MsgClass clz);
     Envelope(ActorRef snd, ActorRef rcv, MsgClass clz, uint32_t size);
     Envelope& setHeader(ActorRef snd, ActorRef rcv, MsgClass clz);
     bool getHeader();
@@ -397,9 +406,10 @@ class Mailbox {
     void dequeue(Envelope& msg);
     void handleMessage(Envelope& msg);
     void handleMessages();
+    static LinkedList<Mailbox*>& mailboxes();
 };
 
-extern Mailbox deadLetterMailbox;
+
 
 //_____________________________________________________________________ Receiver
 //
@@ -486,8 +496,8 @@ class Thread {
     uint32_t _signal;
 
   public:
-    void wakeup(uint32_t signal);
-    uint32_t sleep(uint32_t msec);
+    void signal(uint32_t signal);
+    uint32_t waitSignal(uint32_t msec);
 };
 
 #endif /* SRC_AKKA_H_ */

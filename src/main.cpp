@@ -37,13 +37,14 @@ class Echo : public AbstractActor {
 };
 //______________________________________________________________
 //
+ActorRef _echo=AnyActor;
 class Sender : public AbstractActor {
     uint64_t startTime;
     Str str;
 
   public:
     Sender() : startTime(0), str(80) {}
-    ~Sender() { timers().startSingleTimer("STARTER", TimerExpired, 2000); }
+    ~Sender() {}
 
     void finished() {
         float delta = Sys::millis() - startTime;
@@ -67,9 +68,14 @@ class Sender : public AbstractActor {
                            msg.sender.tell(self(), DO_ECHO, "us", ++counter,
                                            "Hi ");
                    })
-            .match(TimerExpired, [this](Envelope& msg) {
-				INFO(" single timer expired !");
-			})
+            .match(TimerExpired,
+                   [this](Envelope& msg) {
+                       UidType key("");
+                       msg.scanf("2",&key);
+                       INFO(" timer expired ! %s ",key.label());
+//                       timers().cancel("STARTER");
+                       _echo.tell(self(), DO_ECHO, "us", 0, "hi!");
+                   })
             .build();
     }
 
@@ -93,11 +99,21 @@ class RemoteMqtt : public AbstractActor {
     RemoteMqtt() {}
 };
 
+uint32_t millisleep(uint32_t msec) {
+    struct timespec ts;
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec - ts.tv_sec * 1000) * 1000000;
+    int erc = nanosleep(&ts, NULL);
+    return erc;
+};
+
 Mailbox defaultMailbox("default", 20000, 1000);
 Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
 Mailbox remoteMailbox("$remote", 20000, 1000);
 
 ActorSystem actorSystem(Sys::hostname());
+
+extern void loop();
 
 int main() {
     Sys::init();
@@ -106,13 +122,20 @@ int main() {
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
     ActorRef anchor =
         actorSystem.actorFor("mqtt://limero.ddns.net:1883/dwm1000");
+	_echo=echo;
+    ActorContext::context(sender)->timers().startPeriodicTimer(
+        "STARTER", TimerExpired, 5000);
+    while (true) {
+        loop();
+        millisleep(10);
+    }
     INFO(" paths %s %s %s", echo.path(), sender.path(), anchor.path());
     for (int i = 0; i < 10; i++) {
-        echo.tell(sender, DO_ECHO, "us", 0, "hi!");
+        echo.tell(sender, DO_ECHO, "us", 0, "hi!"); 
         sender.mailbox().handleMessages();
     }
     //	ActorRef master =
-    //defaultActorSystem.actorFor("mqtt://test.mosquitto.org:1883/anchor3/system");
+    // defaultActorSystem.actorFor("mqtt://test.mosquitto.org:1883/anchor3/system");
 
     //	master.tell(sender,"alive","b",true);
 
@@ -120,7 +143,7 @@ int main() {
 
     for (int i = 0; i < 10; i++) {
         Envelope env(10);
-        env.setHeader(sender, ActorRef::anyActor, ("ikke"));
+        env.setHeader(sender, AnyActor, ("ikke"));
         bus.publish(env);
 
         //		echo.tell(sender, DO_ECHO, "us", 0, "hello World");
@@ -128,5 +151,5 @@ int main() {
         sender.mailbox().handleMessages();
     }
     //	actorSystem.loop();
-    return 0;
+    return 0; 
 }

@@ -37,6 +37,8 @@ Mailbox deadLetterMailbox("deadletterMailbox", 1, 100);
 ActorSystem defaultActorSystem("system");
 MsgClass ReceiveTimeout("ReceiveTimeout");
 MsgClass TimerExpired("TimerExpired");
+ActorRef NoSender("NoSender");
+ActorRef AnyActor("AnyActor");
 
 typedef void (*MsgHandler)(void);
 
@@ -91,13 +93,8 @@ ActorRef AbstractActor::sender() {
 }
 
 TimerScheduler& AbstractActor::timers() { return context().timers(); }
-/*
- void AbstractActor::handle(Envelope& msg) {
- context().receive().handle(msg);
- }*/
+
 //____________________________________________________________ ActorRef
-ActorRef ActorRef::noSender("noSender");
-ActorRef ActorRef::anyActor("anyActor");
 
 ActorRef::ActorRef(UidType id) : _id(id) {}
 
@@ -107,14 +104,7 @@ void ActorRef::id(UidType id) { _id = id; }
 
 UidType ActorRef::id() { return _id; }
 
-const char* ActorRef::path() {
-    return _id.label();
-    /*    ActorContext* context = ActorContext::context(*this);
-        if (context)
-            return context->path();
-        else
-            return "unknown ref";*/
-}
+const char* ActorRef::path() { return _id.label(); }
 
 Mailbox& ActorRef::mailbox() {
     ActorContext* context = ActorContext::context(*this);
@@ -161,8 +151,13 @@ uint32_t Envelope::newId() { return idCounter++; }
 //
 
 Envelope::Envelope(uint32_t size)
-    : sender(ActorRef::anyActor), receiver(ActorRef::anyActor),
-      msgClass(AnyClass), id(0), message(size) {}
+    : sender(AnyActor), receiver(AnyActor), msgClass(AnyClass), id(0),
+      message(size) {}
+
+Envelope::Envelope(ActorRef snd, ActorRef rcv, MsgClass clz)
+    : sender(snd), receiver(rcv), msgClass(clz), id(newId()), message(16) {
+    message.addf("2222", snd.id(), rcv.id(), clz, id);
+}
 
 Envelope& Envelope::setHeader(ActorRef snd, ActorRef rcv, MsgClass clz) {
     message.offset(0);
@@ -204,11 +199,13 @@ typedef std::function<void(Envelope&)> MessageHandler;
 
 //_____________________________________________________________________ Mailbox
 
-LinkedList<Mailbox*> mailboxes;
+LinkedList<Mailbox*> Mailbox::_mailboxes;
 
 Mailbox::Mailbox(const char* name, uint32_t queueSize, uint32_t messageSize)
     : _name(name), _cborQueue(queueSize), rxdEnvelope(messageSize),
-      txdEnvelope(messageSize) {}
+      txdEnvelope(messageSize) {
+    _mailboxes.add(this);
+}
 
 void Mailbox::enqueue(Envelope& msg) { _cborQueue.put(msg.message); }
 
@@ -227,12 +224,11 @@ void Mailbox::handleMessages() {
             WARN(" unknown destination ref %d ! trying remote. ",
                  rxdEnvelope.receiver.id());
         }
-#ifdef ARDUINO
-        ::yield();
-#endif
     }
     // TODO handle timeouts
 }
+
+LinkedList<Mailbox*>& Mailbox::mailboxes() { return _mailboxes; }
 //_____________________________________________________________________
 // ActorSystem
 //
@@ -284,24 +280,50 @@ Str& Receiver::toString(Str& s) {
 
 Timer::Timer(UidType key, bool active, bool periodic, uint64_t interval)
     : _key(key), _active(active), _periodic(periodic), _interval(interval) {
-    reload();
+    load();
 }
 bool Timer::operator==(Timer& other) { return _key == other._key; }
 bool Timer::active() { return _active; }
 void Timer::active(bool t) { _active = t; }
 UidType Timer::key() { return _key; }
-void Timer::reload() { _expiresAt = Sys::millis() + _interval; }
+void Timer::load() { _expiresAt = Sys::millis() + _interval; }
+void Timer::reload() {
+    if (_periodic) {
+        load();
+    } else {
+        _active = false;
+    }
+}
 bool Timer::expired() { return Sys::millis() > _expiresAt; }
+uint64_t Timer::expiresAt() {
+    if (_active)
+        return _expiresAt;
+    return UINT64_MAX;
+}
 void Timer::set(bool active, bool periodic, uint32_t msec) {
     _active = active;
     _periodic = periodic;
     _interval = msec;
-    reload();
+    load();
 }
 //__________________________________________________________ TimerScheduler
 
+TimerScheduler::TimerScheduler() {}
+
 Timer* TimerScheduler::find(UidType key) {
     return _timers.findFirst([key](Timer* t) { return t->key() == key; });
+}
+
+Timer* TimerScheduler::findNextTimeout() {
+    uint64_t nextTimeout = UINT64_MAX;
+    Timer* t = 0;
+    _timers.forEach([&nextTimeout, &t](Timer* timer) {
+        if (timer->active() && timer->expiresAt() < nextTimeout) {
+            t = timer;
+            nextTimeout = timer->expiresAt();
+        }
+    });
+    return t;
 }
 
 void TimerScheduler::startPeriodicTimer(UidType key, MsgClass cls,
@@ -309,18 +331,18 @@ void TimerScheduler::startPeriodicTimer(UidType key, MsgClass cls,
     Timer* timer = find(key);
 
     if (timer == 0) {
-        _timers.add(new Timer(key, true, false, msec));
+        _timers.add(new Timer(key, true, true, msec));
     } else {
-        timer->set(true, false, msec);
+        timer->set(true, true, msec);
     }
 }
 void TimerScheduler::startSingleTimer(UidType key, MsgClass, uint32_t msec) {
     Timer* timer = find(key);
 
     if (timer == 0) {
-        _timers.add(new Timer(key, true, true, msec));
+        _timers.add(new Timer(key, true, false, msec));
     } else {
-        timer->set(true, true, msec);
+        timer->set(true, false, msec);
     }
 }
 void TimerScheduler::cancel(UidType key) {
@@ -392,6 +414,7 @@ ActorContext::ActorContext(UidType id, ActorRef self, AbstractActor& actor,
                            Receive& receive)
     : ActorCell(id, mailbox, self), _actor(actor), _system(system),
       _receive(receive) {
+    _timers = 0;
     _receiveTimeout = UINT64_MAX;
     _inactivityPeriod = UINT32_MAX;
     _actorContexts.add(this);
@@ -417,6 +440,14 @@ TimerScheduler& ActorContext::timers() {
     return *_timers;
 }
 
+bool ActorContext::hasTimers() { return _timers != 0; }
+
+LinkedList<ActorContext*>& ActorContext::actorContexts() {
+    return _actorContexts;
+}
+
+//_____________________________________________
+
 class DeadLetterActor : public AbstractActor {
 
   public:
@@ -433,3 +464,28 @@ class DeadLetterActor : public AbstractActor {
             .build();
     }
 } deadLetterActor;
+
+void loop() {
+    Mailbox* mailbox;
+    ActorContext* actorContext;
+    Timer* timer;
+    mailbox = Mailbox::mailboxes().findFirst(
+        [](Mailbox* mb) { return mb->hasMessages(); });
+    if (mailbox)
+        mailbox->handleMessages();
+    actorContext =
+        ActorContext::actorContexts().findFirst([&timer](ActorContext* ac) {
+            //            Timer* timer;
+            if (ac->hasTimers() && (timer = ac->timers().findNextTimeout()) &&
+                (timer->expiresAt() < Sys::millis())) {
+                timer->reload(); // retrigger now message will be send
+                return true;
+            };
+            return false;
+        });
+    if (actorContext) {
+        Envelope timerExpired(NoSender, actorContext->self(), TimerExpired);
+        timerExpired.message.addf("2", timer->key());
+        actorContext->self().tell(NoSender, timerExpired);
+    };
+}
