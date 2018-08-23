@@ -54,7 +54,7 @@ void timer_handler(int signum) {
     thread.signal(1);
 }
 
-int main() {
+int linuxtest() {
     printf("%s started \n",timestamp());
     struct sigaction sa;
     struct itimerval timer;

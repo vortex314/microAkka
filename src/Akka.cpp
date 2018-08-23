@@ -94,6 +94,10 @@ ActorRef AbstractActor::sender() {
 
 TimerScheduler& AbstractActor::timers() { return context().timers(); }
 
+void AbstractActor::withDispatcher(MessageDispatcher& dispatcher) {
+    dispatcher.attach(context());
+}
+
 //____________________________________________________________ ActorRef
 
 ActorRef::ActorRef(UidType id) : _id(id) {}
@@ -220,7 +224,7 @@ void Mailbox::handleMessages() {
         dequeue(rxdEnvelope); // load envelope and payload
         rxdEnvelope.getHeader();
         ActorContext* context = ActorContext::context(rxdEnvelope.receiver);
-        if (context) {
+        if (context && context->mailbox() == *this) {
             context->receive().handle(rxdEnvelope);
         } else {
             WARN(" unknown destination ref %d ! trying remote. ",
@@ -236,7 +240,7 @@ LinkedList<Mailbox*>& Mailbox::mailboxes() { return _mailboxes; }
 //
 ActorSystem::ActorSystem(const char* name)
     : _name(name), _defaultMailbox(defaultMailbox),
-      _deadLetterMailbox(deadLetterMailbox) {}
+      _deadLetterMailbox(deadLetterMailbox),_defaultDispatcher(defaultDispatcher) {}
 
 UidType ActorSystem::uniqueId(const char* name) {
     std::string s, t;
@@ -400,6 +404,8 @@ const char* ActorCell::path() { return _id.label(); }
 
 Mailbox& ActorCell::mailbox() { return _mailbox; }
 
+void ActorCell::mailbox(Mailbox& mailbx) { _mailbox = mailbx; }
+
 ActorRef ActorCell::self() { return _self; }
 
 void ActorCell::self(ActorRef& ref) {
@@ -467,17 +473,54 @@ class DeadLetterActor : public AbstractActor {
     }
 } deadLetterActor;
 
+MessageDispatcher::MessageDispatcher(){};
+
+void MessageDispatcher::attach(Mailbox& mailbox) { _mailboxes.add(&mailbox); }
+void MessageDispatcher::attach(ActorCell& cell) { _actorCells.add(&cell); }
+void MessageDispatcher::execute() {
+    Mailbox* mailbox;
+    ActorContext* actorContext;
+    Timer* timer;
+
+    while (true) {
+        mailbox =
+            _mailboxes.findFirst([](Mailbox* mb) { return mb->hasMessages(); });
+        if (mailbox)
+            mailbox->handleMessages();
+        else
+            break;
+    }
+    while (true) {
+        actorContext =
+            ActorContext::actorContexts().findFirst([&timer](ActorContext* ac) {
+                if (ac->hasTimers() &&
+                    (timer = ac->timers().findNextTimeout()) &&
+                    (timer->expiresAt() < Sys::millis())) {
+                    timer->reload(); // retrigger now message will be send
+                    return true;
+                };
+                return false;
+            });
+        if (actorContext) {
+            Envelope timerExpired(NoSender, actorContext->self(), TimerExpired);
+            timerExpired.message.addf("2", timer->key());
+            actorContext->self().tell(NoSender, timerExpired);
+        };
+    }
+}
+
 void loop() {
     Mailbox* mailbox;
     ActorContext* actorContext;
     Timer* timer;
+
     mailbox = Mailbox::mailboxes().findFirst(
         [](Mailbox* mb) { return mb->hasMessages(); });
     if (mailbox)
         mailbox->handleMessages();
+
     actorContext =
         ActorContext::actorContexts().findFirst([&timer](ActorContext* ac) {
-            //            Timer* timer;
             if (ac->hasTimers() && (timer = ac->timers().findNextTimeout()) &&
                 (timer->expiresAt() < Sys::millis())) {
                 timer->reload(); // retrigger now message will be send

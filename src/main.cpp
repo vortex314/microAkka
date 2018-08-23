@@ -1,4 +1,5 @@
 #include "Akka.h"
+#include <MqttBridge.h>
 
 Log logger(1024);
 
@@ -118,8 +119,7 @@ uint32_t millisleep(uint32_t msec) {
 Mailbox defaultMailbox("default", 20000, 1000);
 Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
 Mailbox remoteMailbox("$remote", 20000, 1000);
-
-;
+MessageDispatcher defaultDispatcher;
 
 extern void loop();
 
@@ -128,8 +128,14 @@ int main() {
     INFO(" starting microAkka test ");
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
+    ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>("mqttBridge");
     ActorRef anchor =
         actorSystem.actorFor("mqtt://limero.ddns.net:1883/dwm1000");
+    defaultDispatcher.attach(defaultMailbox);
+    defaultDispatcher.attach(remoteMailbox);
+    defaultDispatcher.attach(*ActorContext::context(sender));
+    defaultDispatcher.attach(*ActorContext::context(mqttBridge));
+
     while (true) {
         loop();
         millisleep(10);

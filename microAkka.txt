@@ -1,1 +1,1 @@
-./Debug/src_Akka.cpp.o ./Debug/src_Uid.cpp.o ./Debug/src_main.cpp.o ./Debug/src_Sys.cpp.o
+./Debug/src_Akka.cpp.o ./Debug/src_main.cpp.o ./Debug/src_Uid.cpp.o ./Debug/src_MqttBridge.cpp.o ./Debug/src_Linux.cpp.o ./Debug/src_Sys.cpp.o

@@ -16,6 +16,10 @@
  // Copyright   : Enjoy teh source
  // Description : Akka alike framework in C++ for embedded systems : low RAM
  //
+ //
+
+tell => mailbox == N = 1 ==> dispatcher =1toN=> actorcells
+
  // MQTT convention : src/DEVICE/ACTOR/MSGCLASS for events
  // or dst/DEVICE2/ACTOR2/MSGCLASS2 mailbox with sender==DEVICE1/ACTOR1 ,
  // dst/DEVICE2/ACTOR2/DEVICE1/ACTOR1/MSGCLASS
@@ -85,7 +89,7 @@ typedef void (*MsgHandler)(void);
 class Envelope;
 class Receiver;
 class Mailbox;
-class Dispatcher;
+class MessageDispatcher;
 class AbstractActor;
 class ActorContext;
 class ActorRef;
@@ -118,6 +122,7 @@ extern Mailbox remoteMailbox;
 extern ActorMsgBus bus;
 extern MsgClass ReceiveTimeout;
 extern MsgClass TimerExpired;
+extern MessageDispatcher defaultDispatcher;
 
 class UidType {
     uid_type _id;
@@ -200,13 +205,16 @@ class Actor {
 };
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
-    LinkedList<Mailbox&> _mailboxes;
+    LinkedList<Mailbox*> _mailboxes;
+    LinkedList<ActorCell*> _actorCells;
 
   public:
-    void addMailbox(Mailbox&);
+    MessageDispatcher();
+    void attach(Mailbox&);
+    void detach(Mailbox&);
     void attach(ActorCell&);
     void detach(ActorCell&);
-    //   void execute (Runnable&);
+    void execute();
     void resume(ActorCell&);
     void suspend(ActorCell&);
     void handle(Envelope&);
@@ -232,6 +240,7 @@ class AbstractActor : public Actor {
     ActorContext& context();
     ActorSystem& system();
     void system(ActorSystem* sys);
+    void withDispatcher(MessageDispatcher& dispatcher);
 
     ActorRef self();
     ActorRef sender();
@@ -331,6 +340,7 @@ class ActorSystem {
     const char* _name;
     Mailbox& _defaultMailbox;
     Mailbox& _deadLetterMailbox;
+    MessageDispatcher& _defaultDispatcher;
 
   public:
     ActorSystem(const char* name);
@@ -361,6 +371,7 @@ class ActorSystem {
             new ActorContext(id, *actorRef, *actor, *this, _defaultMailbox,
                              Receive::nullReceive);
         actor->context(context);
+        actor->withDispatcher(_defaultDispatcher);
         context->receive(actor->createReceive());
         INFO(" new actor '%s' created", actorRef->path());
         actor->preStart();
@@ -407,10 +418,9 @@ class Mailbox {
     void dequeue(Envelope& msg);
     void handleMessage(Envelope& msg);
     void handleMessages();
+    bool operator==(Mailbox& other) { return strcmp(_name, other._name) == 0; }
     static LinkedList<Mailbox*>& mailboxes();
 };
-
-
 
 //_____________________________________________________________________ Receiver
 //
