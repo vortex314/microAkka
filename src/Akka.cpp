@@ -31,7 +31,6 @@ using namespace std;
 //_____________________________________________- STATIC
 
 MsgClass AnyClass("$ANY");
-Receive Receive::nullReceive;
 ActorMsgBus bus;
 Mailbox deadLetterMailbox("deadletterMailbox", 1, 100);
 ActorSystem defaultActorSystem("system");
@@ -39,6 +38,7 @@ MsgClass ReceiveTimeout("ReceiveTimeout");
 MsgClass TimerExpired("TimerExpired");
 ActorRef NoSender("NoSender");
 ActorRef AnyActor("AnyActor");
+Envelope NoMessage(NoSender, NoSender, "");
 
 typedef void (*MsgHandler)(void);
 
@@ -65,20 +65,11 @@ AbstractActor::~AbstractActor() {}
 
 void AbstractActor::context(ActorContext* ctx) { _context = ctx; }
 
-ActorRef AbstractActor::self() {
-    return _context->self();
-    //	return ActorContext::context(this).self();
-}
+ActorRef AbstractActor::self() { return _context->self(); }
 
-Receive& AbstractActor::receiveBuilder() {
-    //	context().receive(*(new Receive()));
-    return context().receive();
-}
+Receive& AbstractActor::receiveBuilder() { return context().receive(); }
 
-ActorContext& AbstractActor::context() {
-    return *_context;
-    //	return ActorContext::context(this);
-}
+ActorContext& AbstractActor::context() { return *_context; }
 
 void AbstractActor::preStart() {}
 
@@ -88,9 +79,7 @@ void AbstractActor::unhandled(Envelope& msg) {
     INFO("unhandled message for Actor : %s ", self().path());
 }
 
-ActorRef AbstractActor::sender() {
-    return context().mailbox().rxdEnvelope.sender;
-}
+ActorRef AbstractActor::sender() { return context().sender(); }
 
 TimerScheduler& AbstractActor::timers() { return context().timers(); }
 
@@ -117,7 +106,7 @@ Mailbox& ActorRef::mailbox() {
     if (context)
         return context->mailbox();
     else
-        return deadLetterMailbox;
+        return remoteMailbox; // no local context found
 }
 
 /*
@@ -126,15 +115,14 @@ Mailbox& ActorRef::mailbox() {
  }
  */
 void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
-
-    Mailbox& srcMailbox = src.mailbox();
-    Mailbox& dstMailbox = mailbox();
+    Envelope env(1024);
+    Mailbox& mb = mailbox();
     va_list args;
     va_start(args, fmt);
-    srcMailbox.txdEnvelope.setHeader(src, *this, cls).message.vaddf(fmt, args);
+    env.setHeader(src, *this, cls).message.vaddf(fmt, args);
     va_end(args);
 
-    dstMailbox.enqueue(srcMailbox.txdEnvelope);
+    mb.enqueue(env);
 }
 
 void ActorRef::tell(ActorRef sender, Envelope& envelope) {
@@ -227,11 +215,10 @@ void Mailbox::handleMessages() {
         if (context && context->mailbox() == *this) {
             context->receive().handle(rxdEnvelope);
         } else {
-            WARN(" unknown destination ref %d ! trying remote. ",
-                 rxdEnvelope.receiver.id());
+            INFO(" no Receive found  %s->%s:%s ", rxdEnvelope.sender.path(),
+                 rxdEnvelope.receiver.path(), rxdEnvelope.msgClass.name());
         }
     }
-    // TODO handle timeouts
 }
 
 LinkedList<Mailbox*>& Mailbox::mailboxes() { return _mailboxes; }
@@ -240,7 +227,8 @@ LinkedList<Mailbox*>& Mailbox::mailboxes() { return _mailboxes; }
 //
 ActorSystem::ActorSystem(const char* name)
     : _name(name), _defaultMailbox(defaultMailbox),
-      _deadLetterMailbox(deadLetterMailbox),_defaultDispatcher(defaultDispatcher) {}
+      _deadLetterMailbox(deadLetterMailbox),
+      _defaultDispatcher(defaultDispatcher) {}
 
 UidType ActorSystem::uniqueId(const char* name) {
     std::string s, t;
@@ -397,7 +385,7 @@ void Receive::handle(Envelope& envelope) {
 //
 
 ActorCell::ActorCell(UidType id, Mailbox& mailbox, ActorRef& self)
-    : _id(id), _mailbox(mailbox), _self(self) {}
+    : _id(id), _mailbox(mailbox), _self(self), _currentMessage(NoMessage) {}
 UidType ActorCell::id() { return _id; }
 
 const char* ActorCell::path() { return _id.label(); }
@@ -438,6 +426,13 @@ ActorContext& ActorContext::context(AbstractActor* actor) {
         [actor](ActorContext* ctx) { return &ctx->_actor == actor; });
 }
 
+void ActorContext::invoke(Envelope& msg) {
+    _currentMessage = msg;
+    _receive.handle(msg);
+}
+
+ActorRef ActorContext::sender() { return _currentMessage.sender; }
+
 Receive& ActorContext::receive() { return _receive; }
 
 void ActorContext::receive(Receive& r) { _receive = r; }
@@ -473,21 +468,35 @@ class DeadLetterActor : public AbstractActor {
     }
 } deadLetterActor;
 
-MessageDispatcher::MessageDispatcher(){};
+MessageDispatcher::MessageDispatcher() { _unhandledContext = 0; };
 
 void MessageDispatcher::attach(Mailbox& mailbox) { _mailboxes.add(&mailbox); }
 void MessageDispatcher::attach(ActorCell& cell) { _actorCells.add(&cell); }
+void MessageDispatcher::unhandled(ActorContext* context) {
+    _unhandledContext = context;
+};
 void MessageDispatcher::execute() {
     Mailbox* mailbox;
     ActorContext* actorContext;
     Timer* timer;
+    static Envelope rxdEnvelope(1024);
 
     while (true) {
         mailbox =
             _mailboxes.findFirst([](Mailbox* mb) { return mb->hasMessages(); });
-        if (mailbox)
-            mailbox->handleMessages();
-        else
+        if (mailbox) {
+            mailbox->dequeue(rxdEnvelope); // load envelope and payload
+            rxdEnvelope.getHeader();
+            ActorContext* context = ActorContext::context(rxdEnvelope.receiver);
+            if (context) {
+                context->invoke(rxdEnvelope);
+            } else if (_unhandledContext) {
+                _unhandledContext->invoke(rxdEnvelope);
+            } else {
+                INFO(" no Receive found  %s->%s:%s ", rxdEnvelope.sender.path(),
+                     rxdEnvelope.receiver.path(), rxdEnvelope.msgClass.name());
+            }
+        } else
             break;
     }
     while (true) {
@@ -505,32 +514,10 @@ void MessageDispatcher::execute() {
             Envelope timerExpired(NoSender, actorContext->self(), TimerExpired);
             timerExpired.message.addf("2", timer->key());
             actorContext->self().tell(NoSender, timerExpired);
-        };
+        } else {
+            break;
+        }
     }
 }
 
-void loop() {
-    Mailbox* mailbox;
-    ActorContext* actorContext;
-    Timer* timer;
-
-    mailbox = Mailbox::mailboxes().findFirst(
-        [](Mailbox* mb) { return mb->hasMessages(); });
-    if (mailbox)
-        mailbox->handleMessages();
-
-    actorContext =
-        ActorContext::actorContexts().findFirst([&timer](ActorContext* ac) {
-            if (ac->hasTimers() && (timer = ac->timers().findNextTimeout()) &&
-                (timer->expiresAt() < Sys::millis())) {
-                timer->reload(); // retrigger now message will be send
-                return true;
-            };
-            return false;
-        });
-    if (actorContext) {
-        Envelope timerExpired(NoSender, actorContext->self(), TimerExpired);
-        timerExpired.message.addf("2", timer->key());
-        actorContext->self().tell(NoSender, timerExpired);
-    };
-}
+void arduinoLoop() { defaultDispatcher.execute(); }

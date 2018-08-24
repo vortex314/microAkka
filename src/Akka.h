@@ -115,6 +115,7 @@ typedef std::function<bool(Envelope&)> MessageMatcher;
 extern ActorRef AnyActor;
 extern ActorRef NoSender;
 extern MsgClass AnyClass;
+extern Envelope NoMessage;  // to handle references cleanly
 
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
@@ -185,7 +186,6 @@ class Receive {
     LinkedList<Receiver*> _receivers;
 
   public:
-    static Receive nullReceive;
     Receive();
     Receive& match(MsgClass msgClass, MessageHandler doSome);
     Receive& build();
@@ -207,6 +207,7 @@ class Actor {
 class MessageDispatcher {
     LinkedList<Mailbox*> _mailboxes;
     LinkedList<ActorCell*> _actorCells;
+    ActorContext* _unhandledContext;
 
   public:
     MessageDispatcher();
@@ -218,6 +219,7 @@ class MessageDispatcher {
     void resume(ActorCell&);
     void suspend(ActorCell&);
     void handle(Envelope&);
+    void unhandled(ActorContext* );
 };
 //__________________________________________________________ CoRoutineDispatcher
 //
@@ -293,6 +295,7 @@ class ActorCell {
     const char* path();
     UidType id();
     void id(UidType id);
+    Envelope& _currentMessage;
     /*   ActorContext* context();
        void context(ActorContext*);*/
 };
@@ -332,6 +335,7 @@ class ActorContext : public ActorCell {
     TimerScheduler& timers();
     bool hasTimers();
     static LinkedList<ActorContext*>& actorContexts();
+    void invoke(Envelope& );
 };
 
 //_____________________________________________________________________
@@ -368,8 +372,7 @@ class ActorSystem {
         UidType id = ActorSystem::uniqueId(name);
         ActorRef* actorRef = new ActorRef(id);
         ActorContext* context =
-            new ActorContext(id, *actorRef, *actor, *this, _defaultMailbox,
-                             Receive::nullReceive);
+            new ActorContext(id, *actorRef, *actor, *this, _defaultMailbox,*(new Receive()));
         actor->context(context);
         actor->withDispatcher(_defaultDispatcher);
         context->receive(actor->createReceive());

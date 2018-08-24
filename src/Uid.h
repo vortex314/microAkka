@@ -39,6 +39,7 @@ class Uid {
 	const char* _label;
 public:
 	Uid(const char* label);
+	Uid(uid_type id,const char* label);
 	uid_type id();
 	const char* label();
 	static const char* label(uid_type id);

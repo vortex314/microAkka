@@ -45,6 +45,7 @@ class Sender : public AbstractActor {
     uint64_t startTime;
     Str str;
     ActorRef echo;
+    ActorRef anchorSystem;
 
   public:
     Sender() : startTime(0), str(80) {}
@@ -53,6 +54,7 @@ class Sender : public AbstractActor {
     void preStart() {
         echo = actorSystem.actorOf<Echo>("echo");
         timers().startPeriodicTimer("STARTER", TimerExpired, 5000);
+        anchorSystem = actorSystem.actorFor("anchor/system");
     }
 
     void finished() {
@@ -84,6 +86,7 @@ class Sender : public AbstractActor {
                        INFO(" timer expired ! %s ", key.label());
                        //                       timers().cancel("STARTER");
                        echo.tell(self(), DO_ECHO, "us", 0, "hi!");
+                       anchorSystem.tell(self(), "reset", "i",1);
                    })
             .build();
     }
@@ -129,15 +132,14 @@ int main() {
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>("mqttBridge");
-    ActorRef anchor =
-        actorSystem.actorFor("mqtt://limero.ddns.net:1883/dwm1000");
+
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
     defaultDispatcher.attach(*ActorContext::context(sender));
-    defaultDispatcher.attach(*ActorContext::context(mqttBridge));
+    defaultDispatcher.unhandled(ActorContext::context(mqttBridge));
 
     while (true) {
-        loop();
+        defaultDispatcher.execute();
         millisleep(10);
     };
 
