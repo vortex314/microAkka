@@ -8,6 +8,9 @@
 #ifndef SRC_AKKA_H_
 #define SRC_AKKA_H_
 #include <stdio.h>
+#include <Log.h>
+#include <Str.h>
+#include <Uid.h>
 
 /*============================================================================
  // Name        : akkaMicro.cpp
@@ -289,8 +292,8 @@ class ActorCell : public UidType {
 };
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorCell {
-    const AbstractActor& _actor;
-    const ActorSystem& _system;
+     AbstractActor& _actor;
+     ActorSystem& _system;
     Receive* _receive;
     uint32_t _inactivityPeriod;
     uint64_t _receiveTimeout;
@@ -314,7 +317,7 @@ class ActorContext : public ActorCell {
     void cancelReceiveTimeout();
     void setReceiveTimeout(uint32_t msec);
 
-    ActorSystem& system();
+     ActorSystem& system();
     ActorRef actorFor(const char* name);
     void system(ActorSystem&);
 
@@ -328,7 +331,7 @@ class ActorContext : public ActorCell {
 };
 
 //___________________________________________________________ ActorSystem
-class ActorSystem : UidType {
+class ActorSystem : public UidType {
     const char* _name;
     Mailbox* _defaultMailbox;
     Mailbox* _deadLetterMailbox;
@@ -371,12 +374,15 @@ class Envelope {
 
     Envelope(uint32_t size);
     Envelope(ActorRef snd, ActorRef rcv, MsgClass clz);
+    
     Envelope(ActorRef snd, ActorRef rcv, MsgClass clz, uint32_t size);
     Envelope& header(ActorRef snd, ActorRef rcv, MsgClass clz);
+    Envelope& header(ActorRef snd, ActorRef rcv, MsgClass clz,uint16_t id);
     //    bool getHeader();
     static uint32_t newId();
     bool scanf(const char* fmt, ...);
     void addf(const char* fmt, ...);
+    void vaddf(const char* fmt, va_list);
     void copyMessage(Envelope& dst);
     bool deserialize(Cbor& message);
     void serialize(Cbor& message);

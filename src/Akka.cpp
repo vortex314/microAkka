@@ -24,9 +24,6 @@ using namespace std;
 #include <Cbor.h>
 #include <CborQueue.h>
 #include <LinkedList.hpp>
-#include <Log.h>
-#include <Str.h>
-#include <Uid.h>
 
 //_____________________________________________- STATIC
 
@@ -52,9 +49,9 @@ const char* UidType::label() { return UID.label(_id); }
 
 bool UidType::hasLabel() { return UID.find(_id) != 0; }
 
-uid_type UidType::id(){ return _id;}
+uid_type UidType::id() { return _id; }
 
-void UidType::id(uid_type id) { _id=id; }
+void UidType::id(uid_type id) { _id = id; }
 
 //_____________________________________________________________________
 // Actor
@@ -117,7 +114,7 @@ void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
     Mailbox& mb = mailbox();
     va_list args;
     va_start(args, fmt);
-    env.header(src, *this, cls).addf(fmt, args);
+    env.header(src, *this, cls).vaddf(fmt, args);
     va_end(args);
 
     mb.enqueue(env);
@@ -142,8 +139,7 @@ Envelope::Envelope(uint32_t size)
       message(size) {}
 
 Envelope::Envelope(ActorRef snd, ActorRef rcv, MsgClass clz)
-    : sender(snd), receiver(rcv), msgClass(clz), id(newId()), message(32) {
-}
+    : sender(snd), receiver(rcv), msgClass(clz), id(newId()), message(32) {}
 
 uid_type Envelope::idCounter = 0;
 
@@ -157,6 +153,15 @@ Envelope& Envelope::header(ActorRef snd, ActorRef rcv, MsgClass clz) {
     return *this;
 }
 
+Envelope& Envelope::header(ActorRef snd, ActorRef rcv, MsgClass clz,
+                           uint16_t i) {
+    sender = snd;
+    receiver = rcv;
+    msgClass = clz;
+    id = i;
+    return *this;
+}
+
 bool Envelope::scanf(const char* fmt, ...) {
     bool b = false;
     va_list args;
@@ -164,6 +169,11 @@ bool Envelope::scanf(const char* fmt, ...) {
     b = message.vscanf(fmt, args);
     va_end(args);
     return b;
+}
+
+void Envelope::vaddf(const char* fmt, va_list args) {
+
+    message.vaddf(fmt, args);
 }
 
 void Envelope::addf(const char* fmt, ...) {
@@ -186,9 +196,7 @@ typedef std::function<void(Envelope&)> MessageHandler;
 MessageQueue::MessageQueue(int queueSize, int messageSize)
     : _cborQueue(queueSize), _cbor(messageSize) {}
 
-bool MessageQueue::hasMessages(){
-    return _cborQueue.hasData();
-}
+bool MessageQueue::hasMessages() { return _cborQueue.hasData(); }
 
 void MessageQueue::enqueue(Envelope& msg) {
     _cbor.clear();
@@ -205,13 +213,13 @@ void MessageQueue::dequeue(Envelope& msg) {
     uid_type uid;
     _cbor.get(uid);
     msg.receiver.id(uid);
-     _cbor.get(uid);
+    _cbor.get(uid);
     msg.sender.id(uid);
-     _cbor.get(uid);
+    _cbor.get(uid);
     msg.msgClass.id(uid);
     _cbor.get(msg.id);
     msg.message.clear();
-    while ( _cbor.hasData() ) {
+    while (_cbor.hasData()) {
         msg.message.write(_cbor.read());
     }
 }
@@ -221,7 +229,7 @@ void MessageQueue::dequeue(Envelope& msg) {
 LinkedList<Mailbox*> Mailbox::_mailboxes;
 
 Mailbox::Mailbox(const char* name, uint32_t queueSize, uint32_t messageSize)
-    : MessageQueue(queueSize, messageSize),_name(name) {
+    : MessageQueue(queueSize, messageSize), _name(name) {
     _mailboxes.add(this);
 }
 
@@ -264,10 +272,7 @@ Receiver::Receiver(MsgClass msgClass, MessageMatcher matcher,
 Receiver::Receiver(MsgClass msgClass, MessageHandler handler)
     : _msgClass(msgClass), _matcher(alwaysTrue), _handler(handler) {}
 
-inline void Receiver::onMessage(Envelope& msg) {
-    msg.message.offset(8);
-    _handler(msg);
-}
+inline void Receiver::onMessage(Envelope& msg) { _handler(msg); }
 bool Receiver::match(Envelope& msg) {
     if (_msgClass == msg.msgClass || _msgClass == AnyClass)
         return (_matcher(msg));
@@ -380,7 +385,7 @@ Receive& Receive::match(MsgClass msgClass, MessageHandler doSome) {
 Receive& Receive::build() { return *this; }
 
 void Receive::onMessage(Envelope& envelope) {
-    _receivers.forEach([&envelope](Receiver* receiver) {
+    _receivers.forEach([&](Receiver* receiver) {
         if (receiver->match(envelope)) {
             envelope.message.offset(0);
             receiver->onMessage(envelope);
@@ -392,7 +397,7 @@ void Receive::onMessage(Envelope& envelope) {
 //
 
 ActorCell::ActorCell(UidType id, Mailbox& mailbox, ActorRef& self)
-    :UidType(id), _mailbox(&mailbox), _self(self){}
+    : UidType(id), _mailbox(&mailbox), _self(self) {}
 
 const char* ActorCell::path() { return label(); }
 
@@ -415,7 +420,7 @@ ActorContext::ActorContext(UidType id, ActorRef self, AbstractActor& actor,
                            ActorSystem& system, Mailbox& mailbox,
                            Receive& receive)
     : ActorCell(id, mailbox, self), _actor(actor), _system(system),
-      _receive(&receive), _currentMessage(&NoMessage)  {
+      _receive(&receive), _currentMessage(&NoMessage) {
     _timers = 0;
     _receiveTimeout = UINT64_MAX;
     _inactivityPeriod = UINT32_MAX;
@@ -440,6 +445,8 @@ void ActorContext::invoke(Envelope& msg) {
 ActorRef ActorContext::sender() { return _currentMessage->sender; }
 
 Receive& ActorContext::receive() { return *_receive; }
+
+ActorSystem& ActorContext::system() { return _system; }
 
 void ActorContext::receive(Receive& r) { _receive = &r; }
 
@@ -486,43 +493,36 @@ void MessageDispatcher::execute() {
     ActorContext* actorContext;
     Timer* timer;
     static Envelope rxdEnvelope(1024);
-//    static Envelope timerExpired(NoSender, NoSender, TimerExpired)
+    //    static Envelope timerExpired(NoSender, NoSender, TimerExpired)
 
-    while (true) {
-        mailbox =
-            _mailboxes.findFirst([](Mailbox* mb) { return mb->hasMessages(); });
-        if (mailbox) {
-            mailbox->dequeue(rxdEnvelope); // load envelope and payload
-            ActorContext* context = ActorContext::context(rxdEnvelope.receiver);
-            if (context) {
-                context->invoke(rxdEnvelope);
-            } else if (_unhandledContext) {
-                _unhandledContext->invoke(rxdEnvelope);
-            } else {
-                INFO(" no Receive found  %s->%s:%s ", rxdEnvelope.sender.path(),
-                     rxdEnvelope.receiver.path(), rxdEnvelope.msgClass.label());
-            }
-        } else
-            break;
-    }
-    while (true) {
-        actorContext =
-            ActorContext::actorContexts().findFirst([&timer](ActorContext* ac) {
-                if (ac->hasTimers() &&
-                    (timer = ac->timers().findNextTimeout()) &&
-                    (timer->expiresAt() < Sys::millis())) {
-                    timer->reload(); // retrigger now message will be send
-                    return true;
-                };
-                return false;
-            });
-        if (actorContext) {
-            Envelope timerExpired(NoSender, actorContext->self(), TimerExpired);
-            timerExpired.message.addf("i", timer->key());
-            actorContext->self().tell(NoSender, timerExpired);
+    mailbox =
+        _mailboxes.findFirst([](Mailbox* mb) { return mb->hasMessages(); });
+    if (mailbox) {
+        mailbox->dequeue(rxdEnvelope); // load envelope and payload
+        ActorContext* context = ActorContext::context(rxdEnvelope.receiver);
+        if (context) {
+            context->invoke(rxdEnvelope);
+        } else if (_unhandledContext) {
+            _unhandledContext->invoke(rxdEnvelope);
         } else {
-            break;
+            INFO(" no Receive found  %s->%s:%s ", rxdEnvelope.sender.path(),
+                 rxdEnvelope.receiver.path(), rxdEnvelope.msgClass.label());
         }
+    }
+
+    actorContext =
+        ActorContext::actorContexts().findFirst([&timer](ActorContext* ac) {
+            if (ac->hasTimers() && (timer = ac->timers().findNextTimeout()) &&
+                (timer->expiresAt() < Sys::millis())) {
+                timer->reload(); // retrigger now message will be send
+                return true;
+            };
+            return false;
+        });
+    if (actorContext) {
+        Envelope timerExpired(NoSender, actorContext->self(), TimerExpired);
+        timerExpired.message.addf("i", timer->key());
+        actorContext->self().tell(NoSender, timerExpired);
     }
 }
 

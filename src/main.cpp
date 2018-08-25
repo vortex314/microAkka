@@ -3,7 +3,7 @@
 
 Log logger(1024);
 
-#define MAX_MESSAGES 1000
+#define MAX_MESSAGES 100000000
 
 // const static MsgClass DO_ECHO =Uid::hash("DO_ECHO");
 const static MsgClass DONE_ECHO("DONE_ECHO");
@@ -53,7 +53,7 @@ class Sender : public AbstractActor {
 
     void preStart() {
         echo = actorSystem.actorOf<Echo>("echo");
-        timers().startPeriodicTimer("STARTER", TimerExpired, 5000);
+        timers().startPeriodicTimer("PERIODIC_TIMER_1", TimerExpired, 5000);
         anchorSystem = actorSystem.actorFor("anchor/system");
     }
 
@@ -88,7 +88,7 @@ class Sender : public AbstractActor {
                        INFO(" timer expired ! %s ", key.label());
                        //                       timers().cancel("STARTER");
                        echo.tell(self(), DO_ECHO, "us", 0, "hi!");
-//                       anchorSystem.tell(self(), "reset", "i",1);
+                       anchorSystem.tell(self(), "reset", "i",1);
                    })
             .build();
     }
@@ -108,11 +108,6 @@ class Sender : public AbstractActor {
     }
 };
 
-class RemoteMqtt : public AbstractActor {
-  public:
-    RemoteMqtt() {}
-};
-
 uint32_t millisleep(uint32_t msec) {
     struct timespec ts;
     ts.tv_sec = msec / 1000;
@@ -125,8 +120,6 @@ Mailbox defaultMailbox("default", 20000, 1000);
 Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
 Mailbox remoteMailbox("$remote", 20000, 1000);
 MessageDispatcher defaultDispatcher;
-
-extern void loop();
 
 int main() {
     Sys::init();
@@ -144,23 +137,4 @@ int main() {
         defaultDispatcher.execute();
         millisleep(10);
     };
-
-    //	ActorRef master =
-    // defaultActorSystem.actorFor("mqtt://test.mosquitto.org:1883/anchor3/system");
-
-    //	master.tell(sender,"alive","b",true);
-    /*
-        bus.subscribe(echo, *(new SenderMsgClass(sender, "ikke")));
-
-        for (int i = 0; i < 10; i++) {
-            Envelope env(10);
-            env.setHeader(sender, AnyActor, ("ikke"));
-            bus.publish(env);
-
-            //		echo.tell(sender, DO_ECHO, "us", 0, "hello World");
-
-            sender.mailbox().handleMessages();
-        }*/
-    //	actorSystem.loop();
-    return 0;
 }
