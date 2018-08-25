@@ -115,7 +115,7 @@ typedef std::function<bool(Envelope&)> MessageMatcher;
 extern ActorRef AnyActor;
 extern ActorRef NoSender;
 extern MsgClass AnyClass;
-extern Envelope NoMessage;  // to handle references cleanly
+extern Envelope NoMessage; // to handle references cleanly
 
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
@@ -135,20 +135,18 @@ class UidType {
     const char* label(); // returns null if not found
     bool hasLabel();
     uid_type id();
+    void id(uid_type);
 };
 
-class MsgClass {
-    UidType _id;
+class MsgClass : public UidType {
 
   public:
-    MsgClass(const char* name) : _id(name) {}
-    const char* name() { return _id.label(); }
-    inline bool operator==(MsgClass m) { return m._id == _id; }
+    MsgClass(const char* name) : UidType(name) {}
 };
 //_____________________________________________________________________ Timer
 //
-class Timer {
-    UidType _key;
+class Timer : public UidType {
+
     bool _active;
     bool _periodic;
     uint64_t _expiresAt;
@@ -189,20 +187,10 @@ class Receive {
     Receive();
     Receive& match(MsgClass msgClass, MessageHandler doSome);
     Receive& build();
-    void handle(Envelope&);
+    void onMessage(Envelope&);
+    Receive& orElse(Receive&);
 };
 
-//_____________________________________________________________________ Actor
-//
-class Actor {
-  public:
-    virtual ~Actor();
-    virtual ActorRef self() = 0;
-    virtual ActorRef sender() = 0;
-    virtual void preStart() = 0;
-    virtual void postStop() = 0;
-    virtual void unhandled(Envelope& msg) = 0;
-};
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
     LinkedList<Mailbox*> _mailboxes;
@@ -219,13 +207,23 @@ class MessageDispatcher {
     void resume(ActorCell&);
     void suspend(ActorCell&);
     void handle(Envelope&);
-    void unhandled(ActorContext* );
+    void unhandled(ActorContext*);
 };
 //__________________________________________________________ CoRoutineDispatcher
 //
 class CoRoutineDispatcher : public MessageDispatcher {};
-//_____________________________________________________________________
-// AbstractActor
+//_____________________________________________________________________ Actor
+//
+class Actor {
+  public:
+    virtual ~Actor();
+    virtual ActorRef self() = 0;
+    virtual ActorRef sender() = 0;
+    virtual void preStart() = 0;
+    virtual void postStop() = 0;
+    virtual void unhandled(Envelope& msg) = 0;
+};
+//_______________________________________________________________ AbstractActor
 //
 class AbstractActor : public Actor {
 
@@ -256,18 +254,12 @@ class AbstractActor : public Actor {
     TimerScheduler& timers();
 };
 //__________________________________________________________ ActorRef
-class ActorRef {
-    UidType _id;
+class ActorRef : public UidType {
 
   public:
     ActorRef();
     ActorRef(UidType id);
-    //	ActorRef(UidType id, Mailbox*);
 
-    UidType id();
-    void id(UidType);
-
-    bool operator==(ActorRef&);
     //	void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
     void forward(Envelope& msg);
     void tell(ActorRef sender, Envelope& message);
@@ -275,13 +267,11 @@ class ActorRef {
     Mailbox& mailbox();
     ActorRef& withMailbox();
     const char* path();
-    void path(const char* p);
 };
 
 //________________________________________________________________ ActorCell
-class ActorCell {
-    UidType _id;
-    Mailbox& _mailbox;
+class ActorCell : public UidType {
+    Mailbox* _mailbox;
     ActorRef _self;
     bool _isLocal;
     ActorContext* _context;
@@ -293,9 +283,7 @@ class ActorCell {
     void self(ActorRef&);
     ActorRef self();
     const char* path();
-    UidType id();
-    void id(UidType id);
-    Envelope& _currentMessage;
+
     /*   ActorContext* context();
        void context(ActorContext*);*/
 };
@@ -303,11 +291,12 @@ class ActorCell {
 class ActorContext : public ActorCell {
     const AbstractActor& _actor;
     const ActorSystem& _system;
-    Receive& _receive;
+    Receive* _receive;
     uint32_t _inactivityPeriod;
     uint64_t _receiveTimeout;
     bool _enable;
     TimerScheduler* _timers;
+    Envelope* _currentMessage;
 
     static LinkedList<ActorContext*> _actorContexts;
 
@@ -335,30 +324,19 @@ class ActorContext : public ActorCell {
     TimerScheduler& timers();
     bool hasTimers();
     static LinkedList<ActorContext*>& actorContexts();
-    void invoke(Envelope& );
+    void invoke(Envelope&);
 };
 
-//_____________________________________________________________________
-// ActorSystem
-class ActorSystem {
+//___________________________________________________________ ActorSystem
+class ActorSystem : UidType {
     const char* _name;
-    Mailbox& _defaultMailbox;
-    Mailbox& _deadLetterMailbox;
-    MessageDispatcher& _defaultDispatcher;
+    Mailbox* _defaultMailbox;
+    Mailbox* _deadLetterMailbox;
+    MessageDispatcher* _defaultDispatcher;
 
   public:
     ActorSystem(const char* name);
-    UidType uniqueId(
-        const char* name); // check existing path and create new if needed #seq
-                           //	Erc queue(Cbor& message);
-                           //	void registerActor(AbstractActor&);
-                           //	ActorRef addActor(AbstractActor& actor);
-                           //	AbstractActor* findActor(ActorRef);
-                           //	void deleteActor(ActorRef);
-                           //	void callHandlers(ActorRef src, MsgClass type);
-                           //	void loop();
-
-    //	void stop(ActorRef);
+    UidType uniqueId(const char* name);
 
     ActorRef actorFor(const char* address) {
         // TODO check local or remote
@@ -371,17 +349,16 @@ class ActorSystem {
         T* actor = new T();
         UidType id = ActorSystem::uniqueId(name);
         ActorRef* actorRef = new ActorRef(id);
-        ActorContext* context =
-            new ActorContext(id, *actorRef, *actor, *this, _defaultMailbox,*(new Receive()));
+        ActorContext* context = new ActorContext(
+            id, *actorRef, *actor, *this, *_defaultMailbox, *(new Receive()));
         actor->context(context);
-        actor->withDispatcher(_defaultDispatcher);
         context->receive(actor->createReceive());
         INFO(" new actor '%s' created", actorRef->path());
         actor->preStart();
         return *actorRef;
     }
 };
-//_____________________________________________________________________ Message
+//_____________________________________________________________________ Envelope
 class Envelope {
     static uid_type idCounter;
 
@@ -395,8 +372,8 @@ class Envelope {
     Envelope(uint32_t size);
     Envelope(ActorRef snd, ActorRef rcv, MsgClass clz);
     Envelope(ActorRef snd, ActorRef rcv, MsgClass clz, uint32_t size);
-    Envelope& setHeader(ActorRef snd, ActorRef rcv, MsgClass clz);
-    bool getHeader();
+    Envelope& header(ActorRef snd, ActorRef rcv, MsgClass clz);
+    //    bool getHeader();
     static uint32_t newId();
     bool scanf(const char* fmt, ...);
     void addf(const char* fmt, ...);
@@ -406,22 +383,31 @@ class Envelope {
     Str& toString(Str&);
 };
 
-//_____________________________________________________________________ Mailbox
-class Mailbox {
-    const char* _name;
+//_____________________________________________________________________
+// MessageQueue
+
+class MessageQueue {
     CborQueue _cborQueue;
+    Cbor _cbor;
+
+  public:
+    MessageQueue(int queueSize, int messageSize);
+    bool hasMessages();
+    void dequeue(Envelope&);
+    void enqueue(Envelope&);
+};
+
+//_____________________________________________________________________ Mailbox
+class Mailbox : public MessageQueue {
+    const char* _name;
     static LinkedList<Mailbox*> _mailboxes;
 
   public:
-    Envelope rxdEnvelope;
-    Envelope txdEnvelope;
     Mailbox(const char* name, uint32_t queueSize, uint32_t messageSize);
-    bool hasMessages();
-    void enqueue(Envelope& msg);
-    void dequeue(Envelope& msg);
-    void handleMessage(Envelope& msg);
-    void handleMessages();
-    bool operator==(Mailbox& other) { return strcmp(_name, other._name) == 0; }
+    //    void handleMessage(Envelope& msg);
+    //    void handleMessages();
+    //    bool operator==(Mailbox& other) { return strcmp(_name, other._name) ==
+    //    0; }
     static LinkedList<Mailbox*>& mailboxes();
 };
 
@@ -437,7 +423,7 @@ class Receiver {
     Receiver(MsgClass msgClass, MessageMatcher matcher, MessageHandler handler);
     Receiver(MsgClass msgClass, MessageHandler handler);
     bool match(Envelope& msg);
-    void handle(Envelope& msg);
+    void onMessage(Envelope& msg);
     const static bool alwaysTrue(Envelope&) { return true; }
     Str& toString(Str& s);
 };
@@ -495,9 +481,8 @@ class SenderMsgClass {
 class ActorMsgBus : public EventBus<Envelope&, ActorRef, SenderMsgClass> {
   public:
     void push(Envelope& envelope, ActorRef ref) {
-        ref.mailbox().txdEnvelope.setHeader(envelope.sender, ref,
-                                            envelope.msgClass);
-        ref.mailbox().enqueue(ref.mailbox().txdEnvelope);
+        envelope.receiver = ref;
+        ref.mailbox().enqueue(envelope);
     }
     SenderMsgClass classify(Envelope& envelope) {
         return *(new SenderMsgClass(envelope.sender, envelope.msgClass));

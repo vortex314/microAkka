@@ -50,13 +50,13 @@ Receive& MqttBridge::createReceive() {
         .match(AnyClass,
                [this](Envelope& msg) {
                    INFO(" message received %s:%s:%s in %s", msg.sender.path(),
-                        msg.receiver.path(), msg.msgClass.name(),
+                        msg.receiver.path(), msg.msgClass.label(),
                         context().self().path());
                    jsonBuffer.clear();
                    JsonArray& array = jsonBuffer.createArray();
                    array.add(msg.receiver.path());
                    array.add(msg.sender.path());
-                   array.add(msg.msgClass.name());
+                   array.add(msg.msgClass.label());
                    array.add(msg.id);
                    std::string topic="dst/";
                    topic += msg.receiver.path();

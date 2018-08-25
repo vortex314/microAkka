@@ -13,6 +13,7 @@
         "utility": "cpp",
         "*.tcc": "cpp",
         "unordered_map": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "tuple": "cpp"
     }
 }

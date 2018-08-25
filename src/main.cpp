@@ -3,7 +3,7 @@
 
 Log logger(1024);
 
-#define MAX_MESSAGES 1000000
+#define MAX_MESSAGES 1000
 
 // const static MsgClass DO_ECHO =Uid::hash("DO_ECHO");
 const static MsgClass DONE_ECHO("DONE_ECHO");
@@ -33,7 +33,7 @@ class Echo : public AbstractActor {
                    [this](Envelope& msg) {
                        INFO(" message received %s:%s:%s in %s",
                             msg.sender.path(), msg.receiver.path(),
-                            msg.msgClass.name(), context().self().path());
+                            msg.msgClass.label(), context().self().path());
                    })
             .build();
     }
@@ -82,11 +82,13 @@ class Sender : public AbstractActor {
             .match(TimerExpired,
                    [this](Envelope& msg) {
                        UidType key("");
-                       msg.scanf("2", &key);
+                       int k;
+                       msg.scanf("i", &k);
+                       key=k;
                        INFO(" timer expired ! %s ", key.label());
                        //                       timers().cancel("STARTER");
                        echo.tell(self(), DO_ECHO, "us", 0, "hi!");
-                       anchorSystem.tell(self(), "reset", "i",1);
+//                       anchorSystem.tell(self(), "reset", "i",1);
                    })
             .build();
     }
