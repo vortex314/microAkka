@@ -6,11 +6,11 @@ extern "C" {
 #include <Akka.h>
 #include <ArduinoJson.h>
 
-#define ADDRESS "tcp://test.mosquitto.org:1883"
-#define CLIENTID "microAkka"
+// #define ADDRESS "tcp://test.mosquitto.org:1883"
+//#define CLIENTID "microAkka"
 //#define TOPIC "dst/steer/system"
 //#define PAYLOAD "[\"pclat/aliveChecker\",1234,23,\"hello\"]"
-#define QOS 1
+#define QOS 0
 #define TIMEOUT 10000L
 
 const static MsgClass MQTT_PUBLISH_RCVD("MQTT_PUBLISH_RCVD");
@@ -21,9 +21,12 @@ class MqttBridge : public AbstractActor {
     MQTTAsync_responseOptions _opts;
     bool _connected;
     StaticJsonBuffer<2000> _jsonBuffer;
+    std::string _clientId;
+    std::string _address;
+    MQTTAsync_token _deliveredtoken;
 
   public:
-    MqttBridge();
+    MqttBridge(va_list args);
     ~MqttBridge();
     void preStart();
     Receive& createReceive();

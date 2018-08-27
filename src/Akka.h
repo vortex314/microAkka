@@ -7,10 +7,10 @@
 
 #ifndef SRC_AKKA_H_
 #define SRC_AKKA_H_
-#include <stdio.h>
 #include <Log.h>
 #include <Str.h>
 #include <Uid.h>
+#include <stdio.h>
 
 /*============================================================================
  // Name        : akkaMicro.cpp
@@ -51,6 +51,7 @@ tell => mailbox == N = 1 ==> dispatcher =1toN=> actorcells
  //                       -> Receive -> N Receiver ----> ( MsgClass,filter,
  method ) *						 -> ActorRef
  
+
 
  Mailbox -> dispatches message based on ActorRef destination , ActorRef points
  to Mailbox  , points to Receive active
@@ -130,6 +131,7 @@ extern MessageDispatcher defaultDispatcher;
 
 class UidType {
     uid_type _id;
+    const char* _name;
 
   public:
     UidType(const char* name); // will create entry
@@ -286,14 +288,11 @@ class ActorCell : public UidType {
     void self(ActorRef&);
     ActorRef self();
     const char* path();
-
-    /*   ActorContext* context();
-       void context(ActorContext*);*/
 };
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorCell {
-     AbstractActor& _actor;
-     ActorSystem& _system;
+    AbstractActor& _actor;
+    ActorSystem& _system;
     Receive* _receive;
     uint32_t _inactivityPeriod;
     uint64_t _receiveTimeout;
@@ -307,7 +306,7 @@ class ActorContext : public ActorCell {
 
   public:
     ActorContext(UidType id, ActorRef self, AbstractActor& actor,
-                 ActorSystem& system, Mailbox& mailbox, Receive& receive);
+                 ActorSystem& system, Mailbox& mailbox);
 
     static ActorContext& context(AbstractActor*);
     static ActorContext* context(ActorRef&);
@@ -317,7 +316,7 @@ class ActorContext : public ActorCell {
     void cancelReceiveTimeout();
     void setReceiveTimeout(uint32_t msec);
 
-     ActorSystem& system();
+    ActorSystem& system();
     ActorRef actorFor(const char* name);
     void system(ActorSystem&);
 
@@ -349,15 +348,19 @@ class ActorSystem : public UidType {
     }
 
     template <class T> ActorRef actorOf(const char* name, ...) {
-        T* actor = new T();
+        va_list args;
+        va_start(args, name);
+        T* actor = new T(args);
+        va_end(args);
         UidType id = ActorSystem::uniqueId(name);
         ActorRef* actorRef = new ActorRef(id);
-        ActorContext* context = new ActorContext(
-            id, *actorRef, *actor, *this, *_defaultMailbox, *(new Receive()));
+        ActorContext* context =
+            new ActorContext(id, *actorRef, *actor, *this, *_defaultMailbox);
         actor->context(context);
         context->receive(actor->createReceive());
         INFO(" new actor '%s' created", actorRef->path());
         actor->preStart();
+        INFO(" actor '%s' preStarted", actorRef->path());
         return *actorRef;
     }
 };
@@ -374,10 +377,10 @@ class Envelope {
 
     Envelope(uint32_t size);
     Envelope(ActorRef snd, ActorRef rcv, MsgClass clz);
-    
+
     Envelope(ActorRef snd, ActorRef rcv, MsgClass clz, uint32_t size);
-    Envelope& header(ActorRef snd, ActorRef rcv, MsgClass clz);
-    Envelope& header(ActorRef snd, ActorRef rcv, MsgClass clz,uint16_t id);
+    Envelope& header(ActorRef rcv, ActorRef snd, MsgClass clz);
+    Envelope& header(ActorRef rcv, ActorRef snd, MsgClass clz, uint16_t id);
     //    bool getHeader();
     static uint32_t newId();
     bool scanf(const char* fmt, ...);
@@ -410,10 +413,6 @@ class Mailbox : public MessageQueue {
 
   public:
     Mailbox(const char* name, uint32_t queueSize, uint32_t messageSize);
-    //    void handleMessage(Envelope& msg);
-    //    void handleMessages();
-    //    bool operator==(Mailbox& other) { return strcmp(_name, other._name) ==
-    //    0; }
     static LinkedList<Mailbox*>& mailboxes();
 };
 
@@ -433,6 +432,8 @@ class Receiver {
     const static bool alwaysTrue(Envelope&) { return true; }
     Str& toString(Str& s);
 };
+//______________________________________________________________________
+// Eventbus
 
 template <typename Subscriber, typename Classifier> class SubscriberClassifier {
   public:
@@ -441,7 +442,8 @@ template <typename Subscriber, typename Classifier> class SubscriberClassifier {
     SubscriberClassifier(Subscriber subscriber, Classifier classifier)
         : _subscriber(subscriber), _classifier(classifier) {}
 };
-
+//______________________________________________________________________
+// Eventbus
 template <typename...> class EventBus;
 template <typename Subscriber, typename Classifier, typename Event>
 class EventBus<Event, Subscriber, Classifier> {

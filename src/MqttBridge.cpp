@@ -1,9 +1,11 @@
 
 #include <MqttBridge.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-volatile MQTTAsync_token deliveredtoken;
+// volatile MQTTAsync_token deliveredtoken;
 
-MqttBridge::MqttBridge(){};
+MqttBridge::MqttBridge(va_list args) { _address = va_arg(args, const char*); };
 MqttBridge::~MqttBridge() {}
 
 void MqttBridge::preStart() {
@@ -11,48 +13,93 @@ void MqttBridge::preStart() {
     _conn_opts = MQTTAsync_connectOptions_initializer;
     int rc;
 
-    MQTTAsync_create(&_client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE,
-                     NULL);
+    _clientId = self().path();
+    _clientId += "#";
+    _clientId += std::to_string(::getpid());
+
+    MQTTAsync_create(&_client, _address.c_str(), _clientId.c_str(),
+                     MQTTCLIENT_PERSISTENCE_NONE, NULL);
 
     MQTTAsync_setCallbacks(_client, this, onConnectionLost, onMessageArrived,
                            onDeliveryComplete);
 
-    _conn_opts.keepAliveInterval = 20;
+    _conn_opts.keepAliveInterval = 600;
     _conn_opts.cleansession = 1;
     _conn_opts.onSuccess = onConnect;
     _conn_opts.onFailure = onConnectFailure;
     _conn_opts.context = this;
+    INFO(" connecting to %s", _address.c_str())
     if ((rc = MQTTAsync_connect(_client, &_conn_opts)) != MQTTASYNC_SUCCESS) {
         INFO("Failed to start connect, return code %d", rc);
     }
 }
 
+bool payloadToJsonArray(JsonArray& array, Cbor& payload) {
+    Cbor::PackType pt;
+    payload.offset(0);
+    Erc rc;
+    Str str(100);
+    while (payload.hasData()) {
+        rc = payload.peekToken(pt);
+        if (rc != E_OK)
+            break;
+        switch (pt) {
+        case Cbor::P_STRING: {
+            payload.get(str);
+            array.add(
+                (char*)str.c_str()); // const char* is not copied into buffer
+            break;
+        }
+        case Cbor::P_PINT: {
+            uint64_t u64;
+            payload.get(u64);
+            array.add(u64);
+            break;
+        }
+        case Cbor::P_DOUBLE: {
+            double d;
+            payload.get(d);
+            array.add(d);
+            break;
+        }
+        default: { payload.skipToken(); }
+        }
+    };
+    return true;
+}
 
 Receive& MqttBridge::createReceive() {
     return receiveBuilder()
         .match(AnyClass,
                [this](Envelope& msg) {
-                   INFO(" message received %s:%s:%s in %s", msg.sender.path(),
-                        msg.receiver.path(), msg.msgClass.label(),
-                        context().self().path());
-                   _jsonBuffer.clear();
-                   JsonArray& array = _jsonBuffer.createArray();
-                   array.add(msg.receiver.path());
-                   array.add(msg.sender.path());
-                   array.add(msg.msgClass.label());
-                   array.add(msg.id);
-                   std::string topic = "dst/";
-                   topic += msg.receiver.path();
-                   std::string message;
-                   array.printTo(message);
-                   mqttPublish(topic.c_str(), message.c_str());
+                   if (!(msg.receiver == self())) {
+                       INFO(" message received %s:%s:%s [%d] in %s",
+                            msg.sender.path(), msg.receiver.path(),
+                            msg.msgClass.label(), msg.message.length(),
+                            context().self().path());
+                       _jsonBuffer.clear();
+                       JsonArray& array = _jsonBuffer.createArray();
+                       array.add(msg.receiver.path());
+                       array.add(msg.sender.path());
+                       array.add(msg.msgClass.label());
+                       array.add(msg.id);
+                       payloadToJsonArray(array, msg.message);
+
+                       std::string topic = "dst/";
+                       topic += msg.receiver.path();
+
+                       std::string message;
+                       array.printTo(message);
+
+                       mqttPublish(topic.c_str(), message.c_str());
+                   }
                })
         .match(MQTT_PUBLISH_RCVD,
                [this](Envelope& msg) {
                    Str topic(100);
                    Str message(1024);
 
-                   if (msg.scanf("SS", topic, message) &&
+                   if (msg.scanf("SS", &topic, &message) &&
                        handleMqttMessage(message.c_str())) {
                        INFO(" processed message %s", message.c_str());
                    } else {
@@ -61,7 +108,6 @@ Receive& MqttBridge::createReceive() {
                })
         .build();
 }
-
 
 bool MqttBridge::handleMqttMessage(const char* message) {
     Envelope envelope(1024);
@@ -82,6 +128,8 @@ bool MqttBridge::handleMqttMessage(const char* message) {
         // TODO add to cbor buffer
         if (array.is<char*>(i)) {
             envelope.message.add(array.get<const char*>(i));
+        } else if (array.is<int>(i)) {
+            envelope.message.add(array.get<int>(i));
         } else if (array.is<double>(i)) {
             envelope.message.add(array.get<double>(i));
         }
@@ -111,9 +159,12 @@ void MqttBridge::onConnectionLost(void* context, char* cause) {
     INFO("Reconnecting");
     me->_conn_opts.keepAliveInterval = 20;
     me->_conn_opts.cleansession = 1;
+    me->_conn_opts.onSuccess = onConnect;
+    me->_conn_opts.onFailure = onConnectFailure;
+    me->_conn_opts.context = me;
     if ((rc = MQTTAsync_connect(me->_client, &me->_conn_opts)) !=
         MQTTASYNC_SUCCESS) {
-        WARN("Failed to start connect, return code %d", rc);
+        INFO("Failed to start connect, return code %d", rc);
     }
 }
 
@@ -130,12 +181,12 @@ void MqttBridge::onDisconnect(void* context, MQTTAsync_successData* response) {
 
 void MqttBridge::onSend(void* context, MQTTAsync_successData* response) {
     //    MqttBridge* me = (MqttBridge*)context;
-    INFO("Message with token value %d onSend", response->token);
+    //   INFO("Message with token value %d onSend", response->token);
 }
 
 void MqttBridge::onDeliveryComplete(void* context, MQTTAsync_token response) {
     //    MqttBridge* me = (MqttBridge*)context;
-    INFO("Message with token value %d onDeliveryComplete", response);
+    //    INFO("Message with token value %d onDeliveryComplete", response);
 }
 
 void MqttBridge::onSubscribeFailure(void* context,
@@ -151,18 +202,24 @@ void MqttBridge::onSubscribe(void* context, MQTTAsync_successData* response) {
 
 int MqttBridge::onMessageArrived(void* context, char* topicName, int topicLen,
                                  MQTTAsync_message* message) {
-                                     INFO(" message arrived");
+    // send myself message as this is invoked by another thread
     MqttBridge* me = (MqttBridge*)context;
     Str topic((uint8_t*)topicName, topicLen);
     Str msg((uint8_t*)message->payload, message->payloadlen);
-    me->self().tell(me->self(), MQTT_PUBLISH_RCVD, "SS", &topicName, &msg);
+    INFO(" MQTT RXD : %s = %s ", topicName, message->payload);
+
+    Envelope envelope(1024);
+    envelope.header(me->self(), me->self(), MQTT_PUBLISH_RCVD);
+    envelope.message.addf("SS", &topic, &msg);
+    me->self().tell(me->self(), envelope);
+    //   me->self().tell(me->self(), MQTT_PUBLISH_RCVD, "SS", &topicName, &msg);
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;
 }
 
 void MqttBridge::mqttPublish(const char* topic, const char* message) {
-    INFO(" MQTT PUB %s:%s", topic, message);
+    INFO(" MQTT TXD : %s = %s", topic, message);
     MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
     int rc;
     _opts.onSuccess = onSend;
@@ -172,7 +229,7 @@ void MqttBridge::mqttPublish(const char* topic, const char* message) {
     pubmsg.payloadlen = (int)strlen(message);
     pubmsg.qos = QOS;
     pubmsg.retained = 0;
-    deliveredtoken = 0;
+    _deliveredtoken = 0;
 
     if ((rc = MQTTAsync_sendMessage(_client, topic, &pubmsg, &_opts)) !=
         MQTTASYNC_SUCCESS) {
@@ -181,13 +238,13 @@ void MqttBridge::mqttPublish(const char* topic, const char* message) {
 }
 
 void MqttBridge::mqttSubscribe(const char* topic) {
-    INFO("Subscribing to topic %s for client %s using QoS%d", topic, CLIENTID,
-         QOS);
+    INFO("Subscribing to topic %s for client %s using QoS%d", topic,
+         _clientId.c_str(), QOS);
     _opts.onSuccess = onSubscribe;
     _opts.onFailure = onSubscribeFailure;
     _opts.context = this;
 
-    deliveredtoken = 0;
+    _deliveredtoken = 0;
     int rc;
 
     if ((rc = MQTTAsync_subscribe(_client, topic, QOS, &_opts)) !=

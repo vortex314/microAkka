@@ -5,9 +5,9 @@ Log logger(1024);
 
 #define MAX_MESSAGES 100000000
 
-// const static MsgClass DO_ECHO =Uid::hash("DO_ECHO");
-const static MsgClass DONE_ECHO("DONE_ECHO");
-const static MsgClass DO_ECHO("DO_ECHO");
+// const static MsgClass PING =Uid::hash("PING");
+const static MsgClass PONG("PONG");
+const static MsgClass PING("PING");
 
 ActorSystem actorSystem(Sys::hostname());
 
@@ -15,19 +15,18 @@ class Echo : public AbstractActor {
     Str str;
 
   public:
-    Echo() : str(80) {}
+    Echo(va_list args) : str(80) {}
     ~Echo() {}
 
     void preStart() {}
     Receive& createReceive() {
         return receiveBuilder()
-            .match(DO_ECHO,
+            .match(PING,
                    [this](Envelope& msg) {
-                       //			INFO(" DO_ECHO called ");
+                       //			INFO(" PING called ");
                        uint32_t counter;
                        msg.scanf("uS", &counter, &str);
-                       sender().tell(self(), DONE_ECHO, "us", counter,
-                                     "Give me an echo");
+                       sender().tell(self(), PONG, "us", counter, str.c_str());
                    })
             .match(("ikke"),
                    [this](Envelope& msg) {
@@ -48,7 +47,7 @@ class Sender : public AbstractActor {
     ActorRef anchorSystem;
 
   public:
-    Sender() : startTime(0), str(80) {}
+    Sender(va_list args) : startTime(0), str(80) {}
     ~Sender() {}
 
     void preStart() {
@@ -65,9 +64,9 @@ class Sender : public AbstractActor {
 
     Receive& createReceive() {
         return receiveBuilder()
-            .match(DONE_ECHO,
+            .match(PONG,
                    [this](Envelope& msg) {
-                       //			INFO(" DONE_ECHO received");
+                       //			INFO(" PONG received");
                        uint32_t counter;
                        msg.scanf("uS", &counter, &str);
                        if (counter == 0) {
@@ -76,7 +75,7 @@ class Sender : public AbstractActor {
                            finished();
                        }
                        if (counter < MAX_MESSAGES)
-                           msg.sender.tell(self(), DO_ECHO, "us", ++counter,
+                           msg.sender.tell(self(), PING, "us", ++counter,
                                            "Hi ");
                    })
             .match(TimerExpired,
@@ -84,17 +83,20 @@ class Sender : public AbstractActor {
                        UidType key("");
                        int k;
                        msg.scanf("i", &k);
-                       key=k;
+                       key = k;
                        INFO(" timer expired ! %s ", key.label());
                        //                       timers().cancel("STARTER");
-                       echo.tell(self(), DO_ECHO, "us", 0, "hi!");
-                       anchorSystem.tell(self(), "reset", "i",1);
+                       //                      echo.tell(self(), PING, "us", 0,
+                       //                      "hi!");
+                       anchorSystem.tell(
+                           self(), "reset", "s",
+                           "The quick brown fox jumps over the lazy dog");
                    })
             .build();
     }
 
     void handle(Envelope& msg) {
-        if (msg.msgClass == DONE_ECHO) {
+        if (msg.msgClass == PONG) {
             uint32_t counter;
             msg.scanf("uS", &counter, &str);
             if (counter == 0) {
@@ -103,7 +105,7 @@ class Sender : public AbstractActor {
                 finished();
             }
             if (counter < MAX_MESSAGES)
-                msg.sender.tell(self(), DO_ECHO, "us", ++counter, "Hi ");
+                msg.sender.tell(self(), PING, "us", ++counter, "Hi ");
         }
     }
 };
@@ -126,7 +128,8 @@ int main() {
     INFO(" starting microAkka test ");
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
-    ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>("mqttBridge");
+    ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(
+        "mqttBridge", "tcp://test.mosquitto.org:1883");
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
