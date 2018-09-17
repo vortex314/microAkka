@@ -1,5 +1,6 @@
 {
-    "board": "esp8266:esp8266:nodemcuv2",
-    "configuration": "CpuFrequency=80,VTable=flash,FlashSize=4M1M,LwIPVariant=v2mss536,Debug=Disabled,DebugLevel=None____,FlashErase=sdk,UploadSpeed=921600",
-    "port": "/dev/ttyS0"
+    "board": "esp32:esp32:esp32doit-devkit-v1",
+    "configuration": "FlashFreq=80,UploadSpeed=921600,DebugLevel=none",
+    "port": "/dev/ttyUSB0",
+    "sketch": "src/akka1/akka1.ino"
 }

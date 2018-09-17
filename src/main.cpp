@@ -1,5 +1,8 @@
 #include "Akka.h"
 #include <MqttBridge.h>
+#include <etl/endianness.h>
+
+using namespace etl;
 
 Log logger(1024);
 
@@ -23,10 +26,10 @@ class Echo : public AbstractActor {
         return receiveBuilder()
             .match(PING,
                    [this](Envelope& msg) {
-                       //			INFO(" PING called ");
                        uint32_t counter;
                        msg.scanf("uS", &counter, &str);
-                       sender().tell(self(), PONG, "us", counter, str.c_str());
+//                       sender().tell(self(), PONG, "us", counter, str.c_str());
+                       sender().tell(self(), PONG,msg.id, "us", counter, str.c_str());
                    })
             .match(("ikke"),
                    [this](Envelope& msg) {
@@ -86,8 +89,7 @@ class Sender : public AbstractActor {
                        key = k;
                        INFO(" timer expired ! %s ", key.label());
                        //                       timers().cancel("STARTER");
-                       //                      echo.tell(self(), PING, "us", 0,
-                       //                      "hi!");
+                       echo.tell(self(), PING, "us", 0, "hi!");
                        anchorSystem.tell(
                            self(), "reset", "s",
                            "The quick brown fox jumps over the lazy dog");
@@ -125,7 +127,14 @@ MessageDispatcher defaultDispatcher;
 
 int main() {
     Sys::init();
+
     INFO(" starting microAkka test ");
+    if ( etl::endianness::value()==etl::endian::little ) {
+        INFO(" little endian ");
+    }
+    if ( etl::endianness::value()==etl::endian::big ) {
+        INFO(" big endian ");
+    }
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(

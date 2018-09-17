@@ -127,6 +127,18 @@ void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
     mb.enqueue(env);
 }
 
+void ActorRef::tell(ActorRef src, MsgClass cls,uint16_t id, const char* fmt, ...) {
+    Envelope env(1024);
+    Mailbox& mb = mailbox();
+    va_list args;
+    va_start(args, fmt);
+    env.header(*this, src, cls,id);
+    env.message.vaddf(fmt, args);
+    va_end(args);
+
+    mb.enqueue(env);
+}
+
 void ActorRef::tell(ActorRef sender, Envelope& envelope) {
     mailbox().enqueue(envelope);
 }

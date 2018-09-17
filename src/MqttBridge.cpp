@@ -199,10 +199,10 @@ void MqttBridge::onSubscribe(void* context, MQTTAsync_successData* response) {
     //    MqttBridge* me = (MqttBridge*)context;
     INFO("Subscribe success");
 }
+    // send myself message as this is invoked by another thread
 
 int MqttBridge::onMessageArrived(void* context, char* topicName, int topicLen,
                                  MQTTAsync_message* message) {
-    // send myself message as this is invoked by another thread
     MqttBridge* me = (MqttBridge*)context;
     Str topic((uint8_t*)topicName, topicLen);
     Str msg((uint8_t*)message->payload, message->payloadlen);

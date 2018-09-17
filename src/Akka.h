@@ -269,6 +269,7 @@ class ActorRef : public UidType {
     void forward(Envelope& msg);
     void tell(ActorRef sender, Envelope& message);
     void tell(ActorRef sender, MsgClass type, const char* format, ...);
+    void tell(ActorRef sender,MsgClass type,uint16_t id,const char* format, ...);
     Mailbox& mailbox();
     ActorRef& withMailbox();
     const char* path();
