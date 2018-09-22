@@ -116,17 +116,18 @@ typedef bool (*MsgMatch)(Envelope& msg);
 typedef std::function<void(Envelope&)> MessageHandler;
 typedef std::function<bool(Envelope&)> MessageMatcher;
 
-extern ActorRef AnyActor;
-extern ActorRef NoSender;
-extern MsgClass AnyClass;
+extern const ActorRef AnyActor;
+extern const ActorRef NoSender;
+extern const MsgClass AnyClass;
 extern Envelope NoMessage; // to handle references cleanly
 
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
 extern Mailbox remoteMailbox;
 extern ActorMsgBus bus;
-extern MsgClass ReceiveTimeout;
-extern MsgClass TimerExpired;
+extern const MsgClass ReceiveTimeout;
+extern const MsgClass TimerExpired;
+extern const MsgClass PoisonPill;
 extern MessageDispatcher defaultDispatcher;
 
 class UidType {
@@ -296,7 +297,7 @@ class ActorContext : public ActorCell {
     ActorSystem& _system;
     Receive* _receive;
     uint32_t _inactivityPeriod;
-    uint64_t _receiveTimeout;
+    uint64_t _lastReceive;
     bool _enable;
     TimerScheduler* _timers;
     Envelope* _currentMessage;
@@ -316,6 +317,8 @@ class ActorContext : public ActorCell {
     void unbecome();
     void cancelReceiveTimeout();
     void setReceiveTimeout(uint32_t msec);
+    bool hasReceiveTimedOut();
+    void resetReceiveTimeout();
 
     ActorSystem& system();
     ActorRef actorFor(const char* name);

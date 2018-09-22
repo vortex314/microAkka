@@ -15,26 +15,23 @@
 // Description : Akka alike framework in C++ for embedded systems : low RAM
 //============================================================================
 
+#include <Cbor.h>
+#include <CborQueue.h>
+#include <LinkedList.hpp>
 #include <functional>
 #include <stdarg.h>
 #include <stdint.h>
 
-using namespace std;
-
-#include <Cbor.h>
-#include <CborQueue.h>
-#include <LinkedList.hpp>
-
 //_____________________________________________- STATIC
 
-MsgClass AnyClass("$ANY");
+const MsgClass AnyClass("$ANY");
 ActorMsgBus bus;
 Mailbox deadLetterMailbox("deadletterMailbox", 1, 100);
 ActorSystem defaultActorSystem("system");
-MsgClass ReceiveTimeout("ReceiveTimeout");
-MsgClass TimerExpired("TimerExpired");
-ActorRef NoSender("NoSender");
-ActorRef AnyActor("AnyActor");
+const MsgClass ReceiveTimeout("ReceiveTimeout");
+const MsgClass TimerExpired("TimerExpired");
+const ActorRef NoSender("NoSender");
+const ActorRef AnyActor("AnyActor");
 Envelope NoMessage(NoSender, NoSender, "");
 
 typedef void (*MsgHandler)(void);
@@ -98,7 +95,7 @@ void AbstractActor::withDispatcher(MessageDispatcher& dispatcher) {
 
 ActorRef::ActorRef(UidType id) : UidType(id) {}
 
-ActorRef::ActorRef() : UidType(NoSender.id()) {}
+ActorRef::ActorRef() : UidType("NoSender") {}
 
 const char* ActorRef::path() { return label(); }
 
@@ -127,12 +124,13 @@ void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
     mb.enqueue(env);
 }
 
-void ActorRef::tell(ActorRef src, MsgClass cls,uint16_t id, const char* fmt, ...) {
+void ActorRef::tell(ActorRef src, MsgClass cls, uint16_t id, const char* fmt,
+                    ...) {
     Envelope env(1024);
     Mailbox& mb = mailbox();
     va_list args;
     va_start(args, fmt);
-    env.header(*this, src, cls,id);
+    env.header(*this, src, cls, id);
     env.message.vaddf(fmt, args);
     va_end(args);
 
@@ -439,7 +437,7 @@ ActorContext::ActorContext(UidType id, ActorRef self, AbstractActor& actor,
     : ActorCell(id, mailbox, self), _actor(actor), _system(system), _receive(0),
       _currentMessage(&NoMessage) {
     _timers = 0;
-    _receiveTimeout = UINT64_MAX;
+    _lastReceive = UINT64_MAX;
     _inactivityPeriod = UINT32_MAX;
     _actorContexts.add(this);
 }
@@ -474,6 +472,19 @@ TimerScheduler& ActorContext::timers() {
 }
 
 bool ActorContext::hasTimers() { return _timers != 0; }
+
+void ActorContext::setReceiveTimeout(uint32_t msec){
+	_inactivityPeriod=msec;
+	_lastReceive=Sys::millis();
+}
+
+void ActorContext::resetReceiveTimeout(){
+	_lastReceive=Sys::millis();
+}
+
+bool ActorContext::hasReceiveTimedOut(){
+	return Sys::millis() > ( _lastReceive+_inactivityPeriod );
+}
 
 LinkedList<ActorContext*>& ActorContext::actorContexts() {
     return _actorContexts;
@@ -527,6 +538,7 @@ void MessageDispatcher::execute() {
                     ActorContext::context(rxdEnvelope.receiver);
                 if (context) {
                     context->invoke(rxdEnvelope);
+					context->resetReceiveTimeout();
                 } else if (_unhandledContext) {
                     _unhandledContext->invoke(rxdEnvelope);
                 } else {
@@ -548,6 +560,12 @@ void MessageDispatcher::execute() {
                 ac->self().tell(NoSender, timerExpired);
                 working();
             }
+			if ( ac->hasReceiveTimedOut() ) {
+				Envelope receiveTimeout(NoSender,ac->self(),ReceiveTimeout);
+				ac->self().tell(NoSender, receiveTimeout);
+				ac->resetReceiveTimeout();
+                working();
+			}
         });
     }
 }

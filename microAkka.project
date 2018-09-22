@@ -17,6 +17,12 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="src/Sender.h"/>
+    <File Name="src/Sender.cpp"/>
+    <File Name="src/Echo.h"/>
+    <File Name="src/Echo.cpp"/>
+    <File Name="src/etl_profile.h"/>
+    <File Name="src/error_handler.cpp"/>
     <File Name="src/MqttBridge.h"/>
     <File Name="src/main.cpp"/>
     <File Name="src/Uid.h"/>
