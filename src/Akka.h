@@ -50,7 +50,7 @@ tell => mailbox == N = 1 ==> dispatcher =1toN=> actorcells
  // Actor -> ActorContext -> ActorSystem
  //                       -> Receive -> N Receiver ----> ( MsgClass,filter,
  method ) *						 -> ActorRef
- 
+ 
 
 
  Mailbox -> dispatches message based on ActorRef destination , ActorRef points
@@ -132,14 +132,13 @@ extern MessageDispatcher defaultDispatcher;
 
 class UidType {
     uid_type _id;
-    const char* _name;
 
   public:
     UidType(const char* name); // will create entry
     UidType(uint16_t id);      // will not create entry
     bool operator==(UidType v);
     const char* label(); // returns null if not found
-    bool hasLabel();
+                         //    bool hasLabel();
     uid_type id();
     void id(uid_type);
 };
@@ -164,7 +163,7 @@ class Timer : public UidType {
     bool operator==(Timer&);
     bool active();
     void active(bool);
-    UidType key();
+    uid_type key();
     void load();
     void reload();
     bool expired();
@@ -175,13 +174,13 @@ class TimerScheduler {
 
   public:
     TimerScheduler();
-    Timer* find(UidType key);
+    Timer* find(uid_type key);
     Timer* findNextTimeout();
-    void startPeriodicTimer(UidType key, MsgClass, uint32_t msec);
-    void startSingleTimer(UidType key, MsgClass, uint32_t msec);
-    void cancel(UidType key);
+    uid_type startPeriodicTimer(UidType key, MsgClass, uint32_t msec);
+    uid_type startSingleTimer(UidType key, MsgClass, uint32_t msec);
+    void cancel(uid_type key);
     void cancelAll();
-    bool isTimerActive(UidType key);
+    bool isTimerActive(uid_type key);
 };
 
 //_____________________________________________________________________ Receive
@@ -225,9 +224,11 @@ class Actor {
     virtual ~Actor();
     virtual ActorRef self() = 0;
     virtual ActorRef sender() = 0;
+    virtual ActorContext& context() = 0;
     virtual void preStart() = 0;
     virtual void postStop() = 0;
     virtual void unhandled(Envelope& msg) = 0;
+    virtual Receive& createReceive() = 0;
 };
 //_______________________________________________________________ AbstractActor
 //
@@ -240,16 +241,13 @@ class AbstractActor : public Actor {
     AbstractActor();
     virtual ~AbstractActor();
 
-    void ask(ActorRef dst, Envelope& msg);
-
+    ActorRef self();
+    ActorRef sender();
     void context(ActorContext* ctx);
     ActorContext& context();
     ActorSystem& system();
     void system(ActorSystem* sys);
     void withDispatcher(MessageDispatcher& dispatcher);
-
-    ActorRef self();
-    ActorRef sender();
 
     virtual Receive& createReceive() = 0;
     Receive& receiveBuilder();
@@ -270,16 +268,25 @@ class ActorRef : public UidType {
     void forward(Envelope& msg);
     void tell(ActorRef sender, Envelope& message);
     void tell(ActorRef sender, MsgClass type, const char* format, ...);
-    void tell(ActorRef sender,MsgClass type,uint16_t id,const char* format, ...);
+    void tell(ActorRef sender, MsgClass type, uint16_t id, const char* format,
+              ...);
+    void forward(Envelope& message, ActorContext& context);
     Mailbox& mailbox();
     ActorRef& withMailbox();
     const char* path();
+    static ActorRef noSender();
+};
+
+//________________________________________________________ ActorSelection
+
+class ActorSelection : public ActorRef {
+  public:
+    ActorSelection(UidType id);
 };
 
 //________________________________________________________________ ActorCell
-class ActorCell : public UidType {
+class ActorCell : public ActorRef {
     Mailbox* _mailbox;
-    ActorRef _self;
     bool _isLocal;
     ActorContext* _context;
 

@@ -38,22 +38,23 @@ typedef void (*MsgHandler)(void);
 
 UidType::UidType(const char* name) {
     _id = UID.hash(name);
-    _name = label();
+    //    _name = label();
 }
 
-UidType::UidType(uint16_t id) : _id(id) { _name = label(); }
+UidType::UidType(uint16_t id) : _id(id) { /*_name = label();*/
+}
 
 bool UidType::operator==(UidType v) { return _id == v._id; }
 
 const char* UidType::label() { return UID.label(_id); }
 
-bool UidType::hasLabel() { return UID.find(_id) != 0; }
+// bool UidType::hasLabel() { return UID.find(_id) != 0; }
 
 uid_type UidType::id() { return _id; }
 
 void UidType::id(uid_type id) {
     _id = id;
-    _name = label();
+    //    _name = label();
 }
 
 //_____________________________________________________________________
@@ -106,35 +107,34 @@ Mailbox& ActorRef::mailbox() {
     else
         return remoteMailbox; // no local context found
 }
+ActorRef ActorRef::noSender() { return NoSender; }
 
 /*
  void ActorRef::ask(ActorRef dst, MsgClass type, Envelope&
  msg,!array.is<char*>(0) uint32_t timeout) {
  }
  */
+Envelope env(1024);
 void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
-    Envelope env(1024);
-    Mailbox& mb = mailbox();
+
+    env.message.clear();
     va_list args;
     va_start(args, fmt);
     env.header(*this, src, cls);
     env.message.vaddf(fmt, args);
     va_end(args);
-
-    mb.enqueue(env);
+    tell(src, env);
 }
 
 void ActorRef::tell(ActorRef src, MsgClass cls, uint16_t id, const char* fmt,
                     ...) {
-    Envelope env(1024);
-    Mailbox& mb = mailbox();
+    env.message.clear();
     va_list args;
     va_start(args, fmt);
     env.header(*this, src, cls, id);
     env.message.vaddf(fmt, args);
     va_end(args);
-
-    mb.enqueue(env);
+    tell(src, env);
 }
 
 void ActorRef::tell(ActorRef sender, Envelope& envelope) {
@@ -146,6 +146,10 @@ void ActorRef::forward(Envelope& msg) {
     msg.receiver = *this;
     mb.enqueue(msg);
 }
+
+//____________________________________________________________ ActorSelection
+
+ActorSelection::ActorSelection(UidType id) : ActorRef(id) {}
 
 //______________________________________________________________________
 // Envelope
@@ -306,7 +310,7 @@ Timer::Timer(UidType key, bool active, bool periodic, uint64_t interval)
 }
 bool Timer::active() { return _active; }
 void Timer::active(bool t) { _active = t; }
-UidType Timer::key() { return label(); }
+uid_type Timer::key() { return id(); }
 void Timer::load() { _expiresAt = Sys::millis() + _interval; }
 void Timer::reload() {
     if (_periodic) {
@@ -331,7 +335,7 @@ void Timer::set(bool active, bool periodic, uint32_t msec) {
 
 TimerScheduler::TimerScheduler() {}
 
-Timer* TimerScheduler::find(UidType key) {
+Timer* TimerScheduler::find(uid_type key) {
     return _timers.findFirst([key](Timer* t) { return t->key() == key; });
 }
 
@@ -347,42 +351,45 @@ Timer* TimerScheduler::findNextTimeout() {
     return t;
 }
 
-void TimerScheduler::startPeriodicTimer(UidType key, MsgClass cls,
-                                        uint32_t msec) {
-    Timer* timer = find(key);
+uid_type TimerScheduler::startPeriodicTimer(UidType key, MsgClass cls,
+                                            uint32_t msec) {
+    Timer* timer = find(key.id());
 
     if (timer == 0) {
         _timers.add(new Timer(key, true, true, msec));
     } else {
         timer->set(true, true, msec);
     }
+    return key.id();
 }
-void TimerScheduler::startSingleTimer(UidType key, MsgClass, uint32_t msec) {
-    Timer* timer = find(key);
+uid_type TimerScheduler::startSingleTimer(UidType key, MsgClass,
+                                          uint32_t msec) {
+    Timer* timer = find(key.id());
 
     if (timer == 0) {
         _timers.add(new Timer(key, true, false, msec));
     } else {
         timer->set(true, false, msec);
     }
+    return key.id();
 }
-void TimerScheduler::cancel(UidType key) {
+void TimerScheduler::cancel(uid_type key) {
     Timer* timer = find(key);
     if (timer)
         timer->active(false);
     else
-        WARN(" timer.cancel()  key not found : %s ", key.label());
+        WARN(" timer.cancel()  key not found : %s ", UID.label(key));
 }
 void TimerScheduler::cancelAll() {
     _timers.forEach([](Timer* t) { t->active(false); });
 }
-bool TimerScheduler::isTimerActive(UidType key) {
+bool TimerScheduler::isTimerActive(uid_type key) {
     Timer* timer =
         _timers.findFirst([key](Timer* t) { return t->key() == key; });
     if (timer)
         return timer->active();
     else {
-        WARN(" timer.isTimerActive()  key not found : %s ", key.label());
+        WARN(" timer.isTimerActive()  key not found : %s ", UID.label(key));
         return false;
     }
 }
@@ -413,7 +420,7 @@ void Receive::onMessage(Envelope& envelope) {
 //
 
 ActorCell::ActorCell(UidType id, Mailbox& mailbox, ActorRef& self)
-    : UidType(id), _mailbox(&mailbox), _self(self) {}
+    : ActorRef(id), _mailbox(&mailbox) {}
 
 const char* ActorCell::path() { return label(); }
 
@@ -421,12 +428,8 @@ Mailbox& ActorCell::mailbox() { return *_mailbox; }
 
 void ActorCell::mailbox(Mailbox& mailbx) { _mailbox = &mailbx; }
 
-ActorRef ActorCell::self() { return _self; }
+ActorRef ActorCell::self() { return *this; }
 
-void ActorCell::self(ActorRef& ref) {
-    ASSERT(ref.id() == _self.id());
-    _self = ref;
-}
 //_________________________________________________________________________
 // ActorContext
 //
@@ -473,17 +476,15 @@ TimerScheduler& ActorContext::timers() {
 
 bool ActorContext::hasTimers() { return _timers != 0; }
 
-void ActorContext::setReceiveTimeout(uint32_t msec){
-	_inactivityPeriod=msec;
-	_lastReceive=Sys::millis();
+void ActorContext::setReceiveTimeout(uint32_t msec) {
+    _inactivityPeriod = msec;
+    _lastReceive = Sys::millis();
 }
 
-void ActorContext::resetReceiveTimeout(){
-	_lastReceive=Sys::millis();
-}
+void ActorContext::resetReceiveTimeout() { _lastReceive = Sys::millis(); }
 
-bool ActorContext::hasReceiveTimedOut(){
-	return Sys::millis() > ( _lastReceive+_inactivityPeriod );
+bool ActorContext::hasReceiveTimedOut() {
+    return Sys::millis() > (_lastReceive + _inactivityPeriod);
 }
 
 LinkedList<ActorContext*>& ActorContext::actorContexts() {
@@ -531,43 +532,49 @@ void MessageDispatcher::execute() {
     working();
     while (busy()) {
         idle();
-        _mailboxes.forEach([this](Mailbox* mb) {
-            if (mb->hasMessages()) {
-                mb->dequeue(rxdEnvelope); // load envelope and payload
-                ActorContext* context =
-                    ActorContext::context(rxdEnvelope.receiver);
-                if (context) {
-                    context->invoke(rxdEnvelope);
-					context->resetReceiveTimeout();
-                } else if (_unhandledContext) {
-                    _unhandledContext->invoke(rxdEnvelope);
-                } else {
-                    INFO(" no Receive found  %s->%s:%s ",
-                         rxdEnvelope.sender.path(), rxdEnvelope.receiver.path(),
-                         rxdEnvelope.msgClass.label());
+        _mailboxes.forEach(
+            [this](Mailbox* mb) { // take a message from each mailbox if needed
+                if (mb->hasMessages()) {
+                    mb->dequeue(rxdEnvelope); // load envelope and payload
+                    ActorContext* context =
+                        ActorContext::context(rxdEnvelope.receiver);
+                    if (context) {
+                        context->invoke(rxdEnvelope);
+                        context->resetReceiveTimeout();
+                    } else if (_unhandledContext) {
+                        _unhandledContext->invoke(rxdEnvelope);
+                    } else {
+                        INFO(" no Receive found  %s->%s:%s ",
+                             rxdEnvelope.sender.path(),
+                             rxdEnvelope.receiver.path(),
+                             rxdEnvelope.msgClass.label());
+                        deadLetterActor.context().invoke(rxdEnvelope);
+                    }
+                    working();
                 }
-                working();
-            }
-        });
+            });
 
-        ActorContext::actorContexts().forEach([](ActorContext* ac) {
-            Timer* timer;
-            if (ac->hasTimers() && (timer = ac->timers().findNextTimeout()) &&
-                (timer->expiresAt() < Sys::millis())) {
-                timer->reload(); // retrigger now message will be send
-                Envelope timerExpired(NoSender, ac->self(), TimerExpired);
-                timerExpired.message.addf("i", timer->key());
-                ac->self().tell(NoSender, timerExpired);
-                working();
-            }
-			if ( ac->hasReceiveTimedOut() ) {
-				Envelope receiveTimeout(NoSender,ac->self(),ReceiveTimeout);
-				ac->self().tell(NoSender, receiveTimeout);
-				ac->resetReceiveTimeout();
-                working();
-			}
-        });
+        ActorContext::actorContexts().forEach(
+            [](ActorContext* ac) { // check timeouts
+                Timer* timer;
+                if (ac->hasTimers() &&
+                    (timer = ac->timers().findNextTimeout()) &&
+                    (timer->expiresAt() < Sys::millis())) {
+                    timer->reload(); // retrigger now message will be send
+                    Envelope timerExpired(NoSender, ac->self(), TimerExpired);
+                    timerExpired.message.add(timer->key());
+                    ac->self().tell(NoSender, timerExpired);
+                    working();
+                }
+                if (ac->hasReceiveTimedOut()) {
+                    Envelope receiveTimeout(NoSender, ac->self(),
+                                            ReceiveTimeout);
+                    ac->self().tell(NoSender, receiveTimeout);
+                    ac->resetReceiveTimeout();
+                    working();
+                }
+            });
     }
 }
 
-void arduinoLoop() { defaultDispatcher.execute(); }
+// void arduinoLoop() { defaultDispatcher.execute(); }

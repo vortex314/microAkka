@@ -11,7 +11,7 @@ MqttBridge::~MqttBridge() {}
 void MqttBridge::preStart() {
     context().mailbox(remoteMailbox);
     _conn_opts = MQTTAsync_connectOptions_initializer;
-    int rc;
+    
 
     _clientId = self().path();
     _clientId += "#";
@@ -28,8 +28,22 @@ void MqttBridge::preStart() {
     _conn_opts.onSuccess = onConnect;
     _conn_opts.onFailure = onConnectFailure;
     _conn_opts.context = this;
+    mqttConnect();
+}
+
+void MqttBridge::mqttConnect() {
+    int rc;
     INFO(" connecting to %s", _address.c_str())
     if ((rc = MQTTAsync_connect(_client, &_conn_opts)) != MQTTASYNC_SUCCESS) {
+        INFO("Failed to start connect, return code %d", rc);
+    }
+}
+
+void MqttBridge::mqttDisconnect() {
+    int rc;
+    MQTTAsync_disconnectOptions opt;
+    opt.timeout = 10;
+    if ((rc = MQTTAsync_disconnect(_client, &opt)) != MQTTASYNC_SUCCESS) {
         INFO("Failed to start connect, return code %d", rc);
     }
 }
@@ -199,7 +213,7 @@ void MqttBridge::onSubscribe(void* context, MQTTAsync_successData* response) {
     //    MqttBridge* me = (MqttBridge*)context;
     INFO("Subscribe success");
 }
-    // send myself message as this is invoked by another thread
+// send myself message as this is invoked by another thread
 
 int MqttBridge::onMessageArrived(void* context, char* topicName, int topicLen,
                                  MQTTAsync_message* message) {
@@ -234,6 +248,8 @@ void MqttBridge::mqttPublish(const char* topic, const char* message) {
     if ((rc = MQTTAsync_sendMessage(_client, topic, &pubmsg, &_opts)) !=
         MQTTASYNC_SUCCESS) {
         INFO("Failed to start sendMessage, return code %d", rc);
+        mqttDisconnect();
+        mqttConnect();
     }
 }
 

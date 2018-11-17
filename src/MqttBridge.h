@@ -45,6 +45,8 @@ class MqttBridge : public AbstractActor {
 
     void mqttPublish(const char* topic, const char* message);
     void mqttSubscribe(const char* topic);
+    void mqttConnect();
+    void mqttDisconnect();
 
     bool handleMqttMessage(const char* message);
 };

@@ -1,69 +1,51 @@
 #include <Echo.h>
 #include <Sender.h>
 
-#define MAX_MESSAGES 100000000
+#define MAX_MESSAGES 100000
 
-Sender::Sender(va_list args) : startTime(0), str(80) {}
+Sender::Sender(va_list args) : startTime(0), str(80), _counter(0) {}
 Sender::~Sender() {}
 
 void Sender::preStart() {
     echo = context().system().actorOf<Echo>("echo");
     timers().startPeriodicTimer("PERIODIC_TIMER_1", TimerExpired, 5000);
-    anchorSystem = context().system().actorFor("anchor/system");
-    context().setReceiveTimeout(100);
-}
-
-void Sender::finished() {
-    float delta = Sys::millis() - startTime;
-    INFO(" '%s' done in %f msec %s ", self().path(), delta, str.c_str());
-    INFO(" %f msg/sec ", MAX_MESSAGES * 1000.0 / delta);
+    context().setReceiveTimeout(1000);
+    anchorRef = context().system().actorFor("anchor/system");
 }
 
 Receive& Sender::createReceive() {
     return receiveBuilder()
-        .match(PONG,
-               [this](Envelope& msg) {
-                   //			INFO(" PONG received");
-                   uint32_t counter;
-                   msg.scanf("uS", &counter, &str);
-                   if (counter == 0) {
-                       startTime = Sys::millis();
-                   } else if (counter == MAX_MESSAGES) {
-                       finished();
-                   }
-                   if (counter < MAX_MESSAGES)
-                       msg.sender.tell(self(), PING, "us", ++counter, "Hi ");
-               })
+        .match(Echo::PONG, [this](Envelope& msg) { handlePing(msg); })
         .match(TimerExpired,
                [this](Envelope& msg) {
                    UidType key("");
-                   uint32_t k;
+                   uint16_t k;
                    msg.scanf("i", &k);
                    key = k;
                    INFO(" timer expired ! %s ", key.label());
                    //                       timers().cancel("STARTER");
-                   echo.tell(self(), PING, "us", 0, "hi!");
-                   anchorSystem.tell(
+                   INFO(" counter : %d ", _counter);
+                   echo.tell(self(), Echo::PING, "us", 0, "hi!");
+                   anchorRef.tell(
                        self(), "reset", "s",
                        "The quick brown fox jumps over the lazy dog");
                })
         .match(ReceiveTimeout,
-               [this](Envelope& msg) {                  
-                   INFO(" ReceiveTimeout expired !  ");
-               })
+               [this](Envelope& msg) { INFO(" ReceiveTimeout expired !  "); })
         .build();
 }
 
-void Sender::handle(Envelope& msg) {
-    if (msg.msgClass == PONG) {
-        uint32_t counter;
-        msg.scanf("uS", &counter, &str);
-        if (counter == 0) {
-            startTime = Sys::millis();
-        } else if (counter == MAX_MESSAGES) {
-            finished();
-        }
-        if (counter < MAX_MESSAGES)
-            msg.sender.tell(self(), PING, "us", ++counter, "Hi ");
+void Sender::handlePing(Envelope& msg) {
+    //			INFO(" PONG received");
+    msg.scanf("uS", &_counter, &str);
+    if (_counter == 0) {
+        startTime = Sys::millis();
+    } else if (_counter == MAX_MESSAGES) {
+        float delta = Sys::millis() - startTime;
+        INFO(" '%s' done in %f msec %f msg/sec", self().path(), delta,
+             MAX_MESSAGES * 1000.0 / delta);
+    }
+    if (_counter < MAX_MESSAGES) {
+        msg.sender.tell(self(), Echo::PING, "us", ++_counter, "Hi ");
     }
 }

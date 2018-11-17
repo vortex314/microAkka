@@ -7,7 +7,8 @@ class Sender : public AbstractActor {
     uint64_t startTime;
     Str str;
     ActorRef echo;
-    ActorRef anchorSystem;
+    ActorRef anchorRef;
+    uint32_t _counter;
 
   public:
     Sender(va_list args);
@@ -16,7 +17,6 @@ class Sender : public AbstractActor {
     void preStart();
     Receive& createReceive();
 
-    void finished();
-    void handle(Envelope& msg);
+    void handlePing(Envelope& msg);
 };
 #endif

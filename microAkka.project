@@ -17,6 +17,10 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="src/NeuralPid.cpp"/>
+    <File Name="src/NeuralPid.h"/>
+    <File Name="src/Machinelearning.cpp"/>
+    <File Name="src/Machinelearning.h"/>
     <File Name="src/Sender.h"/>
     <File Name="src/Sender.cpp"/>
     <File Name="src/Echo.h"/>
