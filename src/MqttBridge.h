@@ -15,7 +15,7 @@ extern "C" {
 
 const static MsgClass MQTT_PUBLISH_RCVD("MQTT_PUBLISH_RCVD");
 
-class MqttBridge : public AbstractActor {
+class MqttBridge : public Actor {
     MQTTAsync _client;
     MQTTAsync_connectOptions _conn_opts;
     MQTTAsync_responseOptions _opts;

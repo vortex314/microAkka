@@ -46,6 +46,6 @@ void Sender::handlePing(Envelope& msg) {
              MAX_MESSAGES * 1000.0 / delta);
     }
     if (_counter < MAX_MESSAGES) {
-        msg.sender.tell(self(), Echo::PING, "us", ++_counter, "Hi ");
+        sender().tell(self(), Echo::PING, "us", ++_counter, "Hi ");
     }
 }

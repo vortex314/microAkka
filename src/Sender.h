@@ -1,9 +1,9 @@
 #include <Akka.h>
 #ifndef SENDER_H
 #define SENDER_H
+#include <Metric.h>
 
-
-class Sender : public AbstractActor {
+class Sender : public Actor {
     uint64_t startTime;
     Str str;
     ActorRef echo;

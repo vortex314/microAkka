@@ -2,13 +2,13 @@
 #ifndef ECHO_H
 #define ECHO_H
 
-class Echo : public AbstractActor {
+class Echo : public Actor {
     Str str;
 
   public:
     static const MsgClass PING;
     const static MsgClass PONG;
-	
+
     Echo(va_list args);
     ~Echo();
 

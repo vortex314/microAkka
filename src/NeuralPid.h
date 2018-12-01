@@ -3,7 +3,7 @@
 #include <Akka.h>
 #include <Machinelearning.h>
 
-class NeuralPid : public AbstractActor {
+class NeuralPid : public Actor {
     Str str;
     vector<unsigned> _topology;
     Net _pidNet;

@@ -9,9 +9,8 @@ MqttBridge::MqttBridge(va_list args) { _address = va_arg(args, const char*); };
 MqttBridge::~MqttBridge() {}
 
 void MqttBridge::preStart() {
-    context().mailbox(remoteMailbox);
+    //   context().mailbox(remoteMailbox);
     _conn_opts = MQTTAsync_connectOptions_initializer;
-    
 
     _clientId = self().path();
     _clientId += "#";
@@ -86,21 +85,21 @@ Receive& MqttBridge::createReceive() {
     return receiveBuilder()
         .match(AnyClass,
                [this](Envelope& msg) {
-                   if (!(msg.receiver == self())) {
+                   if (!(*msg.receiver == self())) {
                        INFO(" message received %s:%s:%s [%d] in %s",
-                            msg.sender.path(), msg.receiver.path(),
+                            msg.sender->path(), msg.receiver->path(),
                             msg.msgClass.label(), msg.message.length(),
                             context().self().path());
                        _jsonBuffer.clear();
                        JsonArray& array = _jsonBuffer.createArray();
-                       array.add(msg.receiver.path());
-                       array.add(msg.sender.path());
+                       array.add(msg.receiver->path());
+                       array.add(msg.sender->path());
                        array.add(msg.msgClass.label());
                        array.add(msg.id);
                        payloadToJsonArray(array, msg.message);
 
                        std::string topic = "dst/";
-                       topic += msg.receiver.path();
+                       topic += msg.receiver->path();
 
                        std::string message;
                        array.printTo(message);

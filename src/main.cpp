@@ -5,8 +5,6 @@
 #include <Sender.h>
 #include <etl/endianness.h>
 
-Log logger(1024);
-ActorSystem actorSystem(Sys::hostname());
 //______________________________________________________________
 //
 uint32_t millisleep(uint32_t msec) {
@@ -17,36 +15,27 @@ uint32_t millisleep(uint32_t msec) {
     return erc;
 };
 
+Log logger(1024);
+ActorSystem actorSystem(Sys::hostname());
 Mailbox defaultMailbox("default", 20000, 1000);
-Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
-Mailbox remoteMailbox("$remote", 20000, 1000);
-MessageDispatcher defaultDispatcher;
+// Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
+Mailbox remoteMailbox("remote", 20000, 1000);
+// ActorSelection remoteActor("mqtt://");
 
 int main() {
     Sys::init();
-    INFO(" sizeof(int) : %d ", sizeof(size_t));
 
     INFO(" starting microAkka test ");
-    if (etl::endianness::value() == etl::endian::little) {
-        INFO(" little endian ");
-    }
-    if (etl::endianness::value() == etl::endian::big) {
-        INFO(" big endian ");
-    }
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(
-        "mqttBridge", "tcp://test.mosquitto.org:1883");
+        Props::create().withMailbox(remoteMailbox), "mqttBridge",
+        "tcp://test.mosquitto.org:1883");
     ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
     ActorSelection ref("pcpav2/ikke");
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
-    defaultDispatcher.attach(*ActorContext::context(sender));
-    defaultDispatcher.attach(*ActorContext::context(nnPid));
-    defaultDispatcher.unhandled(ActorContext::context(mqttBridge));
-
-    ref.tell(ActorRef::noSender(), MsgClass("NONE"), "i", 1);
 
     while (true) {
         defaultDispatcher.execute();

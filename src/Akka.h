@@ -13,46 +13,30 @@
 #include <stdio.h>
 
 /*============================================================================
- // Name        : akkaMicro.cpp
+ // Name        : akkaMicro
  // Author      : Lieven
  // Version     :
- // Copyright   : Enjoy teh source
+ // Copyright   : Enjoy the source
  // Description : Akka alike framework in C++ for embedded systems : low RAM
  //
- //
-
+  *
+  * UidType => ActorRef => ActorCell => ActorContext => AbstractActor
+  *                                  => Mailbox
+  * UidType => Abs
+  * UidType => MsgClass
+  * mailbox N => 1 thread(Dispatcher) 1 => N Receive 1 => 1 Actor
+  * 1 ActorRef => 1 mailbox
+  *
+  * SYSTEM/ACTOR/MSGCLASS
+  * dst/system/actor/msgClass for point to point = ["source",id,]
+  * src/system/actor/msgClass for event properties
+  * dst/esp32/system/set([key,value,key,value]) => setReply([erc])
+  * dst/esp32/system/get([key]) => getReply([key,value,key,value])
+  * dst/esp32/system/reset() => Nil
+  *
 tell => mailbox == N = 1 ==> dispatcher =1toN=> actorcells
 
- // MQTT convention : src/DEVICE/ACTOR/MSGCLASS for events
- // or dst/DEVICE2/ACTOR2/MSGCLASS2 mailbox with sender==DEVICE1/ACTOR1 ,
- // dst/DEVICE2/ACTOR2/DEVICE1/ACTOR1/MSGCLASS
- // dst/steer/angle/master/direction/degrees [1,"abc",2.5,true,null]
- // src/master/vector/value [10.6,3.4,-90,10]
- {"x=m":10.6,"y=m":3.4,"angle=rad":-90,"speed=m/s":10}
- // tell : dst/device ["master/vector","device/steer","angle",23123,-20]
- // tell : dst/device
- ["master/sender","device/uart0","txdBin",23123,"SGVsbG8gd29ybGQgIQ=="]
- // tell : dst/system/actor
- ["master/sender","txdBin",23123,"SGVsbG8gd29ybGQgIQ=="]
- // event : src/device/steer/angle -20
- // event : src/device/actors ["uart0","steer"]
- // Object : long,double,boolean,string,null,array,hashmap
- // tell dst/device/actor
- ["device2/actor2","cmdA",1234,{"x":1234,"y":34.7,"z":33.3}]
- // ActorRef(_id) => ActorCell(_id,_mailbox,_remote) =>
- Mailbox(_queue,_rxd,_txd)
- // Actor(_id,) => ActorContext(ActorCell,_receive,_system, )
- // Mqtt:// mailbox_mqtt  =>
  //
- // mailbox handler reads receiver _id => looks for ActorContext and invokes
- Receive
- // ActorRef -> ActorCell -> mailbox, actor,
- // Actor -> ActorContext -> ActorSystem
- //                       -> Receive -> N Receiver ----> ( MsgClass,filter,
- method ) *						 -> ActorRef
- 
-
-
  Mailbox -> dispatches message based on ActorRef destination , ActorRef points
  to Mailbox  , points to Receive active
  //
@@ -64,10 +48,8 @@ tell => mailbox == N = 1 ==> dispatcher =1toN=> actorcells
  //============================================================================*/
 
 #include <functional>
-//#include <iostream>
 #include <stdarg.h>
 #include <stdint.h>
-//#include <string.h>
 
 using namespace std;
 
@@ -81,22 +63,19 @@ using namespace std;
 
 #define MAX_ACTOR_CELLS 20
 
-//#define MAX_FMT_LEN 22
-
-// ( Actor -> mailbox -> thread )
-// all coRoutines == same mailbox, a single thread
-//  ActorRef : shorthand UidType reference
-//
-
 typedef void (*MsgHandler)(void);
 
 class Envelope;
 class Receiver;
 class Mailbox;
 class MessageDispatcher;
+class Actor;
 class AbstractActor;
+class ActorRefFactory;
 class ActorContext;
 class ActorRef;
+class ActorSelection;
+class ActorPath;
 class ActorSystem;
 class ActorCell;
 class Envelope;
@@ -109,6 +88,7 @@ class ActorMsgBus;
 class MsgClass;
 class UidType;
 class TimerScheduler;
+class Props;
 
 //_____________________________________________________________________ Message
 
@@ -116,19 +96,22 @@ typedef bool (*MsgMatch)(Envelope& msg);
 typedef std::function<void(Envelope&)> MessageHandler;
 typedef std::function<bool(Envelope&)> MessageMatcher;
 
-extern const ActorRef AnyActor;
-extern const ActorRef NoSender;
-extern const MsgClass AnyClass;
+extern ActorRef AnyActor;
+extern ActorRef NoSender;
+extern MsgClass AnyClass;
+extern Props defaultProps;
 extern Envelope NoMessage; // to handle references cleanly
 
 extern Mailbox defaultMailbox;
 extern Mailbox deadLetterMailbox;
 extern Mailbox remoteMailbox;
 extern ActorMsgBus bus;
-extern const MsgClass ReceiveTimeout;
-extern const MsgClass TimerExpired;
-extern const MsgClass PoisonPill;
+extern MsgClass ReceiveTimeout;
+extern MsgClass TimerExpired;
+extern MsgClass PoisonPill;
+extern Receive nullReceive;
 extern MessageDispatcher defaultDispatcher;
+extern ActorCell noActorCell;
 
 class UidType {
     uid_type _id;
@@ -148,6 +131,7 @@ class MsgClass : public UidType {
   public:
     MsgClass(const char* name) : UidType(name) {}
 };
+
 //_____________________________________________________________________ Timer
 //
 class Timer : public UidType {
@@ -194,6 +178,7 @@ class Receive {
     Receive& build();
     void onMessage(Envelope&);
     Receive& orElse(Receive&);
+    static Receive emptyBehavior;
 };
 
 //__________________________________________________________ MessageDispatcher
@@ -217,22 +202,20 @@ class MessageDispatcher {
 //__________________________________________________________ CoRoutineDispatcher
 //
 class CoRoutineDispatcher : public MessageDispatcher {};
-//_____________________________________________________________________ Actor
-//
-class Actor {
+
+//_____________________________________________________________________
+// ActorRefFactory
+class ActorRefFactory {
   public:
-    virtual ~Actor();
-    virtual ActorRef self() = 0;
-    virtual ActorRef sender() = 0;
-    virtual ActorContext& context() = 0;
-    virtual void preStart() = 0;
-    virtual void postStop() = 0;
-    virtual void unhandled(Envelope& msg) = 0;
-    virtual Receive& createReceive() = 0;
+    /*    virtual ActorRef actorOf(Props props) = 0;
+        virtual ActorRef actorOf(Props props, const char* name) = 0;
+        virtual ActorSelection actorSelection(ActorPath path) = 0;
+        virtual ActorSelection actorSelection(const char* path) = 0;*/
 };
+
 //_______________________________________________________________ AbstractActor
 //
-class AbstractActor : public Actor {
+/*class AbstractActor {
 
     static LinkedList<AbstractActor*> actors;
     ActorContext* _context;
@@ -248,23 +231,31 @@ class AbstractActor : public Actor {
     ActorSystem& system();
     void system(ActorSystem* sys);
     void withDispatcher(MessageDispatcher& dispatcher);
+    void ask(ActorRef dest, uint32_t timeout, MsgClass type, const char* format,
+             ...);
 
     virtual Receive& createReceive() = 0;
     Receive& receiveBuilder();
     virtual void preStart();
     virtual void postStop();
     virtual void unhandled(Envelope& msg);
+
     //	virtual void handle(Envelope& msg){};
     TimerScheduler& timers();
-};
+};*/
 //__________________________________________________________ ActorRef
-class ActorRef : public UidType {
+class ActorRef {
+    UidType _id;
+    bool _isLocal;
+    Mailbox* _mailbox;
+
+    static LinkedList<ActorRef*> _actorRefs;
 
   public:
     ActorRef();
     ActorRef(UidType id);
 
-    //	void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
+    void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
     void forward(Envelope& msg);
     void tell(ActorRef sender, Envelope& message);
     void tell(ActorRef sender, MsgClass type, const char* format, ...);
@@ -272,11 +263,139 @@ class ActorRef : public UidType {
               ...);
     void forward(Envelope& message, ActorContext& context);
     Mailbox& mailbox();
-    ActorRef& withMailbox();
+    void mailbox(Mailbox& mailbox);
+    uid_type id();
+    bool operator==(ActorRef& src);
     const char* path();
-    static ActorRef noSender();
+    static ActorRef noSender;
+    static ActorRef* lookup(uid_type id);
+    bool isLocal();
+    void isLocal(bool b);
+};
+//_______________________________________________________________ ActorContext
+class ActorContext : public ActorRefFactory {
+
+    void systemInvoke(Envelope& systemMessage);
+
+  public:
+    virtual ActorRef& self() = 0;
+    virtual uint32_t receiveTimeout() = 0;
+    virtual void setReceiveTimeout(uint32_t msec) = 0;
+    void become(Receive& receive) { become(receive, true); };
+    virtual void become(Receive& receive, bool discardOld) = 0;
+    virtual void unbecome() = 0;
+    virtual ActorRef& sender() = 0;
+    virtual ActorSystem& system() = 0;
+
+    // ActorContext();
+
+    void cancelReceiveTimeout();
+    bool hasReceiveTimedOut();
+    void resetReceiveTimeout();
+
+    ActorRef actorFor(const char* name);
+    void system(ActorSystem&);
+
+    Receive& receive();
+    void receive(Receive&);
+    TimerScheduler& timers();
+    bool hasTimers();
+    static LinkedList<ActorContext*>& actorContexts();
+    void invoke(Envelope&);
+    //   ActorRef actorOf(Props props);
+    //   ActorRef actorOf(Props props, const char* name);
+    //  ActorSelection actorSelection(ActorPath path);
+    // ActorSelection actorSelection(const char* path);
+};
+//________________________________________________________________ ActorCell
+class ActorCell : public ActorContext {
+    Mailbox& _mailbox;
+    ActorSystem& _system;
+    MessageDispatcher& _dispatcher;
+    ActorRef& _self;
+
+    Receive* _receive;
+    Actor* _actor;
+    Envelope* _currentMessage;
+
+    uint32_t _inactivityPeriod;
+    uint64_t _lastReceive;
+    bool _enable;
+    TimerScheduler* _timers;
+
+    static LinkedList<ActorCell*> _actorCells;
+
+  private:
+  public:
+    ActorCell(ActorSystem& system, ActorRef& ref, Mailbox& mailbox,
+              MessageDispatcher& dispatcher);
+    Mailbox& mailbox();
+    ActorSystem& system();
+    ActorRef& self();
+    MessageDispatcher& dispatcher();
+
+    uint32_t receiveTimeout();
+    void setReceiveTimeout(uint32_t msec);
+    void become(Receive& receive, bool discardOld);
+    void unbecome();
+    void invoke(Envelope& envelope);
+
+    ActorRef& sender();
+
+    void actor(Actor* actor);
+    Actor* actor();
+    static ActorCell* cellFor(ActorRef& ref);
+
+    void mailbox(Mailbox&);
+    const char* path();
+    void resetReceiveTimeout();
+    TimerScheduler& timers();
+    bool hasTimers();
+
+    bool hasReceiveTimedOut();
+    static LinkedList<ActorCell*>& actorCells();
 };
 
+//________________________________________________________ LocalActorRef
+class LocalActorRef : public ActorRef {
+    ActorCell* _actorCell;
+
+  public:
+    LocalActorRef(UidType id) : ActorRef(id) {
+        isLocal(true);
+        //   : _actorCell(system, ref, mailbox, dispatcher){};
+    };
+    void cell(ActorCell& c) { _actorCell = &c; };
+    ActorCell& cell() { return *_actorCell; }
+};
+//_____________________________________________________________________
+// Actor
+//
+class Actor {
+    ActorCell* _context;
+    static LinkedList<Actor*> _actors;
+
+  public:
+    Actor();
+    ~Actor();
+    ActorRef& self();
+    ActorRef& sender();
+    ActorContext& context();
+    void context(ActorCell* context) { _context = context; }
+    void preStart(){};
+    void aroundPrestart(){};
+    void postStop(){};
+    void unhandled(Envelope& msg);
+    Receive& createReceive();
+    TimerScheduler& timers();
+
+    static Receive& receiveBuilder();
+};
+class Timers : public Actor {
+    TimerScheduler _timers;
+
+  public:
+};
 //________________________________________________________ ActorSelection
 
 class ActorSelection : public ActorRef {
@@ -284,114 +403,23 @@ class ActorSelection : public ActorRef {
     ActorSelection(UidType id);
 };
 
-//________________________________________________________________ ActorCell
-class ActorCell : public ActorRef {
-    Mailbox* _mailbox;
-    bool _isLocal;
-    ActorContext* _context;
-
-  public:
-    ActorCell(UidType id, Mailbox& mailbox, ActorRef& self);
-    Mailbox& mailbox();
-    void mailbox(Mailbox&);
-    void self(ActorRef&);
-    ActorRef self();
-    const char* path();
-};
-//_______________________________________________________________ ActorContext
-class ActorContext : public ActorCell {
-    AbstractActor& _actor;
-    ActorSystem& _system;
-    Receive* _receive;
-    uint32_t _inactivityPeriod;
-    uint64_t _lastReceive;
-    bool _enable;
-    TimerScheduler* _timers;
-    Envelope* _currentMessage;
-
-    static LinkedList<ActorContext*> _actorContexts;
-
-    void systemInvoke(Envelope& systemMessage);
-
-  public:
-    ActorContext(UidType id, ActorRef self, AbstractActor& actor,
-                 ActorSystem& system, Mailbox& mailbox);
-
-    static ActorContext& context(AbstractActor*);
-    static ActorContext* context(ActorRef&);
-
-    void become(Receive& receive);
-    void unbecome();
-    void cancelReceiveTimeout();
-    void setReceiveTimeout(uint32_t msec);
-    bool hasReceiveTimedOut();
-    void resetReceiveTimeout();
-
-    ActorSystem& system();
-    ActorRef actorFor(const char* name);
-    void system(ActorSystem&);
-
-    ActorRef sender();
-    Receive& receive();
-    void receive(Receive&);
-    TimerScheduler& timers();
-    bool hasTimers();
-    static LinkedList<ActorContext*>& actorContexts();
-    void invoke(Envelope&);
-};
-
-//___________________________________________________________ ActorSystem
-class ActorSystem : public UidType {
-    const char* _name;
-    Mailbox* _defaultMailbox;
-    Mailbox* _deadLetterMailbox;
-    MessageDispatcher* _defaultDispatcher;
-
-  public:
-    ActorSystem(const char* name);
-    UidType uniqueId(const char* name);
-
-    ActorRef actorFor(const char* address) {
-        // TODO check local or remote
-        ActorRef ref(address);
-        new ActorCell(ref.id(), remoteMailbox, ref);
-        return ref;
-    }
-
-    template <class T> ActorRef actorOf(const char* name, ...) {
-        va_list args;
-        va_start(args, name);
-        T* actor = new T(args);
-        va_end(args);
-        UidType id = ActorSystem::uniqueId(name);
-        ActorRef* actorRef = new ActorRef(id);
-        ActorContext* context =
-            new ActorContext(id, *actorRef, *actor, *this, *_defaultMailbox);
-        actor->context(context);
-        context->receive(actor->createReceive());
-        INFO(" new actor '%s' created", actorRef->path());
-        actor->preStart();
-        INFO(" actor '%s' preStarted", actorRef->path());
-        return *actorRef;
-    }
-};
-//_____________________________________________________________________ Envelope
+//________________________________________________________ Envelope
 class Envelope {
     static uid_type idCounter;
 
   public:
-    ActorRef sender;
-    ActorRef receiver;
+    ActorRef* sender;
+    ActorRef* receiver;
     MsgClass msgClass;
     uint32_t id;
     Cbor message;
 
     Envelope(uint32_t size);
-    Envelope(ActorRef snd, ActorRef rcv, MsgClass clz);
+    Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz);
 
-    Envelope(ActorRef snd, ActorRef rcv, MsgClass clz, uint32_t size);
-    Envelope& header(ActorRef rcv, ActorRef snd, MsgClass clz);
-    Envelope& header(ActorRef rcv, ActorRef snd, MsgClass clz, uint16_t id);
+    Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz, uint32_t size);
+    Envelope& header(ActorRef& rcv, ActorRef& snd, MsgClass clz);
+    Envelope& header(ActorRef& rcv, ActorRef& snd, MsgClass clz, uint16_t id);
     //    bool getHeader();
     static uint32_t newId();
     bool scanf(const char* fmt, ...);
@@ -417,7 +445,8 @@ class MessageQueue {
     void enqueue(Envelope&);
 };
 
-//_____________________________________________________________________ Mailbox
+//_____________________________________________________________________
+// Mailbox
 class Mailbox : public MessageQueue {
     const char* _name;
     static LinkedList<Mailbox*> _mailboxes;
@@ -427,7 +456,8 @@ class Mailbox : public MessageQueue {
     static LinkedList<Mailbox*>& mailboxes();
 };
 
-//_____________________________________________________________________ Receiver
+//_____________________________________________________________________
+// Receiver
 //
 
 class Receiver {
@@ -442,6 +472,91 @@ class Receiver {
     void onMessage(Envelope& msg);
     const static bool alwaysTrue(Envelope&) { return true; }
     Str& toString(Str& s);
+};
+//_____________________________________________________________________ Props
+//
+typedef Actor* (*ActorConstructor)(va_list args);
+class Props {
+    MessageDispatcher* _dispatcher;
+    Mailbox* _mailbox;
+    ActorConstructor constructor;
+
+  public:
+    Props(MessageDispatcher& d, Mailbox& mb) : _dispatcher(&d), _mailbox(&mb) {}
+    static Props& create() {
+        return *new Props(defaultDispatcher, defaultMailbox);
+    };
+    Props& withDispatcher(MessageDispatcher& dispatcher) {
+        _dispatcher = &dispatcher;
+        return *this;
+    };
+    Props& withMailbox(Mailbox& mailbox) {
+        _mailbox = &mailbox;
+        return *this;
+    }
+    MessageDispatcher& dispatcher() { return *_dispatcher; };
+    Mailbox& mailbox() { return *_mailbox; };
+};
+//___________________________________________________________ ActorSystem
+class ActorSystem : public UidType {
+    const char* _name;
+    Mailbox* _defaultMailbox;
+    Mailbox* _deadLetterMailbox;
+    MessageDispatcher* _defaultDispatcher;
+
+  public:
+    ActorSystem(const char* name);
+    UidType uniqueId(const char* name);
+
+    ActorRef& actorFor(const char* address) {
+        // TODO check local or remote
+        ActorRef* ref = new ActorRef(address);
+        ref->mailbox(defaultMailbox);
+        return *ref;
+    }
+
+    template <class T> ActorRef& actorOf(const char* name, ...) {
+        va_list args;
+        va_start(args, name);
+        T* actor = new T(args);
+        va_end(args);
+        UidType id = ActorSystem::uniqueId(name);
+        LocalActorRef* actorRef = new LocalActorRef(id);
+        actorRef->mailbox(defaultProps.mailbox());
+        ActorCell* actorCell =
+            new ActorCell(*this, *actorRef, defaultProps.mailbox(),
+                          defaultProps.dispatcher());
+        actorRef->cell(*actorCell);
+        actor->context(actorCell);
+        actorCell->become(actor->createReceive(), true);
+        INFO(" new actor '%s' created", actorRef->path());
+        actor->preStart();
+        INFO(" actor '%s' preStarted", actorRef->path());
+        defaultProps.dispatcher().attach(*actorCell);
+
+        return *actorRef;
+    }
+
+    template <class T> ActorRef& actorOf(Props& props, const char* name, ...) {
+        va_list args;
+        va_start(args, name);
+        T* actor = new T(args);
+        va_end(args);
+        UidType id = ActorSystem::uniqueId(name);
+        LocalActorRef* actorRef = new LocalActorRef(id);
+        actorRef->mailbox(props.mailbox());
+
+        ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
+                                             props.dispatcher());
+        actorRef->cell(*actorCell);
+        actor->context(actorCell);
+        actorCell->become(actor->createReceive(), true);
+        INFO(" new actor '%s' created", actorRef->path());
+        actor->preStart();
+        INFO(" actor '%s' preStarted", actorRef->path());
+        props.dispatcher().attach(*actorCell);
+        return *actorRef;
+    }
 };
 //______________________________________________________________________
 // Eventbus
@@ -484,7 +599,7 @@ class EventBus<Event, Subscriber, Classifier> {
     virtual int compareSubscribers(Subscriber a, Subscriber b) = 0;
     virtual ~EventBus() {}
 };
-
+/*
 class SenderMsgClass {
   public:
     ActorRef _sender;
@@ -509,7 +624,7 @@ class ActorMsgBus : public EventBus<Envelope&, ActorRef, SenderMsgClass> {
     int compareSubscribers(ActorRef a, ActorRef b) { return 1; }
     ~ActorMsgBus() {}
 };
-
+*/
 class Thread {
     uint32_t _signal;
 

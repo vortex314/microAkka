@@ -17,6 +17,8 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="src/Metric.cpp"/>
+    <File Name="src/Metric.h"/>
     <File Name="src/NeuralPid.cpp"/>
     <File Name="src/NeuralPid.h"/>
     <File Name="src/Machinelearning.cpp"/>
@@ -138,4 +140,6 @@
       </Completion>
     </Configuration>
   </Settings>
+  <Dependencies Name="Debug"/>
+  <Dependencies Name="Release"/>
 </CodeLite_Project>
