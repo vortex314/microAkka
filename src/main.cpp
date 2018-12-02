@@ -3,7 +3,6 @@
 #include <MqttBridge.h>
 #include <NeuralPid.h>
 #include <Sender.h>
-#include <etl/endianness.h>
 
 //______________________________________________________________
 //
@@ -36,6 +35,7 @@ int main() {
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
+	defaultDispatcher.unhandled(ActorCell::cellFor(&mqttBridge));
 
     while (true) {
         defaultDispatcher.execute();

@@ -74,6 +74,7 @@ class AbstractActor;
 class ActorRefFactory;
 class ActorContext;
 class ActorRef;
+class ActorRef;
 class ActorSelection;
 class ActorPath;
 class ActorSystem;
@@ -185,7 +186,7 @@ class Receive {
 class MessageDispatcher {
     LinkedList<Mailbox*> _mailboxes;
     LinkedList<ActorCell*> _actorCells;
-    ActorContext* _unhandledContext;
+    ActorCell* _unhandledCell;
 
   public:
     MessageDispatcher();
@@ -197,7 +198,7 @@ class MessageDispatcher {
     void resume(ActorCell&);
     void suspend(ActorCell&);
     void handle(Envelope&);
-    void unhandled(ActorContext*);
+    void unhandled(ActorCell*);
 };
 //__________________________________________________________ CoRoutineDispatcher
 //
@@ -246,8 +247,8 @@ class ActorRefFactory {
 //__________________________________________________________ ActorRef
 class ActorRef {
     UidType _id;
-    bool _isLocal;
     Mailbox* _mailbox;
+    ActorCell* _cell;
 
     static LinkedList<ActorRef*> _actorRefs;
 
@@ -271,6 +272,8 @@ class ActorRef {
     static ActorRef* lookup(uid_type id);
     bool isLocal();
     void isLocal(bool b);
+	void cell(ActorCell* cell);
+	ActorCell* cell();
 };
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorRefFactory {
@@ -344,7 +347,7 @@ class ActorCell : public ActorContext {
 
     void actor(Actor* actor);
     Actor* actor();
-    static ActorCell* cellFor(ActorRef& ref);
+    static ActorCell* cellFor(ActorRef* ref);
 
     void mailbox(Mailbox&);
     const char* path();
@@ -356,18 +359,18 @@ class ActorCell : public ActorContext {
     static LinkedList<ActorCell*>& actorCells();
 };
 
-//________________________________________________________ LocalActorRef
-class LocalActorRef : public ActorRef {
+//________________________________________________________ ActorRef
+/*class ActorRef : public ActorRef {
     ActorCell* _actorCell;
 
   public:
-    LocalActorRef(UidType id) : ActorRef(id) {
+    ActorRef(UidType id) : ActorRef(id) {
         isLocal(true);
         //   : _actorCell(system, ref, mailbox, dispatcher){};
     };
-    void cell(ActorCell& c) { _actorCell = &c; };
-    ActorCell& cell() { return *_actorCell; }
-};
+    void cell(ActorCell* c) { _actorCell = c; };
+    ActorCell* cell() { return _actorCell; }
+};*/
 //_____________________________________________________________________
 // Actor
 //
@@ -521,12 +524,12 @@ class ActorSystem : public UidType {
         T* actor = new T(args);
         va_end(args);
         UidType id = ActorSystem::uniqueId(name);
-        LocalActorRef* actorRef = new LocalActorRef(id);
+        ActorRef* actorRef = new ActorRef(id);
         actorRef->mailbox(defaultProps.mailbox());
         ActorCell* actorCell =
             new ActorCell(*this, *actorRef, defaultProps.mailbox(),
                           defaultProps.dispatcher());
-        actorRef->cell(*actorCell);
+        actorRef->cell(actorCell);
         actor->context(actorCell);
         actorCell->become(actor->createReceive(), true);
         INFO(" new actor '%s' created", actorRef->path());
@@ -543,12 +546,12 @@ class ActorSystem : public UidType {
         T* actor = new T(args);
         va_end(args);
         UidType id = ActorSystem::uniqueId(name);
-        LocalActorRef* actorRef = new LocalActorRef(id);
+        ActorRef* actorRef = new ActorRef(id);
         actorRef->mailbox(props.mailbox());
 
         ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
                                              props.dispatcher());
-        actorRef->cell(*actorCell);
+        actorRef->cell(actorCell);
         actor->context(actorCell);
         actorCell->become(actor->createReceive(), true);
         INFO(" new actor '%s' created", actorRef->path());
