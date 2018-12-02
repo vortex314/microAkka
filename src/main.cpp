@@ -39,6 +39,6 @@ int main() {
 
     while (true) {
         defaultDispatcher.execute();
-        millisleep(10);
+        millisleep(1);
     };
 }

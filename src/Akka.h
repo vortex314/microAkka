@@ -514,7 +514,7 @@ class ActorSystem : public UidType {
     ActorRef& actorFor(const char* address) {
         // TODO check local or remote
         ActorRef* ref = new ActorRef(address);
-        ref->mailbox(defaultMailbox);
+        ref->mailbox(remoteMailbox);
         return *ref;
     }
 
