@@ -5,7 +5,6 @@ const MsgClass Echo::PING("PING");
 Echo::Echo(va_list args) : str(80) {}
 Echo::~Echo() {}
 
-void Echo::preStart() {}
 Receive& Echo::createReceive() {
     return receiveBuilder()
         .match(PING,

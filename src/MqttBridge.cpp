@@ -220,12 +220,11 @@ int MqttBridge::onMessageArrived(void* context, char* topicName, int topicLen,
     Str topic((uint8_t*)topicName, topicLen);
     Str msg((uint8_t*)message->payload, message->payloadlen);
     INFO(" MQTT RXD : %s = %s ", topicName, message->payload);
-
+ //   me->self().tell(me-self(),MQTT_PUBLISH_RCVD,"SS",&topic,&msg);
     Envelope envelope(1024);
     envelope.header(me->self(), me->self(), MQTT_PUBLISH_RCVD);
     envelope.message.addf("SS", &topic, &msg);
     me->self().tell(me->self(), envelope);
-    //   me->self().tell(me->self(), MQTT_PUBLISH_RCVD, "SS", &topicName, &msg);
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;

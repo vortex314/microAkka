@@ -12,7 +12,6 @@ class Echo : public Actor {
     Echo(va_list args);
     ~Echo();
 
-    void preStart();
     Receive& createReceive();
 };
 #endif

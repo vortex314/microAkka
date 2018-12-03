@@ -40,11 +40,10 @@ typedef void (*MsgHandler)(void);
 
 UidType::UidType(const char* name) {
 	_id = UID.hash(name);
-	//    _name = label();
 }
 
 UidType::UidType(uint16_t id) :
-		_id(id) { /*_name = label();*/
+		_id(id) {
 }
 
 bool UidType::operator==(UidType v) {
@@ -55,19 +54,15 @@ const char* UidType::label() {
 	return UID.label(_id);
 }
 
-// bool UidType::hasLabel() { return UID.find(_id) != 0; }
-
 uid_type UidType::id() {
 	return _id;
 }
 
 void UidType::id(uid_type id) {
 	_id = id;
-	//    _name = label();
 }
 
-//_____________________________________________________________________
-// Actor
+//______________________________________________________________ Actor
 
 LinkedList<Actor*> Actor::_actors;
 
@@ -81,7 +76,6 @@ Actor::~Actor() {
 ActorRef& Actor::self() {
 	return _context->self();
 }
-;
 
 Receive& Actor::receiveBuilder() {
 	return *(new Receive());
@@ -90,10 +84,10 @@ Receive& Actor::receiveBuilder() {
 ActorContext& Actor::context() {
 	return *_context;
 }
+
 TimerScheduler& Actor::timers() {
 	return _context->timers();
 }
-;
 
 void Actor::unhandled(Envelope& msg) {
 	INFO("unhandled message for Actor : %s ", self().path());
@@ -144,18 +138,13 @@ ActorRef ActorRef::noSender = ActorRef("noSender");
 uid_type ActorRef::id() {
 	return _id.id();
 }
-;
+
 bool ActorRef::operator==(ActorRef& v) {
 	return _id == v._id;
 }
 //____________________________________________________________________________
 // LocalActorRef
 
-/*
- void ActorRef::ask(ActorRef dst, MsgClass type, Envelope&
- msg,!array.is<char*>(0) uint32_t timeout) {
- }
- */
 Envelope env(1024);
 void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
 
@@ -202,8 +191,7 @@ ActorSelection::ActorSelection(UidType id) :
 		ActorRef(id) {
 }
 
-//______________________________________________________________________
-// Envelope
+//____________________________________________________________ Envelope
 //
 
 Envelope::Envelope(uint32_t size) :
@@ -499,7 +487,6 @@ Receive nullReceive;
 //______________________________________________________________ ActorCell
 //
 
-
 LinkedList<ActorCell*> ActorCell::_actorCells;
 
 ActorCell::ActorCell(ActorSystem& system, ActorRef& ref, Mailbox& mailbox,
@@ -509,8 +496,8 @@ ActorCell::ActorCell(ActorSystem& system, ActorRef& ref, Mailbox& mailbox,
 	_timers = 0;
 	_lastReceive = UINT64_MAX;
 	_inactivityPeriod = UINT32_MAX;
-	_receive=0;
-	_prevReceive=0;
+	_receive = 0;
+	_prevReceive = 0;
 	_actorCells.add(this);
 }
 
@@ -606,7 +593,6 @@ LinkedList<ActorCell*>& ActorCell::actorCells() {
 MessageDispatcher::MessageDispatcher() {
 	_unhandledCell = 0;
 }
-
 
 void MessageDispatcher::attach(Mailbox& mailbox) {
 	_mailboxes.add(&mailbox);

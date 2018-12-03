@@ -254,7 +254,7 @@ class ActorRef {
 
   public:
     ActorRef();
-    ActorRef(UidType id);
+    ActorRef(UidType id,Mailbox& mb);
 
     void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
     void forward(Envelope& msg);
@@ -513,7 +513,8 @@ class ActorSystem : public UidType {
 
     ActorRef& actorFor(const char* address) {
         // TODO check local or remote
-        ActorRef* ref = new ActorRef(address);
+    	ActorRef* ref = ActorRef::lookup(Uid::hash(address));
+        if ( ref==0 ) ref=new ActorRef(address,defaultMailbox);
         ref->mailbox(remoteMailbox);
         return *ref;
     }
@@ -524,8 +525,8 @@ class ActorSystem : public UidType {
         T* actor = new T(args);
         va_end(args);
         UidType id = ActorSystem::uniqueId(name);
-        ActorRef* actorRef = new ActorRef(id);
-        actorRef->mailbox(defaultProps.mailbox());
+        ActorRef* actorRef = new ActorRef(id,defaultMailbox);
+ //       actorRef->mailbox(defaultProps.mailbox());
         ActorCell* actorCell =
             new ActorCell(*this, *actorRef, defaultProps.mailbox(),
                           defaultProps.dispatcher());
@@ -546,8 +547,8 @@ class ActorSystem : public UidType {
         T* actor = new T(args);
         va_end(args);
         UidType id = ActorSystem::uniqueId(name);
-        ActorRef* actorRef = new ActorRef(id);
-        actorRef->mailbox(props.mailbox());
+        ActorRef* actorRef = new ActorRef(id,props.mailbox());
+  //      actorRef->mailbox(props.mailbox());
 
         ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
                                              props.dispatcher());
