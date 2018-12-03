@@ -77,11 +77,10 @@ ActorRef& Actor::sender() { return _context->sender(); }
 LinkedList<ActorRef*> ActorRef::_actorRefs;
 
 ActorRef* ActorRef::lookup(uid_type id) {
-    return _actorRefs.findFirst([id](ActorRef* t) {
-        //        INFO(" %d : %d %s:%s ", t->id(), id,
-        //        Uid::label(t->id()),Uid::label(id));
+    ActorRef* ref = _actorRefs.findFirst([id](ActorRef* t) {
         return t->id() == id;
     });
+	return ref;
 }
 
 ActorRef::ActorRef(UidType id, Mailbox& mailbox) : _id(id) {

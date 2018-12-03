@@ -140,8 +140,14 @@ bool MqttBridge::handleMqttMessage(const char* message)
     if(!array.is<char*>(0) || !array.is<char*>(1) || !array.is<char*>(2))
 	return false;
 
-    ActorRef rcv = ActorSelection(array.get<const char*>(0));
-    ActorRef snd = ActorRef(array.get<const char*>(1), remoteMailbox);
+    ActorRef* rcv = ActorRef::lookup(Uid::hash(array.get<const char*>(0)) );
+	if ( rcv == 0 ) {
+		rcv=&ActorRef::noSender;
+	}
+    ActorRef* snd = ActorRef::lookup(Uid::hash(array.get<const char*>(1)) );
+	if ( snd==0 ) {
+		snd=new ActorRef(Uid::hash(array.get<const char*>(1)),remoteMailbox);
+	}
     MsgClass cls(array.get<const char*>(2));
     uint16_t id = array.get<int>(3);
     for(uint32_t i = 4; i < array.size(); i++) {
@@ -154,8 +160,8 @@ bool MqttBridge::handleMqttMessage(const char* message)
 	    envelope.message.add(array.get<double>(i));
 	}
     }
-    envelope.header(rcv, snd, cls, id);
-    rcv.tell(snd, envelope);
+    envelope.header(*rcv, *snd, cls, id);
+    rcv->tell(*snd, envelope);
     return true;
 }
 
