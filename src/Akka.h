@@ -317,7 +317,7 @@ class ActorCell : public ActorContext {
     MessageDispatcher& _dispatcher;
     ActorRef& _self;
 
-    Receive* _receive;
+    Receive* _receive,_prevReceive;
     Actor* _actor;
     Envelope* _currentMessage;
 
