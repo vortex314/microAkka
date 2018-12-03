@@ -10,7 +10,7 @@ void Sender::preStart() {
     echo = context().system().actorOf<Echo>("echo");
     timers().startPeriodicTimer("PERIODIC_TIMER_1", TimerExpired, 5000);
     context().setReceiveTimeout(1000);
-    anchorRef = context().system().actorFor("anchor/system");
+    anchorRef = context().system().actorFor("esp32/anchor1");
 }
 
 Receive& Sender::createReceive() {

@@ -317,7 +317,8 @@ class ActorCell : public ActorContext {
     MessageDispatcher& _dispatcher;
     ActorRef& _self;
 
-    Receive* _receive,_prevReceive;
+    Receive* _receive;
+	Receive* _prevReceive;
     Actor* _actor;
     Envelope* _currentMessage;
 
@@ -504,7 +505,7 @@ class Props {
 class ActorSystem : public UidType {
     const char* _name;
     Mailbox* _defaultMailbox;
-    Mailbox* _deadLetterMailbox;
+ //   Mailbox* _deadLetterMailbox;
     MessageDispatcher* _defaultDispatcher;
 
   public:
@@ -514,8 +515,7 @@ class ActorSystem : public UidType {
     ActorRef& actorFor(const char* address) {
         // TODO check local or remote
     	ActorRef* ref = ActorRef::lookup(Uid::hash(address));
-        if ( ref==0 ) ref=new ActorRef(address,defaultMailbox);
-        ref->mailbox(remoteMailbox);
+        if ( ref==0 ) ref=new ActorRef(address,remoteMailbox);
         return *ref;
     }
 
