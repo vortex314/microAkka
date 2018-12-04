@@ -28,7 +28,7 @@ int main() {
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(
-        Props::create().withMailbox(remoteMailbox), "mqttBridge",
+        Props::create().withMailbox(remoteMailbox).withDispatcher(defaultDispatcher), "mqttBridge",
         "tcp://test.mosquitto.org:1883");
     ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
     ActorSelection ref("pcpav2/ikke");
