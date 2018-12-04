@@ -46,6 +46,7 @@ public:
 	static Uid* find(uid_type id);
 	static Uid* find(const char* label);
 	static uid_type hash(const char* label);
+	static uint32_t count() { return _uids.count();}
 };
 
 extern Uid UID;

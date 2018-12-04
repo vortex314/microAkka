@@ -12,7 +12,7 @@ template <typename T> class Node {
         _next = 0;
     }
     inline Node<T>* next() { return _next; }
-	inline void next(Node<T>* n) { _next=n; }
+    inline void next(Node<T>* n) { _next = n; }
 };
 
 template <typename T> class LinkedList {
@@ -65,11 +65,11 @@ template <typename T> class LinkedList {
         Node<T>* cursor = _first;
 
         while (cursor) {
-			if ( cursor->next() && cursor->next().data ==t ) {
-				Node<T>* todel = cursor->next();
-				cursor->next( cursor->next()->next() );
-				delete todel;
-			}
+            if (cursor->next() && cursor->next().data == t) {
+                Node<T>* todel = cursor->next();
+                cursor->next(cursor->next()->next());
+                delete todel;
+            }
             cursor = cursor->next();
             if (cursor->next() == 0) {
                 break;
@@ -89,6 +89,11 @@ template <typename T> class LinkedList {
                 return ptr->_data;
         }
         return 0;
+    }
+    uint32_t count() {
+        uint32_t cnt = 0;
+        forEach([&cnt](T t) { cnt=cnt+1; });
+        return cnt;
     }
 };
 

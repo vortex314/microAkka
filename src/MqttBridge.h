@@ -40,8 +40,8 @@ class MqttBridge : public Actor {
     static void onSubscribeFailure(void* context,
                                    MQTTAsync_failureData* response);
     static int onMessageArrived(void* context, char* topicName, int topicLen,
-                                 MQTTAsync_message* message);
-    static void onDeliveryComplete(void *context, MQTTAsync_token token);
+                                MQTTAsync_message* message);
+    static void onDeliveryComplete(void* context, MQTTAsync_token token);
 
     void mqttPublish(const char* topic, const char* message);
     void mqttSubscribe(const char* topic);

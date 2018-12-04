@@ -133,7 +133,7 @@ class MsgClass : public UidType {
     MsgClass(const char* name) : UidType(name) {}
 };
 
-//_____________________________________________________________________ Timer
+//_________________________________________________________________ Timer
 //
 class Timer : public UidType {
 
@@ -187,6 +187,8 @@ class MessageDispatcher {
     LinkedList<Mailbox*> _mailboxes;
     LinkedList<ActorCell*> _actorCells;
     ActorCell* _unhandledCell;
+	Envelope& _txdEnvelope;
+	Envelope& _rxdEnvelope;
 
   public:
     MessageDispatcher();
@@ -199,6 +201,7 @@ class MessageDispatcher {
     void suspend(ActorCell&);
     void handle(Envelope&);
     void unhandled(ActorCell*);
+	Envelope& txdEnvelope();
 };
 //__________________________________________________________ CoRoutineDispatcher
 //
@@ -254,7 +257,7 @@ class ActorRef {
 
   public:
     ActorRef();
-    ActorRef(UidType id,Mailbox& mb);
+    ActorRef(UidType id, Mailbox& mb);
 
     void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
     void forward(Envelope& msg);
@@ -270,10 +273,11 @@ class ActorRef {
     const char* path();
     static ActorRef noSender;
     static ActorRef* lookup(uid_type id);
+	static uint32_t count() { return _actorRefs.count();};
     bool isLocal();
     void isLocal(bool b);
-	void cell(ActorCell* cell);
-	ActorCell* cell();
+    void cell(ActorCell* cell);
+    ActorCell* cell();
 };
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorRefFactory {
@@ -289,6 +293,7 @@ class ActorContext : public ActorRefFactory {
     virtual void unbecome() = 0;
     virtual ActorRef& sender() = 0;
     virtual ActorSystem& system() = 0;
+	virtual MessageDispatcher& dispatcher()=0;
 
     // ActorContext();
 
@@ -318,7 +323,7 @@ class ActorCell : public ActorContext {
     ActorRef& _self;
 
     Receive* _receive;
-	Receive* _prevReceive;
+    Receive* _prevReceive;
     Actor* _actor;
     Envelope* _currentMessage;
 
@@ -348,7 +353,8 @@ class ActorCell : public ActorContext {
 
     void actor(Actor* actor);
     Actor* actor();
-    static ActorCell* cellFor(ActorRef* ref);
+    static ActorCell* lookup(ActorRef* ref);
+	static uint32_t count() { return _actorCells.count();}
 
     void mailbox(Mailbox&);
     const char* path();
@@ -392,14 +398,11 @@ class Actor {
     void unhandled(Envelope& msg);
     Receive& createReceive();
     TimerScheduler& timers();
+	Envelope& txdEnvelope();
 
     static Receive& receiveBuilder();
 };
-class Timers : public Actor {
-    TimerScheduler _timers;
 
-  public:
-};
 //________________________________________________________ ActorSelection
 
 class ActorSelection : public ActorRef {
@@ -505,7 +508,7 @@ class Props {
 class ActorSystem : public UidType {
     const char* _name;
     Mailbox* _defaultMailbox;
- //   Mailbox* _deadLetterMailbox;
+    //   Mailbox* _deadLetterMailbox;
     MessageDispatcher* _defaultDispatcher;
 
   public:
@@ -514,8 +517,9 @@ class ActorSystem : public UidType {
 
     ActorRef& actorFor(const char* address) {
         // TODO check local or remote
-    	ActorRef* ref = ActorRef::lookup(Uid::hash(address));
-        if ( ref==0 ) ref=new ActorRef(address,remoteMailbox);
+        ActorRef* ref = ActorRef::lookup(Uid::hash(address));
+        if (ref == 0)
+            ref = new ActorRef(address, remoteMailbox);
         return *ref;
     }
 
@@ -525,8 +529,8 @@ class ActorSystem : public UidType {
         T* actor = new T(args);
         va_end(args);
         UidType id = ActorSystem::uniqueId(name);
-        ActorRef* actorRef = new ActorRef(id,defaultMailbox);
- //       actorRef->mailbox(defaultProps.mailbox());
+        ActorRef* actorRef = new ActorRef(id, defaultMailbox);
+        //       actorRef->mailbox(defaultProps.mailbox());
         ActorCell* actorCell =
             new ActorCell(*this, *actorRef, defaultProps.mailbox(),
                           defaultProps.dispatcher());
@@ -547,8 +551,8 @@ class ActorSystem : public UidType {
         T* actor = new T(args);
         va_end(args);
         UidType id = ActorSystem::uniqueId(name);
-        ActorRef* actorRef = new ActorRef(id,props.mailbox());
-  //      actorRef->mailbox(props.mailbox());
+        ActorRef* actorRef = new ActorRef(id, props.mailbox());
+        //      actorRef->mailbox(props.mailbox());
 
         ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
                                              props.dispatcher());

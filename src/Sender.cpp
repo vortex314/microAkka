@@ -8,8 +8,10 @@ Sender::~Sender() {}
 
 void Sender::preStart() {
     echo = context().system().actorOf<Echo>("echo");
-    timers().startPeriodicTimer("PERIODIC_TIMER_1", TimerExpired, 5000);
-    context().setReceiveTimeout(1000);
+	    echo = context().system().actorOf<Echo>("echo1");
+
+    timers().startPeriodicTimer("PERIODIC_TIMER_1", TimerExpired, 10000);
+ //   context().setReceiveTimeout(1000);
     anchorRef = context().system().actorFor("esp32/anchor1");
 }
 
@@ -37,7 +39,8 @@ Receive& Sender::createReceive() {
 
 void Sender::handlePing(Envelope& msg) {
     //			INFO(" PONG received");
-    msg.scanf("uS", &_counter, &str);
+	uint32_t var;
+    msg.scanf("uu", &_counter, &var);
     if (_counter == 0) {
         startTime = Sys::millis();
     } else if (_counter == MAX_MESSAGES) {

@@ -47,3 +47,4 @@ const char* Uid::label(uid_type id) {
         return p->_label;
     return 0;
 }
+

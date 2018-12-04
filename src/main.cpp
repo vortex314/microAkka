@@ -3,6 +3,7 @@
 #include <MqttBridge.h>
 #include <NeuralPid.h>
 #include <Sender.h>
+#include <System.h>
 
 //______________________________________________________________
 //
@@ -17,9 +18,7 @@ uint32_t millisleep(uint32_t msec) {
 Log logger(1024);
 ActorSystem actorSystem(Sys::hostname());
 Mailbox defaultMailbox("default", 20000, 1000);
-// Mailbox coRoutineMailbox("coRoutine", 20000, 1000);
 Mailbox remoteMailbox("remote", 20000, 1000);
-// ActorSelection remoteActor("mqtt://");
 
 int main() {
     Sys::init();
@@ -27,15 +26,19 @@ int main() {
     INFO(" starting microAkka test ");
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
+    ActorRef system = actorSystem.actorOf<System>("System");
+
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(
-        Props::create().withMailbox(remoteMailbox).withDispatcher(defaultDispatcher), "mqttBridge",
-        "tcp://test.mosquitto.org:1883");
+        Props::create()
+            .withMailbox(remoteMailbox)
+            .withDispatcher(defaultDispatcher),
+        "mqttBridge", "tcp://test.mosquitto.org:1883");
     ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
     ActorSelection ref("pcpav2/ikke");
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
-	defaultDispatcher.unhandled(ActorCell::cellFor(&mqttBridge));
+    defaultDispatcher.unhandled(ActorCell::lookup(&mqttBridge));
 
     while (true) {
         defaultDispatcher.execute();
