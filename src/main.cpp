@@ -26,7 +26,7 @@ int main() {
     INFO(" starting microAkka test ");
     //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
- //   ActorRef system = actorSystem.actorOf<System>("System");
+    //   ActorRef system = actorSystem.actorOf<System>("System");
 
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(
         Props::create()
@@ -42,6 +42,7 @@ int main() {
 
     while (true) {
         defaultDispatcher.execute();
-        millisleep(1);
+        if (defaultDispatcher.nextWakeup() > Sys::millis())
+            millisleep(defaultDispatcher.nextWakeup() - Sys::millis());
     };
 }

@@ -189,6 +189,7 @@ class MessageDispatcher {
     ActorCell* _unhandledCell;
     Envelope& _txdEnvelope;
     Envelope& _rxdEnvelope;
+    uint64_t _nextWakeup;
 
   public:
     MessageDispatcher();
@@ -201,6 +202,8 @@ class MessageDispatcher {
     void suspend(ActorCell&);
     void handle(Envelope&);
     void unhandled(ActorCell*);
+    void nextWakeup(uint64_t t);
+    uint64_t nextWakeup();
     Envelope& txdEnvelope();
 };
 //__________________________________________________________ CoRoutineDispatcher
@@ -361,6 +364,7 @@ class ActorCell : public ActorContext {
     bool hasTimers();
 
     bool hasReceiveTimedOut();
+    uint64_t expiresAt();
     static LinkedList<ActorCell*>& actorCells();
 };
 
@@ -389,7 +393,7 @@ class Actor {
     ActorRef& sender();
     ActorContext& context();
     void context(ActorCell* context) { _context = context; }
-    void preStart(){};
+    virtual void preStart(){};
     void aroundPrestart(){};
     void postStop(){};
     void unhandled(Envelope& msg);
@@ -551,9 +555,9 @@ class ActorSystem : public UidType {
         actorRef->cell(actorCell);
         actor->context(actorCell);
         actorCell->become(actor->createReceive(), true);
-        INFO(" new actor '%s' created", actorRef->path());
+        //      INFO(" new actor '%s' created", actorRef->path());
         actor->preStart();
-        INFO(" actor '%s' preStarted", actorRef->path());
+        //     INFO(" actor '%s' preStarted", actorRef->path());
         props.dispatcher().attach(*actorCell);
         return actorRef;
     }
