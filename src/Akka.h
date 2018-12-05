@@ -187,8 +187,8 @@ class MessageDispatcher {
     LinkedList<Mailbox*> _mailboxes;
     LinkedList<ActorCell*> _actorCells;
     ActorCell* _unhandledCell;
-	Envelope& _txdEnvelope;
-	Envelope& _rxdEnvelope;
+    Envelope& _txdEnvelope;
+    Envelope& _rxdEnvelope;
 
   public:
     MessageDispatcher();
@@ -201,7 +201,7 @@ class MessageDispatcher {
     void suspend(ActorCell&);
     void handle(Envelope&);
     void unhandled(ActorCell*);
-	Envelope& txdEnvelope();
+    Envelope& txdEnvelope();
 };
 //__________________________________________________________ CoRoutineDispatcher
 //
@@ -273,7 +273,7 @@ class ActorRef {
     const char* path();
     static ActorRef noSender;
     static ActorRef* lookup(uid_type id);
-	static uint32_t count() { return _actorRefs.count();};
+    static uint32_t count() { return _actorRefs.count(); };
     bool isLocal();
     void isLocal(bool b);
     void cell(ActorCell* cell);
@@ -293,9 +293,7 @@ class ActorContext : public ActorRefFactory {
     virtual void unbecome() = 0;
     virtual ActorRef& sender() = 0;
     virtual ActorSystem& system() = 0;
-	virtual MessageDispatcher& dispatcher()=0;
-
-    // ActorContext();
+    virtual MessageDispatcher& dispatcher() = 0;
 
     void cancelReceiveTimeout();
     bool hasReceiveTimedOut();
@@ -354,7 +352,7 @@ class ActorCell : public ActorContext {
     void actor(Actor* actor);
     Actor* actor();
     static ActorCell* lookup(ActorRef* ref);
-	static uint32_t count() { return _actorCells.count();}
+    static uint32_t count() { return _actorCells.count(); }
 
     void mailbox(Mailbox&);
     const char* path();
@@ -378,8 +376,7 @@ class ActorCell : public ActorContext {
     void cell(ActorCell* c) { _actorCell = c; };
     ActorCell* cell() { return _actorCell; }
 };*/
-//_____________________________________________________________________
-// Actor
+//_________________________________________________________ Actor
 //
 class Actor {
     ActorCell* _context;
@@ -396,9 +393,9 @@ class Actor {
     void aroundPrestart(){};
     void postStop(){};
     void unhandled(Envelope& msg);
-    Receive& createReceive();
+    virtual Receive& createReceive() = 0;
     TimerScheduler& timers();
-	Envelope& txdEnvelope();
+    Envelope& txdEnvelope();
 
     static Receive& receiveBuilder();
 };
@@ -528,21 +525,8 @@ class ActorSystem : public UidType {
         va_start(args, name);
         T* actor = new T(args);
         va_end(args);
-        UidType id = ActorSystem::uniqueId(name);
-        ActorRef* actorRef = new ActorRef(id, defaultMailbox);
-        //       actorRef->mailbox(defaultProps.mailbox());
-        ActorCell* actorCell =
-            new ActorCell(*this, *actorRef, defaultProps.mailbox(),
-                          defaultProps.dispatcher());
-        actorRef->cell(actorCell);
-        actor->context(actorCell);
-        actorCell->become(actor->createReceive(), true);
-        INFO(" new actor '%s' created", actorRef->path());
-        actor->preStart();
-        INFO(" actor '%s' preStarted", actorRef->path());
-        defaultProps.dispatcher().attach(*actorCell);
 
-        return *actorRef;
+        return *create(actor, name, defaultProps);
     }
 
     template <class T> ActorRef& actorOf(Props& props, const char* name, ...) {
@@ -550,10 +534,18 @@ class ActorSystem : public UidType {
         va_start(args, name);
         T* actor = new T(args);
         va_end(args);
-        UidType id = ActorSystem::uniqueId(name);
-        ActorRef* actorRef = new ActorRef(id, props.mailbox());
-        //      actorRef->mailbox(props.mailbox());
 
+        return *create(actor, name, props);
+    }
+
+    ActorRef* create(Actor* actor, const char* name, Props& props) {
+        UidType id = ActorSystem::uniqueId(name);
+        ActorRef* actorRef;
+        if (ActorRef::lookup(id.id())) {
+            actorRef = ActorRef::lookup(id.id());
+        } else {
+            actorRef = new ActorRef(id, props.mailbox());
+        }
         ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
                                              props.dispatcher());
         actorRef->cell(actorCell);
@@ -563,7 +555,7 @@ class ActorSystem : public UidType {
         actor->preStart();
         INFO(" actor '%s' preStarted", actorRef->path());
         props.dispatcher().attach(*actorCell);
-        return *actorRef;
+        return actorRef;
     }
 };
 //______________________________________________________________________
@@ -576,8 +568,7 @@ template <typename Subscriber, typename Classifier> class SubscriberClassifier {
     SubscriberClassifier(Subscriber subscriber, Classifier classifier)
         : _subscriber(subscriber), _classifier(classifier) {}
 };
-//______________________________________________________________________
-// Eventbus
+//___________________________________________________________ Eventbus
 template <typename...> class EventBus;
 template <typename Subscriber, typename Classifier, typename Event>
 class EventBus<Event, Subscriber, Classifier> {
