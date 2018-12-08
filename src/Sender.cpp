@@ -1,12 +1,13 @@
 #include <Echo.h>
 #include <Sender.h>
 
-#define MAX_MESSAGES 100000
+#define MAX_MESSAGES 1000
 
 Sender::Sender(va_list args) : startTime(0), str(80), _counter(0) {}
 Sender::~Sender() {}
 
-void Sender::preStart() {
+void Sender::preStart()
+{
     echo = context().system().actorOf<Echo>("echo");
     echo = context().system().actorOf<Echo>("echo1");
 
@@ -16,29 +17,35 @@ void Sender::preStart() {
     anchorRef = context().system().actorFor("esp32/anchor1");
 }
 
-Receive& Sender::createReceive() {
+Receive& Sender::createReceive()
+{
     return receiveBuilder()
-        .match(Echo::PONG(), [this](Envelope& msg) { handlePing(msg); })
-        .match(MsgClass::TimerExpired(),
-               [this](Envelope& msg) {
-                   UidType key("");
-                   uint16_t k;
-                   msg.scanf("i", &k);
-                   key = k;
-                   INFO(" timer expired ! %s ", key.label());
-                   //                       timers().cancel("STARTER");
-                   INFO(" counter : %d ", _counter);
-                   echo.tell(self(), Echo::PING(), "us", 0, "hi!");
-                   anchorRef.tell(
-                       self(), "reset", "s",
-                       "The quick brown fox jumps over the lazy dog");
-               })
-        .match(MsgClass::ReceiveTimeout(),
-               [this](Envelope& msg) { INFO(" ReceiveTimeout expired !  "); })
-        .build();
+    .match(Echo::PONG(), [this](Envelope& msg) {
+        handlePing(msg);
+    })
+    .match(MsgClass::TimerExpired(),
+    [this](Envelope& msg) {
+        UidType key("");
+        uint16_t k;
+        msg.scanf("i", &k);
+        key = k;
+        INFO(" timer expired ! %s ", key.label());
+        //                       timers().cancel("STARTER");
+        INFO(" counter : %d ", _counter);
+        echo.tell(self(), Echo::PING(), "us", 0, "hi!");
+        anchorRef.tell(
+            self(), "reset", "s",
+            "The quick brown fox jumps over the lazy dog");
+    })
+    .match(MsgClass::ReceiveTimeout(),
+    [this](Envelope& msg) {
+        INFO(" ReceiveTimeout expired !  ");
+    })
+    .build();
 }
 
-void Sender::handlePing(Envelope& msg) {
+void Sender::handlePing(Envelope& msg)
+{
     //			INFO(" PONG received");
 
     msg.scanf("uu", &_counter, &_counter);
