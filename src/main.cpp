@@ -7,34 +7,27 @@
 
 //______________________________________________________________
 //
-uint32_t millisleep(uint32_t msec) {
-    struct timespec ts;
-    ts.tv_sec = msec / 1000;
-    ts.tv_nsec = (msec - ts.tv_sec * 1000) * 1000000;
-    int erc = nanosleep(&ts, NULL);
-    return erc;
-};
 
 Log logger(1024);
-ActorSystem actorSystem(Sys::hostname());
-Mailbox defaultMailbox("default", 20000, 1000);
-Mailbox remoteMailbox("remote", 20000, 1000);
 
 int main() {
+
     Sys::init();
 
     INFO(" starting microAkka test ");
-    //    ActorRef echo = actorSystem.actorOf<Echo>("echo");
-    ActorRef sender = actorSystem.actorOf<Sender>("sender");
-    //   ActorRef system = actorSystem.actorOf<System>("System");
+    Mailbox defaultMailbox = *new Mailbox("default", 20000, 1000);
+    Mailbox remoteMailbox = *new Mailbox("remote", 20000, 1000);
+    MessageDispatcher& defaultDispatcher = *new MessageDispatcher();
 
+    ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
+    ActorRef sender = actorSystem.actorOf<Sender>("sender");
+    //    ActorRef system = actorSystem.actorOf<System>("System");
+    ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(
         Props::create()
             .withMailbox(remoteMailbox)
             .withDispatcher(defaultDispatcher),
         "mqttBridge", "tcp://test.mosquitto.org:1883");
-    ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
-    ActorSelection ref("pcpav2/ikke");
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
@@ -43,6 +36,6 @@ int main() {
     while (true) {
         defaultDispatcher.execute();
         if (defaultDispatcher.nextWakeup() > Sys::millis())
-            millisleep(defaultDispatcher.nextWakeup() - Sys::millis());
+            Sys::delay(defaultDispatcher.nextWakeup() - Sys::millis());
     };
 }

@@ -13,19 +13,18 @@ extern "C" {
 #define QOS 0
 #define TIMEOUT 10000L
 
-const static MsgClass MQTT_PUBLISH_RCVD("MQTT_PUBLISH_RCVD");
-
 class MqttBridge : public Actor {
     MQTTAsync _client;
     MQTTAsync_connectOptions _conn_opts;
     MQTTAsync_responseOptions _opts;
     bool _connected;
     StaticJsonBuffer<2000> _jsonBuffer;
-    std::string _clientId;
-    std::string _address;
+    string _clientId;
+    string _address;
     MQTTAsync_token _deliveredtoken;
 
   public:
+    static MsgClass MQTT_PUBLISH_RCVD();
     MqttBridge(va_list args);
     ~MqttBridge();
     void preStart();

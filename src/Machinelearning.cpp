@@ -259,7 +259,6 @@ Net::Net(const vector<unsigned>& topology) {
         for (unsigned neuronNum = 0; neuronNum <= topology[layerNum];
              ++neuronNum) {
             m_layers.back().push_back(Neuron(numOutputs, neuronNum));
-            cout << "Made a Neuron!" << endl;
         }
 
         // Force the bias node's output to 1.0 (it was the last neuron pushed in

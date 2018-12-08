@@ -8,9 +8,11 @@
 #ifndef SRC_AKKA_H_
 #define SRC_AKKA_H_
 #include <Log.h>
-#include <Str.h>
+//#include <string.h>
 #include <Uid.h>
+#include <list>
 #include <stdio.h>
+#include <string>
 
 /*============================================================================
  // Name        : akkaMicro
@@ -56,10 +58,12 @@ using namespace std;
 #include <Cbor.h>
 #include <CborQueue.h>
 #include <Erc.h>
-#include <LinkedList.hpp>
+//#include <list.hpp>
 #include <Log.h>
-#include <Str.h>
+//#include <string.h>
 #include <Uid.h>
+
+extern string string_format(string& str, const char* fmt, ...);
 
 #define MAX_ACTOR_CELLS 20
 
@@ -89,7 +93,6 @@ class ActorMsgBus;
 class MsgClass;
 class UidType;
 class TimerScheduler;
-class Props;
 
 //_____________________________________________________________________ Message
 
@@ -97,22 +100,12 @@ typedef bool (*MsgMatch)(Envelope& msg);
 typedef std::function<void(Envelope&)> MessageHandler;
 typedef std::function<bool(Envelope&)> MessageMatcher;
 
-extern ActorRef AnyActor;
-extern ActorRef NoSender;
-extern MsgClass AnyClass;
-extern Props defaultProps;
-extern Envelope NoMessage; // to handle references cleanly
+// extern ActorRef& AnyActor;
+// extern MsgClass& AnyClass;
+// extern Envelope& NoMessage; // to handle references cleanly
 
-extern Mailbox defaultMailbox;
-extern Mailbox deadLetterMailbox;
-extern Mailbox remoteMailbox;
-extern ActorMsgBus bus;
-extern MsgClass ReceiveTimeout;
-extern MsgClass TimerExpired;
-extern MsgClass PoisonPill;
-extern Receive nullReceive;
-extern MessageDispatcher defaultDispatcher;
-extern ActorCell noActorCell;
+extern Receive& nullReceive;
+extern ActorCell& noActorCell;
 
 class UidType {
     uid_type _id;
@@ -130,6 +123,10 @@ class UidType {
 class MsgClass : public UidType {
 
   public:
+    static MsgClass& ReceiveTimeout();
+    static MsgClass& TimerExpired();
+    static MsgClass& PoisonPill();
+    static MsgClass& AnyClass();
     MsgClass(const char* name) : UidType(name) {}
 };
 
@@ -155,7 +152,7 @@ class Timer : public UidType {
     uint64_t expiresAt();
 }; //__________________________________________________________ TimerScheduler
 class TimerScheduler {
-    LinkedList<Timer*> _timers;
+    list<Timer*> _timers;
 
   public:
     TimerScheduler();
@@ -171,7 +168,7 @@ class TimerScheduler {
 //_____________________________________________________________________ Receive
 //
 class Receive {
-    LinkedList<Receiver*> _receivers;
+    list<Receiver*> _receivers;
 
   public:
     Receive();
@@ -184,8 +181,8 @@ class Receive {
 
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
-    LinkedList<Mailbox*> _mailboxes;
-    LinkedList<ActorCell*> _actorCells;
+    list<Mailbox*> _mailboxes;
+    list<ActorCell*> _actorCells;
     ActorCell* _unhandledCell;
     Envelope& _txdEnvelope;
     Envelope& _rxdEnvelope;
@@ -222,45 +219,21 @@ class ActorRefFactory {
 
 //_______________________________________________________________ AbstractActor
 //
-/*class AbstractActor {
 
-    static LinkedList<AbstractActor*> actors;
-    ActorContext* _context;
-
-  public:
-    AbstractActor();
-    virtual ~AbstractActor();
-
-    ActorRef self();
-    ActorRef sender();
-    void context(ActorContext* ctx);
-    ActorContext& context();
-    ActorSystem& system();
-    void system(ActorSystem* sys);
-    void withDispatcher(MessageDispatcher& dispatcher);
-    void ask(ActorRef dest, uint32_t timeout, MsgClass type, const char* format,
-             ...);
-
-    virtual Receive& createReceive() = 0;
-    Receive& receiveBuilder();
-    virtual void preStart();
-    virtual void postStop();
-    virtual void unhandled(Envelope& msg);
-
-    //	virtual void handle(Envelope& msg){};
-    TimerScheduler& timers();
-};*/
 //__________________________________________________________ ActorRef
 class ActorRef {
     UidType _id;
     Mailbox* _mailbox;
     ActorCell* _cell;
 
-    static LinkedList<ActorRef*> _actorRefs;
+    static list<ActorRef*> _actorRefs;
 
   public:
+    static ActorRef& NoSender();
+
     ActorRef();
-    ActorRef(UidType id, Mailbox& mb);
+    ActorRef(UidType id);
+    ActorRef(UidType id, Mailbox* mb);
 
     void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
     void forward(Envelope& msg);
@@ -274,9 +247,8 @@ class ActorRef {
     uid_type id();
     bool operator==(ActorRef& src);
     const char* path();
-    static ActorRef noSender;
     static ActorRef* lookup(uid_type id);
-    static uint32_t count() { return _actorRefs.count(); };
+    static uint32_t count() { return _actorRefs.size(); };
     bool isLocal();
     void isLocal(bool b);
     void cell(ActorCell* cell);
@@ -309,7 +281,7 @@ class ActorContext : public ActorRefFactory {
     void receive(Receive&);
     TimerScheduler& timers();
     bool hasTimers();
-    static LinkedList<ActorContext*>& actorContexts();
+    static list<ActorContext*>& actorContexts();
     void invoke(Envelope&);
     //   ActorRef actorOf(Props props);
     //   ActorRef actorOf(Props props, const char* name);
@@ -333,7 +305,7 @@ class ActorCell : public ActorContext {
     bool _enable;
     TimerScheduler* _timers;
 
-    static LinkedList<ActorCell*> _actorCells;
+    static list<ActorCell*> _actorCells;
 
   private:
   public:
@@ -355,7 +327,7 @@ class ActorCell : public ActorContext {
     void actor(Actor* actor);
     Actor* actor();
     static ActorCell* lookup(ActorRef* ref);
-    static uint32_t count() { return _actorCells.count(); }
+    static uint32_t count() { return _actorCells.size(); }
 
     void mailbox(Mailbox&);
     const char* path();
@@ -365,7 +337,7 @@ class ActorCell : public ActorContext {
 
     bool hasReceiveTimedOut();
     uint64_t expiresAt();
-    static LinkedList<ActorCell*>& actorCells();
+    static list<ActorCell*>& actorCells();
 };
 
 //________________________________________________________ ActorRef
@@ -384,7 +356,7 @@ class ActorCell : public ActorContext {
 //
 class Actor {
     ActorCell* _context;
-    static LinkedList<Actor*> _actors;
+    static list<Actor*> _actors;
 
   public:
     Actor();
@@ -436,7 +408,7 @@ class Envelope {
     void copyMessage(Envelope& dst);
     bool deserialize(Cbor& message);
     void serialize(Cbor& message);
-    Str& toString(Str&);
+    string& toString(string&);
 };
 
 //_____________________________________________________________________
@@ -457,11 +429,11 @@ class MessageQueue {
 // Mailbox
 class Mailbox : public MessageQueue {
     const char* _name;
-    static LinkedList<Mailbox*> _mailboxes;
+    static list<Mailbox*> _mailboxes;
 
   public:
     Mailbox(const char* name, uint32_t queueSize, uint32_t messageSize);
-    static LinkedList<Mailbox*>& mailboxes();
+    static list<Mailbox*>& mailboxes();
 };
 
 //_____________________________________________________________________
@@ -479,21 +451,21 @@ class Receiver {
     bool match(Envelope& msg);
     void onMessage(Envelope& msg);
     const static bool alwaysTrue(Envelope&) { return true; }
-    Str& toString(Str& s);
+    string& tostringing(string& s);
 };
 //_____________________________________________________________________ Props
 //
-typedef Actor* (*ActorConstructor)(va_list args);
+// typedef Actor* (*ActorConstructor)(va_list args);
+//_____________________________________________________________________ Props
+//
 class Props {
     MessageDispatcher* _dispatcher;
     Mailbox* _mailbox;
-    ActorConstructor constructor;
 
   public:
     Props(MessageDispatcher& d, Mailbox& mb) : _dispatcher(&d), _mailbox(&mb) {}
-    static Props& create() {
-        return *new Props(defaultDispatcher, defaultMailbox);
-    };
+    Props() : _dispatcher(0), _mailbox(0) {}
+    static Props& create() { return *new Props(); };
     Props& withDispatcher(MessageDispatcher& dispatcher) {
         _dispatcher = &dispatcher;
         return *this;
@@ -509,18 +481,21 @@ class Props {
 class ActorSystem : public UidType {
     const char* _name;
     Mailbox* _defaultMailbox;
-    //   Mailbox* _deadLetterMailbox;
     MessageDispatcher* _defaultDispatcher;
+    Props _defaultProps;
+    static list<ActorSystem*> _actorSystems;
+    static ActorSystem* _defaulActorSystem;
 
   public:
-    ActorSystem(const char* name);
+    ActorSystem(const char* name, MessageDispatcher& defaultDispatcher,
+                Mailbox& defaultMailbox);
     UidType uniqueId(const char* name);
 
     ActorRef& actorFor(const char* address) {
         // TODO check local or remote
         ActorRef* ref = ActorRef::lookup(Uid::hash(address));
         if (ref == 0)
-            ref = new ActorRef(address, remoteMailbox);
+            ref = new ActorRef(address, _defaultMailbox);
         return *ref;
     }
 
@@ -530,7 +505,7 @@ class ActorSystem : public UidType {
         T* actor = new T(args);
         va_end(args);
 
-        return *create(actor, name, defaultProps);
+        return *create(actor, name, _defaultProps);
     }
 
     template <class T> ActorRef& actorOf(Props& props, const char* name, ...) {
@@ -548,7 +523,7 @@ class ActorSystem : public UidType {
         if (ActorRef::lookup(id.id())) {
             actorRef = ActorRef::lookup(id.id());
         } else {
-            actorRef = new ActorRef(id, props.mailbox());
+            actorRef = new ActorRef(id, &props.mailbox());
         }
         ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
                                              props.dispatcher());
@@ -561,6 +536,9 @@ class ActorSystem : public UidType {
         props.dispatcher().attach(*actorCell);
         return actorRef;
     }
+
+    MessageDispatcher& defaultDispatcher() { return *_defaultDispatcher; }
+    Mailbox& defaultMailbox() { return *_defaultMailbox; }
 };
 //______________________________________________________________________
 // Eventbus
@@ -576,7 +554,7 @@ template <typename Subscriber, typename Classifier> class SubscriberClassifier {
 template <typename...> class EventBus;
 template <typename Subscriber, typename Classifier, typename Event>
 class EventBus<Event, Subscriber, Classifier> {
-    LinkedList<SubscriberClassifier<Subscriber, Classifier>*> _list;
+    list<SubscriberClassifier<Subscriber, Classifier>*> _list;
 
   public:
     void publish(Event event) {

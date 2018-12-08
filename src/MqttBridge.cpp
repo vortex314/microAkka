@@ -2,11 +2,15 @@
 #include <MqttBridge.h>
 #include <sys/types.h>
 #include <unistd.h>
-
 // volatile MQTTAsync_token deliveredtoken;
 
 MqttBridge::MqttBridge(va_list args) { _address = va_arg(args, const char*); };
 MqttBridge::~MqttBridge() {}
+
+MsgClass MqttBridge::MQTT_PUBLISH_RCVD() {
+    static MsgClass MQTT_PUBLISH_RCVD("MQTT_PUBLISH_RCVD");
+    return MQTT_PUBLISH_RCVD;
+}
 
 void MqttBridge::preStart() {
     //   context().mailbox(remoteMailbox);
@@ -14,7 +18,10 @@ void MqttBridge::preStart() {
 
     _clientId = self().path();
     _clientId += "#";
-    _clientId += std::to_string(::getpid());
+    char str[10];
+    int pid = getpid();
+    snprintf(str, sizeof(str), "%d", pid);
+    _clientId += str;
 
     MQTTAsync_create(&_client, _address.c_str(), _clientId.c_str(),
                      MQTTCLIENT_PERSISTENCE_NONE, NULL);
@@ -83,7 +90,7 @@ bool payloadToJsonArray(JsonArray& array, Cbor& payload) {
 
 Receive& MqttBridge::createReceive() {
     return receiveBuilder()
-        .match(AnyClass,
+        .match(MsgClass::AnyClass(),
                [this](Envelope& msg) {
                    if (!(*msg.receiver == self())) {
                        INFO(" message received %s:%s:%s [%d] in %s",
@@ -107,7 +114,7 @@ Receive& MqttBridge::createReceive() {
                        mqttPublish(topic.c_str(), message.c_str());
                    }
                })
-        .match(MQTT_PUBLISH_RCVD,
+        .match(MQTT_PUBLISH_RCVD(),
                [this](Envelope& msg) {
                    Str topic(100);
                    Str message(1024);
@@ -123,7 +130,7 @@ Receive& MqttBridge::createReceive() {
 }
 
 bool MqttBridge::handleMqttMessage(const char* message) {
-//    Envelope envelope(1024);
+    //    Envelope envelope(1024);
     _jsonBuffer.clear();
     JsonArray& array = _jsonBuffer.parse(message);
     if (array == JsonArray::invalid())
@@ -135,12 +142,12 @@ bool MqttBridge::handleMqttMessage(const char* message) {
 
     ActorRef* rcv = ActorRef::lookup(Uid::hash(array.get<const char*>(0)));
     if (rcv == 0) {
-        rcv = &ActorRef::noSender;
-		WARN(" local Actor : %s not found ",array.get<const char*>(0));
+        rcv = &ActorRef::NoSender();
+        WARN(" local Actor : %s not found ", array.get<const char*>(0));
     }
     ActorRef* snd = ActorRef::lookup(Uid::hash(array.get<const char*>(1)));
     if (snd == 0) {
-        snd = new ActorRef(Uid::hash(array.get<const char*>(1)), remoteMailbox);
+        snd = new ActorRef(Uid::hash(array.get<const char*>(1)), 0);
     }
     MsgClass cls(array.get<const char*>(2));
     uint16_t id = array.get<int>(3);
@@ -229,7 +236,7 @@ int MqttBridge::onMessageArrived(void* context, char* topicName, int topicLen,
     INFO(" MQTT RXD : %s = %s ", topicName, message->payload);
     //   me->self().tell(me-self(),MQTT_PUBLISH_RCVD,"SS",&topic,&msg);
     Envelope envelope(1024);
-    envelope.header(me->self(), me->self(), MQTT_PUBLISH_RCVD);
+    envelope.header(me->self(), me->self(), MQTT_PUBLISH_RCVD());
     envelope.message.addf("SS", &topic, &msg);
     me->self().tell(me->self(), envelope);
     MQTTAsync_freeMessage(&message);

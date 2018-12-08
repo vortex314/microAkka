@@ -30,15 +30,16 @@ const char* Sys::hostname() {
     return _hostname;
 }
 
-void Sys::delay(uint32_t delta) {
-    uint64_t t1 = Sys::millis() + delta;
-    while (Sys::millis() < t1)
-        ;
-}
+void Sys::delay(uint32_t msec) {
+    struct timespec ts;
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec - ts.tv_sec * 1000) * 1000000;
+    nanosleep(&ts, NULL);
+};
 
 #endif
 
-//________________________________________________________ ARDUINO
+    //________________________________________________________ ARDUINO
 
 #ifdef ARDUINO
 
@@ -51,8 +52,16 @@ void Sys::hostname(const char* hostname) {
     strncpy(_hostname, hostname, sizeof(_hostname));
 }
 
-
-
 const char* Sys::hostname() { return _hostname; }
+
+#endif
+
+#ifdef __ESP8266__
+
+void Sys::delay(uint32_t delta) {
+    uint64_t t1 = Sys::millis() + delta;
+    while (Sys::millis() < t1)
+        ;
+}
 
 #endif
