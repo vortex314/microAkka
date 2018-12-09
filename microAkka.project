@@ -19,7 +19,6 @@
   <VirtualDirectory Name="src">
     <File Name="src/System.h"/>
     <File Name="src/System.cpp"/>
-    <File Name="src/Actor.h"/>
     <File Name="src/Metric.cpp"/>
     <File Name="src/Metric.h"/>
     <File Name="src/NeuralPid.cpp"/>
@@ -41,6 +40,7 @@
     <File Name="src/Akka.h"/>
     <File Name="src/Akka.cpp"/>
   </VirtualDirectory>
+  <Dependencies Name="Release"/>
   <Settings Type="Executable">
     <GlobalSettings>
       <Compiler Options="" C_Options="" Assembler="">
@@ -52,7 +52,7 @@
       <ResourceCompiler Options=""/>
     </GlobalSettings>
     <Configuration Name="Debug" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-O3;-Wall;-fno-exceptions;-fno-rtti;-std=c++0x" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="-g;-O0;-Wall;-fno-exceptions;-fno-rtti;-std=c++0x" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="src"/>
         <IncludePath Value="../Common"/>
@@ -140,6 +140,7 @@
       </Completion>
     </Configuration>
   </Settings>
-  <Dependencies Name="Debug"/>
-  <Dependencies Name="Release"/>
+  <Dependencies Name="Debug">
+    <Project Name="Common"/>
+  </Dependencies>
 </CodeLite_Project>

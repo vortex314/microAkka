@@ -4,11 +4,19 @@
 #include <NeuralPid.h>
 #include <Sender.h>
 #include <System.h>
+#include <malloc.h>
 
 //______________________________________________________________
 //
 
 Log logger(1024);
+
+void logHeap() {
+    struct mallinfo mi;
+
+    mi = mallinfo();
+    INFO(" heap size %d ", mi.uordblks);
+}
 
 int main() {
 
@@ -20,7 +28,14 @@ int main() {
     MessageDispatcher& defaultDispatcher = *new MessageDispatcher();
 
     ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
+    ActorMsgBus eb;
+
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
+    eb.subscribe(sender, MsgClassClassifier(&sender, Echo::PING()));
+    Envelope& env = defaultDispatcher.txdEnvelope();
+    env.sender = &sender;
+    env.msgClass = Echo::PING();
+    eb.publish(env);
     //    ActorRef system = actorSystem.actorOf<System>("System");
     ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
     ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(

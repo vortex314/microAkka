@@ -18,7 +18,7 @@ uint64_t Sys::millis() // time in msec since boot, only increasing
     return _upTime;
 }
 
-void Sys::init() { gethostname(_hostname, 30); }
+void Sys::init() { gethostname(_hostname, sizeof(_hostname) - 1); }
 
 void Sys::hostname(const char* hostname) {
     strncpy(_hostname, hostname, sizeof(_hostname));

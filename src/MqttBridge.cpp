@@ -39,7 +39,7 @@ void MqttBridge::preStart() {
 
 void MqttBridge::mqttConnect() {
     int rc;
-    INFO(" connecting to %s", _address.c_str())
+    INFO(" connecting to %s", _address.c_str());
     if ((rc = MQTTAsync_connect(_client, &_conn_opts)) != MQTTASYNC_SUCCESS) {
         INFO("Failed to start connect, return code %d", rc);
     }

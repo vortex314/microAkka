@@ -540,8 +540,7 @@ class ActorSystem : public UidType {
     MessageDispatcher& defaultDispatcher() { return *_defaultDispatcher; }
     Mailbox& defaultMailbox() { return *_defaultMailbox; }
 };
-//______________________________________________________________________
-// Eventbus
+//____________________________________________________________ Eventbus
 
 template <typename Subscriber, typename Classifier> class SubscriberClassifier {
   public:
@@ -550,6 +549,7 @@ template <typename Subscriber, typename Classifier> class SubscriberClassifier {
     SubscriberClassifier(Subscriber subscriber, Classifier classifier)
         : _subscriber(subscriber), _classifier(classifier) {}
 };
+
 //___________________________________________________________ Eventbus
 template <typename...> class EventBus;
 template <typename Subscriber, typename Classifier, typename Event>
@@ -558,54 +558,58 @@ class EventBus<Event, Subscriber, Classifier> {
 
   public:
     void publish(Event event) {
-        _list.forEach(
-            [&event, this](SubscriberClassifier<Subscriber, Classifier>* sc) {
-                if (classify(event) == sc->_classifier)
-                    push(event, sc->_subscriber);
-            });
+        for (SubscriberClassifier<Subscriber, Classifier>* sc : _list) {
+            if (classify(event) == sc->_classifier)
+                push(event, sc->_subscriber);
+        }
     }
+
     bool subscribe(Subscriber subscriber, Classifier classifier) {
-        SubscriberClassifier<Subscriber, Classifier>* sc =
-            new SubscriberClassifier<Subscriber, Classifier>(subscriber,
-                                                             classifier);
-        _list.add(sc);
+        _list.push_back(new SubscriberClassifier<Subscriber, Classifier>(
+            subscriber, classifier));
         return true;
     }
+
     bool unsubscribe(Subscriber, Classifier) {
-        return false; // TOD not implemented yet
+        return false; // TODO not implemented yet
     }
+
     void unsubscribe(Subscriber) { return; }
     virtual Classifier classify(Event event) = 0;
     virtual void push(Event event, Subscriber subscriber) = 0;
     virtual int compareSubscribers(Subscriber a, Subscriber b) = 0;
     virtual ~EventBus() {}
 };
-/*
-class SenderMsgClass {
-  public:
-    ActorRef _sender;
-    MsgClass _msgClass;
-    SenderMsgClass(ActorRef sender, MsgClass msgClass)
-        : _sender(sender), _msgClass(msgClass) {}
 
-    bool operator==(SenderMsgClass a) {
-        return a._sender == _sender && a._msgClass == _msgClass;
+class MsgClassClassifier {
+  public:
+    uint32_t _check;
+    //    ActorRef* _sender;
+    //    MsgClass _msgClass;
+    MsgClassClassifier(ActorRef* sender, MsgClass msgClass) {
+        _check = (sender->id() << 16) + msgClass.id();
+    }
+
+    bool operator==(MsgClassClassifier a) {
+        return a._check == _check; // TODO or AnyClass
     }
 };
 
-class ActorMsgBus : public EventBus<Envelope&, ActorRef, SenderMsgClass> {
+class ActorMsgBus : public EventBus<Envelope&, ActorRef&, MsgClassClassifier> {
   public:
-    void push(Envelope& envelope, ActorRef ref) {
-        envelope.receiver = ref;
+    void push(Envelope& envelope, ActorRef& ref) {
+        envelope.receiver = &ref;
         ref.mailbox().enqueue(envelope);
     }
-    SenderMsgClass classify(Envelope& envelope) {
-        return *(new SenderMsgClass(envelope.sender, envelope.msgClass));
+    MsgClassClassifier classify(Envelope& envelope) {
+        return *(new MsgClassClassifier(envelope.sender, envelope.msgClass));
     }
-    int compareSubscribers(ActorRef a, ActorRef b) { return 1; }
+    int compareSubscribers(ActorRef& a, ActorRef& b) {
+        return a.id() == b.id();
+    }
     ~ActorMsgBus() {}
 };
-*/
+
 class Thread {
     uint32_t _signal;
 
