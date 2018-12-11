@@ -3,7 +3,6 @@
 
 #define MAX_MESSAGES 1000
 
-
 Sender::Sender(va_list args) : startTime(0), str(80), _counter(0) {}
 Sender::~Sender() {}
 
@@ -23,7 +22,7 @@ Receive& Sender::createReceive() {
         .match(MsgClass::TimerExpired(),
                [this](Envelope& msg) {
                    UidType key("");
-                   uint16_t k;
+                   uint32_t k;
                    msg.scanf("i", &k);
                    key = k;
                    INFO(" timer expired ! %s ", key.label());
@@ -34,7 +33,7 @@ Receive& Sender::createReceive() {
                        self(), "reset", "s",
                        "The quick brown fox jumps over the lazy dog");
                })
-        .match(MsgClass::ReceiveTimeout(), [this](Envelope& msg) {  })
+        .match(MsgClass::ReceiveTimeout(), [this](Envelope& msg) {})
         .build();
 }
 

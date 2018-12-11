@@ -574,7 +574,7 @@ void MessageDispatcher::execute() {
                 working();
             }
         };
-        _nextWakeup = UINT64_MAX;
+        nextWakeup(10001);
         for (auto ac : _actorCells) {
             Timer* timer;
             if (ac->hasTimers() && (timer = ac->timers().findNextTimeout())) {
