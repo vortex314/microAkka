@@ -50,7 +50,7 @@ int main() {
 
     while (true) {
         defaultDispatcher.execute();
-        if (defaultDispatcher.nextWakeup() > Sys::millis())
-            Sys::delay(defaultDispatcher.nextWakeup() - Sys::millis());
+        if (defaultDispatcher.nextWakeup() >= 0)
+            Sys::delay(defaultDispatcher.nextWakeup());
     };
 }

@@ -14,44 +14,53 @@
 // Mailbox deadLetterMailbox("deadletterMailbox", 1, 100);
 // ActorSystem defaultActorSystem("system");
 
+unordered_map<uid_type, void*>* Uid::_uids;
+unordered_map<uid_type, void*>* Uid::uids() {
+    if (_uids == 0) {
+        _uids = new unordered_map<uid_type, void*>();
+    }
+    return _uids;
+}
+
+Uid::Uid(const char* label) { _id = add(label); }
+Uid::Uid(uid_type id) { _id = id; }
+
+uid_type Uid::add(const char* label) {
+    uid_type h;
+    char* l = new char[strlen(label) + 1]();
+    h = hash(label);
+    strcpy(l, label);
+    uids()->emplace(h, (void*)l);
+    /*    for (auto& s : *_uids) {
+            INFO(" %d : %s ", s.first, s.second);
+        }*/
+    return h;
+}
+// uid_type add(void* object) {uids().emplace(H(label), object); }
+const char* Uid::label(uid_type id) {
+    std::unordered_map<uid_type, void*>::const_iterator p = uids()->find(id);
+    if (p == uids()->end())
+        return 0;
+    return (const char*)(p->second);
+}
+const char* Uid::label() { return Uid::label(_id); }
+
+uid_type Uid::hash(const char* s) { return H(s); }
+// void* Uid::object(uid_type id);
 // Envelope& NoMessage;
 Receive& nullReceive;
 
 typedef void (*MsgHandler)(void);
 
-//_______________________________________________ UidType
+//_______________________________________________ uid_type
 //
-
-UidType::UidType(const char* name) { _id = UID.hash(name); }
-
-UidType::UidType(uint16_t id) : _id(id) {}
-
-bool UidType::operator==(UidType v) { return _id == v._id; }
-
-const char* UidType::label() { return UID.label(_id); }
-
-uid_type UidType::id() { return _id; }
-
-void UidType::id(uid_type id) { _id = id; }
 
 //_________________________________________________ MsgClass
 
-MsgClass& MsgClass::ReceiveTimeout() {
-    static MsgClass ReceiveTimeout("ReceiveTimeout");
-    return ReceiveTimeout;
-}
-MsgClass& MsgClass::TimerExpired() {
-    static MsgClass TimerExpired("TimerExpired");
-    return TimerExpired;
-}
-MsgClass& MsgClass::PoisonPill() {
-    static MsgClass PoisonPill("PoisonPill");
-    return PoisonPill;
-}
-MsgClass& MsgClass::AnyClass() {
-    static MsgClass AnyClass("AnyClass");
-    return AnyClass;
-}
+// MsgClass ReceiveTimeout("ReceiveTimeout");
+MsgClass TimerExpired("TimerExpired");
+MsgClass PoisonPill("PoisonPill");
+MsgClass AnyClass("AnyClass");
 
 //_________________________________________________ Actor
 
@@ -79,43 +88,38 @@ Envelope& Actor::txdEnvelope() { return context().dispatcher().txdEnvelope(); }
 
 //_______________________________________________ ActorRef
 
-list<ActorRef*> ActorRef::_actorRefs;
-ActorRef& ActorRef::NoSender() {
-    static ActorRef NoSender("NoSender", 0);
-    return NoSender;
-}
+unordered_map<uid_type, ActorRef*> ActorRef::_actorRefs;
+ActorRef NoSender("NoSender", 0);
 
-ActorRef* ActorRef::lookup(uid_type id) {
-
-    for (ActorRef* ref : _actorRefs)
-        if (ref->id() == id)
-            return ref;
+ActorRef* ActorRef::lookup(Uid uid) {
+    std::unordered_map<uid_type, ActorRef*>::const_iterator got =
+        _actorRefs.find(uid.id());
+    if (got != _actorRefs.end())
+        return got->second;
     return 0;
 }
 
-ActorRef::ActorRef(UidType id, Mailbox* mailbox) : _id(id) {
-    INFO(" created ActorRef %s", id.label());
-    _actorRefs.push_back(this);
+ActorRef::ActorRef(Uid uid, Mailbox* mailbox) : Uid(uid) {
+    INFO(" created ActorRef %s", uid.label());
+    _actorRefs.emplace(uid.id(), this);
     _cell = 0;
     _mailbox = mailbox;
 }
 
 bool ActorRef::isLocal() { return _cell == 0; }
 
-ActorRef::ActorRef() : _id(NoSender().id()) {}
+ActorRef::ActorRef() : Uid("NoSender") {}
 
-const char* ActorRef::path() { return _id.label(); }
+const char* ActorRef::path() { return label(); }
 
 Mailbox& ActorRef::mailbox() { return *_mailbox; }
 void ActorRef::mailbox(Mailbox& mb) { _mailbox = &mb; }
-uid_type ActorRef::id() { return _id.id(); }
 
-bool ActorRef::operator==(ActorRef& v) { return _id == v._id; }
+bool ActorRef::operator==(ActorRef& v) { return id() == v.id(); }
 //______________________________________________ LocalActorRef
 
-// Envelope env(1024);
 void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
-    static Envelope env(1024);
+    static Envelope env(256);
 
     env.message.clear();
     va_list args;
@@ -128,7 +132,7 @@ void ActorRef::tell(ActorRef src, MsgClass cls, const char* fmt, ...) {
 
 void ActorRef::tell(ActorRef src, MsgClass cls, uint16_t id, const char* fmt,
                     ...) {
-    static Envelope env(1024);
+    static Envelope env(256);
 
     env.message.clear();
     va_list args;
@@ -143,7 +147,7 @@ void ActorRef::tell(ActorRef sender, Envelope& envelope) {
     if (_mailbox != 0)
         _mailbox->enqueue(envelope);
     else {
-        WARN(" no mailbox attached to ActorRef %s ", _id.label());
+        WARN(" no mailbox attached to ActorRef %s ", label());
     }
 }
 
@@ -152,7 +156,7 @@ void ActorRef::forward(Envelope& envelope) {
     if (_mailbox != 0)
         _mailbox->enqueue(envelope);
     else {
-        WARN(" no mailbox attached to ActorRef %s ", _id.label());
+        WARN(" no mailbox attached to ActorRef %s ", label());
     }
 }
 void ActorRef::cell(ActorCell* cell) { _cell = cell; }
@@ -161,21 +165,21 @@ ActorCell* ActorRef::cell() { return _cell; }
 
 //____________________________________________________________ ActorSelection
 
-ActorSelection::ActorSelection(UidType id) : ActorRef(id, 0) {}
+ActorSelection::ActorSelection(Uid id) : ActorRef(id, 0) {}
 
 //____________________________________________________________ Envelope
 //
 
 Envelope::Envelope(uint32_t size)
-    : sender(&ActorRef::NoSender()), receiver(&ActorRef::NoSender()),
-      msgClass(MsgClass::AnyClass()), id(0), message(size) {}
+    : sender(&NoSender), receiver(&NoSender), msgClass(AnyClass), id(0),
+      message(size) {}
 
 Envelope::Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz)
     : sender(&snd), receiver(&rcv), msgClass(clz), id(newId()), message(32) {}
 
-uid_type Envelope::idCounter = 0;
+uint32_t Envelope::_idCounter = 0;
 
-uint32_t Envelope::newId() { return idCounter++; }
+uint32_t Envelope::newId() { return _idCounter++; }
 
 Envelope& Envelope::header(ActorRef& rcv, ActorRef& snd, MsgClass clz) {
     sender = &snd;
@@ -226,33 +230,33 @@ typedef std::function<void(Envelope&)> MessageHandler;
 //________________________________________________________ MessageQueue
 //
 MessageQueue::MessageQueue(int queueSize, int messageSize)
-    : _cborQueue(queueSize), _cbor(messageSize) {}
+    : _cborQueue(queueSize), _txd(messageSize), _rxd(messageSize) {}
 
 bool MessageQueue::hasMessages() { return _cborQueue.hasData(); }
 
 void MessageQueue::enqueue(Envelope& msg) {
-    _cbor.clear();
-    _cbor.add(msg.receiver->id());
-    _cbor.add(msg.sender->id());
-    _cbor.add(msg.msgClass.id());
-    _cbor.add(msg.id);
-    _cbor.append(msg.message);
-    _cborQueue.put(_cbor);
+    _txd.clear();
+    _txd.add(msg.receiver->id());
+    _txd.add(msg.sender->id());
+    _txd.add(msg.msgClass.id());
+    _txd.add(msg.id);
+    _txd.append(msg.message);
+    _cborQueue.put(_txd);
 }
 
 void MessageQueue::dequeue(Envelope& msg) {
-    _cborQueue.get(_cbor);
+    _cborQueue.get(_rxd);
     uid_type uid;
-    _cbor.get(uid);
+    _rxd.get(uid);
     msg.receiver = ActorRef::lookup(uid);
-    _cbor.get(uid);
+    _rxd.get(uid);
     msg.sender = ActorRef::lookup(uid);
-    _cbor.get(uid);
-    msg.msgClass.id(uid);
-    _cbor.get(msg.id);
+    _rxd.get(uid);
+    msg.msgClass = MsgClass(uid);
+    _rxd.get(msg.id);
     msg.message.clear();
-    while (_cbor.hasData()) {
-        msg.message.write(_cbor.read());
+    while (_rxd.hasData()) {
+        msg.message.write(_rxd.read());
     }
 }
 
@@ -270,26 +274,26 @@ list<Mailbox*>& Mailbox::mailboxes() { return _mailboxes; }
 //
 ActorSystem::ActorSystem(const char* name, MessageDispatcher& defaultDispatcher,
                          Mailbox& defaultMailbox)
-    : UidType(name), _name(name), _defaultMailbox(&defaultMailbox),
+    : Uid(name), _name(name), _defaultMailbox(&defaultMailbox),
       _defaultDispatcher(&defaultDispatcher),
       _defaultProps(defaultDispatcher, defaultMailbox) {}
 
-UidType ActorSystem::uniqueId(const char* name) {
+Uid ActorSystem::uniqueId(const char* name) {
     string s, t;
     s += _name;
     s += "/";
     s += name;
-    UidType hash = H(s.c_str());
-    if (hash.label() == 0)
-        return UidType(s.c_str());
+    uid_type hash = H(s.c_str());
+    if (Uid::label(hash) == 0) {
+        return Uid(name);
+    }
     s += "#";
     int i = 1;
     while (true) {
-        t = s;
-        t += i;
+        string_format(t, "%s%d", s.c_str(), i);
         hash = H(t.c_str());
-        if (hash.label() == 0)
-            return UidType(t.c_str());
+        if (Uid::label(hash) == 0)
+            return Uid(t.c_str());
         else
             i++;
     };
@@ -306,7 +310,7 @@ Receiver::Receiver(MsgClass msgClass, MessageHandler handler)
 
 inline void Receiver::onMessage(Envelope& msg) { _handler(msg); }
 bool Receiver::match(Envelope& msg) {
-    if (_msgClass == msg.msgClass || _msgClass == MsgClass::AnyClass())
+    if (_msgClass == msg.msgClass || _msgClass == AnyClass)
         return (_matcher(msg));
     return false;
 }
@@ -317,14 +321,19 @@ string& Receiver::tostringing(string& s) {
 }
 //_____________________________________________ Timer
 
-Timer::Timer(UidType key, bool active, bool periodic, uint64_t interval)
-    : UidType(key), _active(active), _periodic(periodic), _interval(interval) {
+Timer::Timer(Uid key, bool active, bool periodic, uint64_t interval)
+    : Uid(key), _active(active), _periodic(periodic), _interval(interval) {
     load();
 }
+
 bool Timer::active() { return _active; }
+
 void Timer::active(bool t) { _active = t; }
-uid_type Timer::key() { return id(); }
+
+Uid Timer::key() { return id(); }
+
 void Timer::load() { _expiresAt = Sys::millis() + _interval; }
+
 void Timer::reload() {
     if (_periodic) {
         load();
@@ -332,7 +341,9 @@ void Timer::reload() {
         _active = false;
     }
 }
+
 bool Timer::expired() { return Sys::millis() > _expiresAt; }
+
 uint64_t Timer::expiresAt() {
     if (_active)
         return _expiresAt;
@@ -348,7 +359,7 @@ void Timer::set(bool active, bool periodic, uint32_t msec) {
 
 TimerScheduler::TimerScheduler() {}
 
-Timer* TimerScheduler::find(uid_type key) {
+Timer* TimerScheduler::find(Uid key) {
     for (Timer* timer : _timers) {
         if (timer->key() == key)
             return timer;
@@ -368,8 +379,7 @@ Timer* TimerScheduler::findNextTimeout() {
     return to;
 }
 
-uid_type TimerScheduler::startPeriodicTimer(UidType key, MsgClass cls,
-                                            uint32_t msec) {
+Uid TimerScheduler::startPeriodicTimer(Uid key, MsgClass cls, uint32_t msec) {
     Timer* timer = find(key.id());
 
     if (timer == 0) {
@@ -380,8 +390,7 @@ uid_type TimerScheduler::startPeriodicTimer(UidType key, MsgClass cls,
     return key.id();
 }
 
-uid_type TimerScheduler::startSingleTimer(UidType key, MsgClass,
-                                          uint32_t msec) {
+Uid TimerScheduler::startSingleTimer(Uid key, MsgClass, uint32_t msec) {
     Timer* timer = find(key.id());
 
     if (timer == 0) {
@@ -392,12 +401,12 @@ uid_type TimerScheduler::startSingleTimer(UidType key, MsgClass,
     return key.id();
 }
 
-void TimerScheduler::cancel(uid_type key) {
+void TimerScheduler::cancel(Uid key) {
     Timer* timer = find(key);
     if (timer)
         timer->active(false);
     else
-        WARN(" timer.cancel()  key not found : %s ", UID.label(key));
+        WARN(" timer.cancel()  key not found : %s ", key.label());
 }
 
 void TimerScheduler::cancelAll() {
@@ -406,13 +415,13 @@ void TimerScheduler::cancelAll() {
     }
 }
 
-bool TimerScheduler::isTimerActive(uid_type key) {
+bool TimerScheduler::isTimerActive(Uid key) {
     for (Timer* t : _timers) {
         if (t->key() == key) {
             return t->active();
         }
     }
-    WARN(" timer.isTimerActive()  key not found : %s ", UID.label(key));
+    WARN(" timer.isTimerActive()  key not found : %s ", key.label());
     return false;
 }
 
@@ -516,7 +525,7 @@ list<ActorCell*>& ActorCell::actorCells() { return _actorCells; }
 //
 
 MessageDispatcher::MessageDispatcher()
-    : _txdEnvelope(*new Envelope(1024)), _rxdEnvelope(*new Envelope(1024)) {
+    : _txdEnvelope(*new Envelope(256)), _rxdEnvelope(*new Envelope(256)) {
     _unhandledCell = 0;
 }
 
@@ -532,12 +541,13 @@ void MessageDispatcher::unhandled(ActorCell* cell) { _unhandledCell = cell; }
 
 Envelope& MessageDispatcher::txdEnvelope() { return _txdEnvelope; }
 
-void MessageDispatcher::nextWakeup(uint64_t t) {
+void MessageDispatcher::nextWakeup(int64_t t) {
+    //   INFO(" %lld ", t);
     if (_nextWakeup > t)
         _nextWakeup = t;
 }
 
-uint64_t MessageDispatcher::nextWakeup() { return _nextWakeup; }
+int64_t MessageDispatcher::nextWakeup() { return _nextWakeup; }
 
 bool doneSomething = false;
 
@@ -548,13 +558,13 @@ void idle() { doneSomething = false; }
 void working() { doneSomething = true; }
 
 void MessageDispatcher::execute() {
-    //	static Envelope rxdEnvelope(1024);
     working();
+    _nextWakeup = 10001;
     while (busy()) {
         idle();
         for (auto mb : _mailboxes) {
             // take a message from each mailbox if needed
-            if (mb->hasMessages()) {
+            while (mb->hasMessages()) {
                 mb->dequeue(_rxdEnvelope); // load envelope and payload
                 ActorCell* cell = ActorCell::lookup(_rxdEnvelope.receiver);
                 if (cell) {
@@ -574,36 +584,38 @@ void MessageDispatcher::execute() {
                 working();
             }
         };
-        nextWakeup(10001);
-        for (auto ac : _actorCells) {
-            Timer* timer;
-            if (ac->hasTimers() && (timer = ac->timers().findNextTimeout())) {
-                if (timer->expiresAt() < Sys::millis()) {
-                    timer->reload(); // retrigger now message will be send
-                    Envelope timerExpired(ActorRef::NoSender(), ac->self(),
-                                          MsgClass::TimerExpired());
-                    timerExpired.message.add(timer->key());
-                    ac->self().tell(ActorRef::NoSender(), timerExpired);
-                    working();
-                } else {
-                    nextWakeup(timer->expiresAt());
-                }
-            }
-            if (ac->hasReceiveTimedOut()) {
-                Envelope receiveTimeout(ActorRef::NoSender(), ac->self(),
-                                        MsgClass::ReceiveTimeout()); // TBD
-                ac->self().tell(ActorRef::NoSender(), receiveTimeout);
-                ac->resetReceiveTimeout();
-                working();
-            } else {
-                nextWakeup(ac->expiresAt());
-            }
-        };
-        for (auto mb : _mailboxes) {
-            if (mb->hasMessages())
-                nextWakeup(0);
-        };
     }
-}
+
+    for (auto ac : _actorCells) {
+        Timer* timer;
+        if (ac->hasTimers() && (timer = ac->timers().findNextTimeout())) {
+            if (timer->expiresAt() < Sys::millis()) {
+                timer->reload(); // retrigger now message will be send
+                Envelope timerExpired(NoSender, ac->self(), TimerExpired);
+                timerExpired.message.add(timer);
+                ac->self().tell(NoSender, timerExpired);
+                nextWakeup(0);
+            } else {
+                nextWakeup(timer->expiresAt() - Sys::millis());
+            }
+        }
+        if (ac->hasReceiveTimedOut()) {
+            Envelope receiveTimeout(NoSender, ac->self(),
+                                    ReceiveTimeout); // TBD
+            ac->self().tell(NoSender, receiveTimeout);
+            ac->resetReceiveTimeout();
+            nextWakeup(0);
+            working();
+        } else {
+            nextWakeup(ac->expiresAt() - Sys::millis());
+        }
+    };
+    /*       for (auto mb : _mailboxes) {
+               if (mb->hasMessages()) {
+                   nextWakeup(0);
+                   INFO("");
+               }
+           }*/
+};
 
 // void arduinoLoop() { defaultDispatcher.execute(); }

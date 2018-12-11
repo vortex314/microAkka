@@ -31,8 +31,6 @@
     <File Name="src/Echo.cpp"/>
     <File Name="src/MqttBridge.h"/>
     <File Name="src/main.cpp"/>
-    <File Name="src/Uid.h"/>
-    <File Name="src/Uid.cpp"/>
     <File Name="src/Sys.cpp"/>
     <File Name="src/MqttBridge.cpp"/>
     <File Name="src/Linux.cpp"/>
@@ -41,6 +39,9 @@
     <File Name="src/Akka.cpp"/>
   </VirtualDirectory>
   <Dependencies Name="Release"/>
+  <Dependencies Name="Debug">
+    <Project Name="Common"/>
+  </Dependencies>
   <Settings Type="Executable">
     <GlobalSettings>
       <Compiler Options="" C_Options="" Assembler="">
@@ -52,7 +53,7 @@
       <ResourceCompiler Options=""/>
     </GlobalSettings>
     <Configuration Name="Debug" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-O0;-Wall;-fno-exceptions;-fno-rtti;-std=c++0x" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="-g;-O0;-Wall;-fno-rtti;-fno-exceptions;-std=c++11" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="src"/>
         <IncludePath Value="../Common"/>
@@ -140,7 +141,4 @@
       </Completion>
     </Configuration>
   </Settings>
-  <Dependencies Name="Debug">
-    <Project Name="Common"/>
-  </Dependencies>
 </CodeLite_Project>

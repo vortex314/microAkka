@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Lieven
-Date                   :=09/12/18
+Date                   :=12/12/18
 CodeLitePath           :=/home/lieven/.codelite
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -50,7 +50,7 @@ LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../Common/De
 AR       := /usr/bin/ar rcu
 CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
-CXXFLAGS :=  -g -O0 -Wall -fno-exceptions -fno-rtti -std=c++0x $(Preprocessors)
+CXXFLAGS :=  -g -O0 -Wall -fno-rtti -fno-exceptions -std=c++11 $(Preprocessors)
 CFLAGS   :=  -g -O0 -Wall $(Preprocessors)
 ASFLAGS  := 
 AS       := /usr/bin/as
@@ -60,8 +60,8 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Linux.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Uid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) \
-	$(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Linux.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) \
+	$(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) 
 
 
 
@@ -115,22 +115,6 @@ $(IntermediateDirectory)/src_Linux.cpp$(DependSuffix): src/Linux.cpp
 $(IntermediateDirectory)/src_Linux.cpp$(PreprocessSuffix): src/Linux.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Linux.cpp$(PreprocessSuffix) src/Linux.cpp
 
-$(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix): src/MqttBridge.cpp $(IntermediateDirectory)/src_MqttBridge.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/MqttBridge.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_MqttBridge.cpp$(DependSuffix): src/MqttBridge.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_MqttBridge.cpp$(DependSuffix) -MM src/MqttBridge.cpp
-
-$(IntermediateDirectory)/src_MqttBridge.cpp$(PreprocessSuffix): src/MqttBridge.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_MqttBridge.cpp$(PreprocessSuffix) src/MqttBridge.cpp
-
-$(IntermediateDirectory)/src_Uid.cpp$(ObjectSuffix): src/Uid.cpp $(IntermediateDirectory)/src_Uid.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Uid.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Uid.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_Uid.cpp$(DependSuffix): src/Uid.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_Uid.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_Uid.cpp$(DependSuffix) -MM src/Uid.cpp
-
-$(IntermediateDirectory)/src_Uid.cpp$(PreprocessSuffix): src/Uid.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Uid.cpp$(PreprocessSuffix) src/Uid.cpp
-
 $(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix): src/Sys.cpp $(IntermediateDirectory)/src_Sys.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Sys.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/src_Sys.cpp$(DependSuffix): src/Sys.cpp
@@ -170,6 +154,14 @@ $(IntermediateDirectory)/src_Machinelearning.cpp$(DependSuffix): src/Machinelear
 
 $(IntermediateDirectory)/src_Machinelearning.cpp$(PreprocessSuffix): src/Machinelearning.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Machinelearning.cpp$(PreprocessSuffix) src/Machinelearning.cpp
+
+$(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix): src/MqttBridge.cpp $(IntermediateDirectory)/src_MqttBridge.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/MqttBridge.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/src_MqttBridge.cpp$(DependSuffix): src/MqttBridge.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_MqttBridge.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_MqttBridge.cpp$(DependSuffix) -MM src/MqttBridge.cpp
+
+$(IntermediateDirectory)/src_MqttBridge.cpp$(PreprocessSuffix): src/MqttBridge.cpp
+	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_MqttBridge.cpp$(PreprocessSuffix) src/MqttBridge.cpp
 
 $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix): src/Sender.cpp $(IntermediateDirectory)/src_Sender.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Sender.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IncludePath)

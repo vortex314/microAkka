@@ -1,20 +1,29 @@
 #include <Sys.h>
-#include <time.h>
+
 uint64_t Sys::_upTime;
 
+#include <Log.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 char Sys::_hostname[30] = "";
 //_____________________________________________________________ LINUX and CYGWIN
 #if defined(__linux__) || defined(__CYGWIN__)
+#include <chrono>
+#include <time.h>
 
 uint64_t Sys::millis() // time in msec since boot, only increasing
 {
-    struct timespec deadline;
-    clock_gettime((int)CLOCK_MONOTONIC, &deadline);
-    Sys::_upTime = deadline.tv_sec * 1000L + deadline.tv_nsec / 1000000L;
+    using namespace std::chrono;
+    milliseconds ms =
+        duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    Sys::_upTime = system_clock::now().time_since_epoch().count() / 1000000;
+    /*
+struct timespec deadline;
+int erc = clock_gettime((int)CLOCK_MONOTONIC, &deadline);
+if (erc)
+    WARN("clock_gettime() failed.");
+Sys::_upTime = deadline.tv_sec * 1000L + deadline.tv_nsec / 1000000L;*/
     return _upTime;
 }
 

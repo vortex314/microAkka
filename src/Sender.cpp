@@ -10,8 +10,7 @@ void Sender::preStart() {
     echo = context().system().actorOf<Echo>("echo");
     echo = context().system().actorOf<Echo>("echo1");
 
-    timers().startPeriodicTimer("PERIODIC_TIMER_1", MsgClass::TimerExpired(),
-                                20000);
+    timers().startPeriodicTimer("PERIODIC_TIMER_1", TimerExpired, 20000);
     context().setReceiveTimeout(1000);
     anchorRef = context().system().actorFor("esp32/anchor1");
 }
@@ -19,12 +18,11 @@ void Sender::preStart() {
 Receive& Sender::createReceive() {
     return receiveBuilder()
         .match(Echo::PONG(), [this](Envelope& msg) { handlePing(msg); })
-        .match(MsgClass::TimerExpired(),
+        .match(TimerExpired,
                [this](Envelope& msg) {
-                   UidType key("");
                    uint32_t k;
                    msg.scanf("i", &k);
-                   key = k;
+                   Uid key(k);
                    INFO(" timer expired ! %s ", key.label());
                    //                       timers().cancel("STARTER");
                    INFO(" counter : %d ", _counter);
@@ -33,7 +31,7 @@ Receive& Sender::createReceive() {
                        self(), "reset", "s",
                        "The quick brown fox jumps over the lazy dog");
                })
-        .match(MsgClass::ReceiveTimeout(), [this](Envelope& msg) {})
+        .match(ReceiveTimeout, [this](Envelope& msg) {})
         .build();
 }
 

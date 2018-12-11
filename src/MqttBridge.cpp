@@ -90,7 +90,7 @@ bool payloadToJsonArray(JsonArray& array, Cbor& payload) {
 
 Receive& MqttBridge::createReceive() {
     return receiveBuilder()
-        .match(MsgClass::AnyClass(),
+        .match(AnyClass,
                [this](Envelope& msg) {
                    if (!(*msg.receiver == self())) {
                        INFO(" message received %s:%s:%s [%d] in %s",
@@ -142,7 +142,7 @@ bool MqttBridge::handleMqttMessage(const char* message) {
 
     ActorRef* rcv = ActorRef::lookup(Uid::hash(array.get<const char*>(0)));
     if (rcv == 0) {
-        rcv = &ActorRef::NoSender();
+        rcv = &NoSender;
         WARN(" local Actor : %s not found ", array.get<const char*>(0));
     }
     ActorRef* snd = ActorRef::lookup(Uid::hash(array.get<const char*>(1)));

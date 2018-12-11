@@ -9,7 +9,6 @@
 #define SRC_AKKA_H_
 #include <Log.h>
 //#include <string.h>
-#include <Uid.h>
 #include <list>
 #include <stdio.h>
 #include <string>
@@ -22,10 +21,10 @@
  // Description : Akka alike framework in C++ for embedded systems : low RAM
  //
   *
-  * UidType => ActorRef => ActorCell => ActorContext => AbstractActor
+  * Uid  => ActorRef => ActorCell => ActorContext => AbstractActor
   *                                  => Mailbox
-  * UidType => Abs
-  * UidType => MsgClass
+  * Uid  => Abs
+  * Uid  => MsgClass
   * mailbox N => 1 thread(Dispatcher) 1 => N Receive 1 => 1 Actor
   * 1 ActorRef => 1 mailbox
   *
@@ -52,6 +51,7 @@ tell => mailbox == N = 1 ==> dispatcher =1toN=> actorcells
 #include <functional>
 #include <stdarg.h>
 #include <stdint.h>
+#include <unordered_map>
 
 using namespace std;
 
@@ -61,7 +61,7 @@ using namespace std;
 //#include <list.hpp>
 #include <Log.h>
 //#include <string.h>
-#include <Uid.h>
+//#include <Uid.h>
 
 extern string string_format(string& str, const char* fmt, ...);
 
@@ -91,7 +91,6 @@ class Props;
 class Timer;
 class ActorMsgBus;
 class MsgClass;
-class UidType;
 class TimerScheduler;
 
 //_____________________________________________________________________ Message
@@ -106,46 +105,84 @@ typedef std::function<bool(Envelope&)> MessageMatcher;
 
 extern Receive& nullReceive;
 extern ActorCell& noActorCell;
+typedef uint16_t uid_type;
+#define UID_LENGTH 16
+#define UID_MAX 200
 
-class UidType {
+#if UID_LENGTH == 16
+#define FNV_PRIME 16777619
+#define FNV_OFFSET 2166136261
+#define FNV_MASK 0xFFFF
+#endif
+
+#if UID_LENGTH == 32
+#define FNV_PRIME 16777619
+#define FNV_OFFSET 2166136261
+#define FNV_MASK 0xFFFFFFFFu
+#endif
+
+#if UID_LENGTH == 64
+#define FNV_PRIME 1099511628211ull
+#define FNV_OFFSET 14695981039346656037ull
+#endif
+
+constexpr uint32_t fnv1(uint32_t h, const char* s) {
+    return (*s == 0) ? h
+                     : fnv1((h * FNV_PRIME) ^ static_cast<uint32_t>(*s), s + 1);
+}
+
+constexpr uint16_t H(const char* s) {
+    //    uint32_t  h = fnv1(FNV_OFFSET, s) ;
+    return (fnv1(FNV_OFFSET, s) & FNV_MASK);
+}
+class Uid {
+    static unordered_map<uint16_t, void*>* _uids;
     uid_type _id;
 
   public:
-    UidType(const char* name); // will create entry
-    UidType(uint16_t id);      // will not create entry
-    bool operator==(UidType v);
-    const char* label(); // returns null if not found
-                         //    bool hasLabel();
-    uid_type id();
-    void id(uid_type);
+    Uid(const char* label);
+    Uid(uid_type id);
+    Uid() { _id = 0; }
+    void operator=(uid_type a) { _id = a; }
+    bool operator==(Uid b) { return _id == b._id; }
+    const char* label();
+    static uid_type hash(const char* label);
+    static uid_type add(const char* label);
+    static uid_type add(void* object);
+    static const char* label(uid_type id);
+    static void* object(uid_type id);
+    static unordered_map<uint16_t, void*>* uids();
+    uid_type id() { return _id; }
 };
-
-class MsgClass : public UidType {
-
+//_____________________________________________________________ MsgClass
+//
+class MsgClass : public Uid {
   public:
-    static MsgClass& ReceiveTimeout();
-    static MsgClass& TimerExpired();
-    static MsgClass& PoisonPill();
-    static MsgClass& AnyClass();
-    MsgClass(const char* name) : UidType(name) {}
+    MsgClass() : Uid("NONE") {}
+    MsgClass(uid_type id) : Uid(id) {}
+    MsgClass(const char* name) : Uid(name) {}
+    bool operator==(MsgClass b) { return id() == b.id(); };
 };
+const MsgClass ReceiveTimeout("ReceiveTimeout");
+extern MsgClass TimerExpired;
+extern MsgClass PoisonPill;
+extern MsgClass AnyClass;
 
 //_________________________________________________________________ Timer
 //
-class Timer : public UidType {
-
+class Timer : public Uid {
     bool _active;
     bool _periodic;
     uint64_t _expiresAt;
     uint32_t _interval;
 
   public:
-    Timer(UidType key, bool active, bool periodic, uint64_t interval);
+    Timer(Uid key, bool active, bool periodic, uint64_t interval);
     void set(bool active, bool periodic, uint32_t interval);
     bool operator==(Timer&);
     bool active();
     void active(bool);
-    uid_type key();
+    Uid key();
     void load();
     void reload();
     bool expired();
@@ -156,13 +193,13 @@ class TimerScheduler {
 
   public:
     TimerScheduler();
-    Timer* find(uid_type key);
+    Timer* find(Uid key);
     Timer* findNextTimeout();
-    uid_type startPeriodicTimer(UidType key, MsgClass, uint32_t msec);
-    uid_type startSingleTimer(UidType key, MsgClass, uint32_t msec);
-    void cancel(uid_type key);
+    Uid startPeriodicTimer(Uid key, MsgClass, uint32_t msec);
+    Uid startSingleTimer(Uid key, MsgClass, uint32_t msec);
+    void cancel(Uid key);
     void cancelAll();
-    bool isTimerActive(uid_type key);
+    bool isTimerActive(Uid key);
 };
 
 //_____________________________________________________________________ Receive
@@ -199,8 +236,8 @@ class MessageDispatcher {
     void suspend(ActorCell&);
     void handle(Envelope&);
     void unhandled(ActorCell*);
-    void nextWakeup(uint64_t t);
-    uint64_t nextWakeup();
+    void nextWakeup(int64_t t);
+    int64_t nextWakeup();
     Envelope& txdEnvelope();
 };
 //__________________________________________________________ CoRoutineDispatcher
@@ -221,19 +258,16 @@ class ActorRefFactory {
 //
 
 //__________________________________________________________ ActorRef
-class ActorRef {
-    UidType _id;
+class ActorRef : public Uid {
     Mailbox* _mailbox;
     ActorCell* _cell;
 
-    static list<ActorRef*> _actorRefs;
+    static unordered_map<uid_type, ActorRef*> _actorRefs;
 
   public:
-    static ActorRef& NoSender();
-
     ActorRef();
-    ActorRef(UidType id);
-    ActorRef(UidType id, Mailbox* mb);
+    ActorRef(Uid id);
+    ActorRef(Uid id, Mailbox* mb);
 
     void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
     void forward(Envelope& msg);
@@ -244,16 +278,17 @@ class ActorRef {
     void forward(Envelope& message, ActorContext& context);
     Mailbox& mailbox();
     void mailbox(Mailbox& mailbox);
-    uid_type id();
     bool operator==(ActorRef& src);
     const char* path();
-    static ActorRef* lookup(uid_type id);
+    static ActorRef* lookup(Uid id);
     static uint32_t count() { return _actorRefs.size(); };
     bool isLocal();
     void isLocal(bool b);
     void cell(ActorCell* cell);
     ActorCell* cell();
 };
+extern ActorRef NoSender;
+
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorRefFactory {
 
@@ -345,7 +380,7 @@ class ActorCell : public ActorContext {
     ActorCell* _actorCell;
 
   public:
-    ActorRef(UidType id) : ActorRef(id) {
+    ActorRef(Uid  id) : ActorRef(id) {
         isLocal(true);
         //   : _actorCell(system, ref, mailbox, dispatcher){};
     };
@@ -380,12 +415,12 @@ class Actor {
 
 class ActorSelection : public ActorRef {
   public:
-    ActorSelection(UidType id);
+    ActorSelection(Uid id);
 };
 
 //________________________________________________________ Envelope
 class Envelope {
-    static uid_type idCounter;
+    static uint32_t _idCounter;
 
   public:
     ActorRef* sender;
@@ -411,12 +446,12 @@ class Envelope {
     string& toString(string&);
 };
 
-//_____________________________________________________________________
-// MessageQueue
+//__________________________________________________________ MessageQueue
 
 class MessageQueue {
     CborQueue _cborQueue;
-    Cbor _cbor;
+    Cbor _txd;
+    Cbor _rxd;
 
   public:
     MessageQueue(int queueSize, int messageSize);
@@ -425,8 +460,7 @@ class MessageQueue {
     void enqueue(Envelope&);
 };
 
-//_____________________________________________________________________
-// Mailbox
+//__________________________________________________________ Mailbox
 class Mailbox : public MessageQueue {
     const char* _name;
     static list<Mailbox*> _mailboxes;
@@ -436,8 +470,7 @@ class Mailbox : public MessageQueue {
     static list<Mailbox*>& mailboxes();
 };
 
-//_____________________________________________________________________
-// Receiver
+//__________________________________________________________ Receiver
 //
 
 class Receiver {
@@ -478,7 +511,7 @@ class Props {
     Mailbox& mailbox() { return *_mailbox; };
 };
 //___________________________________________________________ ActorSystem
-class ActorSystem : public UidType {
+class ActorSystem : public Uid {
     const char* _name;
     Mailbox* _defaultMailbox;
     MessageDispatcher* _defaultDispatcher;
@@ -489,11 +522,11 @@ class ActorSystem : public UidType {
   public:
     ActorSystem(const char* name, MessageDispatcher& defaultDispatcher,
                 Mailbox& defaultMailbox);
-    UidType uniqueId(const char* name);
+    Uid uniqueId(const char* name);
 
     ActorRef& actorFor(const char* address) {
         // TODO check local or remote
-        ActorRef* ref = ActorRef::lookup(Uid::hash(address));
+        ActorRef* ref = ActorRef::lookup(Uid::add(address));
         if (ref == 0)
             ref = new ActorRef(address, _defaultMailbox);
         return *ref;
@@ -518,20 +551,21 @@ class ActorSystem : public UidType {
     }
 
     ActorRef* create(Actor* actor, const char* name, Props& props) {
-        UidType id = ActorSystem::uniqueId(name);
+        Uid id = ActorSystem::uniqueId(name);
         ActorRef* actorRef;
-        if (ActorRef::lookup(id.id())) {
-            actorRef = ActorRef::lookup(id.id());
+        if (ActorRef::lookup(id)) {
+            actorRef = ActorRef::lookup(id);
         } else {
-            actorRef = new ActorRef(id, &props.mailbox());
+            actorRef = new ActorRef(Uid(id), &props.mailbox());
         }
         ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
                                              props.dispatcher());
         actorRef->cell(actorCell);
         actor->context(actorCell);
+        actor->preStart();
         actorCell->become(actor->createReceive(), true);
         //      INFO(" new actor '%s' created", actorRef->path());
-        actor->preStart();
+
         //     INFO(" actor '%s' preStarted", actorRef->path());
         props.dispatcher().attach(*actorCell);
         return actorRef;

@@ -7,7 +7,7 @@ class System : public Actor {
     Str str;
 
   public:
-    static const MsgClass EXIT();
+    static const MsgClass EXIT;
 
     System(va_list args);
     ~System();
