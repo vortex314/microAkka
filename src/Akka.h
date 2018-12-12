@@ -103,8 +103,8 @@ typedef std::function<bool(Envelope&)> MessageMatcher;
 // extern MsgClass& AnyClass;
 // extern Envelope& NoMessage; // to handle references cleanly
 
-extern Receive& nullReceive;
-extern ActorCell& noActorCell;
+//extern ActorCell& noActorCell;
+
 typedef uint16_t uid_type;
 #define UID_LENGTH 16
 #define UID_MAX 200
@@ -142,15 +142,21 @@ class Uid {
   public:
     Uid(const char* label);
     Uid(uid_type id);
+	Uid(void*);
     Uid() { _id = 0; }
     void operator=(uid_type a) { _id = a; }
     bool operator==(Uid b) { return _id == b._id; }
-    const char* label();
+	
     static uid_type hash(const char* label);
     static uid_type add(const char* label);
-    static uid_type add(void* object);
     static const char* label(uid_type id);
+	const char* label();
+	
+	static uid_type hash(void*);
+	static uid_type add(void* object);
     static void* object(uid_type id);
+	void* object();
+	
     static unordered_map<uint16_t, void*>* uids();
     uid_type id() { return _id; }
 };
@@ -164,9 +170,9 @@ class MsgClass : public Uid {
     bool operator==(MsgClass b) { return id() == b.id(); };
 };
 const MsgClass ReceiveTimeout("ReceiveTimeout");
-extern MsgClass TimerExpired;
-extern MsgClass PoisonPill;
-extern MsgClass AnyClass;
+const MsgClass TimerExpired("TimerExpired");
+const MsgClass PoisonPill("PoisonPill");
+const MsgClass AnyClass("AnyClass");
 
 //_________________________________________________________________ Timer
 //
@@ -216,6 +222,8 @@ class Receive {
     static Receive emptyBehavior;
 };
 
+const Receive nullReceive();
+
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
     list<Mailbox*> _mailboxes;
@@ -236,8 +244,8 @@ class MessageDispatcher {
     void suspend(ActorCell&);
     void handle(Envelope&);
     void unhandled(ActorCell*);
-    void nextWakeup(int64_t t);
-    int64_t nextWakeup();
+    void nextWakeup(uint64_t t);
+    uint64_t nextWakeup();
     Envelope& txdEnvelope();
 };
 //__________________________________________________________ CoRoutineDispatcher
@@ -269,11 +277,11 @@ class ActorRef : public Uid {
     ActorRef(Uid id);
     ActorRef(Uid id, Mailbox* mb);
 
-    void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
+    void ask(ActorRef& dst, MsgClass type, Envelope& msg, uint32_t timeout);
     void forward(Envelope& msg);
-    void tell(ActorRef sender, Envelope& message);
-    void tell(ActorRef sender, MsgClass type, const char* format, ...);
-    void tell(ActorRef sender, MsgClass type, uint16_t id, const char* format,
+    void tell(ActorRef& sender, Envelope& message);
+    void tell(ActorRef& sender, MsgClass type, const char* format, ...);
+    void tell(ActorRef& sender, MsgClass type, uint16_t id, const char* format,
               ...);
     void forward(Envelope& message, ActorContext& context);
     Mailbox& mailbox();
@@ -287,7 +295,9 @@ class ActorRef : public Uid {
     void cell(ActorCell* cell);
     ActorCell* cell();
 };
-extern ActorRef NoSender;
+
+const ActorRef NoSender("NoSender");
+
 
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorRefFactory {

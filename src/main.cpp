@@ -46,11 +46,11 @@ int main() {
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
-    defaultDispatcher.unhandled(ActorCell::lookup(&mqttBridge));
+    defaultDispatcher.unhandled(mqttBridge.cell());
 
     while (true) {
         defaultDispatcher.execute();
-        if (defaultDispatcher.nextWakeup() >= 0)
-            Sys::delay(defaultDispatcher.nextWakeup());
+        if (defaultDispatcher.nextWakeup() > (Sys::millis()+100))
+            Sys::delay(Sys::millis()-defaultDispatcher.nextWakeup());
     };
 }
