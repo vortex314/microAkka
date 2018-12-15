@@ -98,6 +98,7 @@ extern const MsgClass PoisonPill;
 extern const MsgClass AnyClass;
 extern Receive NullReceive;
 extern ActorRef& NoSender();
+extern ActorMsgBus eb;
 
 //_____________________________________________________________________ Message
 
@@ -186,6 +187,7 @@ class Timer : public Uid {
     bool operator==(Timer&);
     bool active();
     void active(bool);
+    void interval(uint32_t intv) { _interval = intv; };
     Uid key();
     void load();
     void reload();
@@ -419,6 +421,7 @@ class Envelope {
 
     Envelope(uint32_t size);
     Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz);
+    Envelope(ActorRef& snd, MsgClass clz);
 
     Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz, uint32_t size);
     Envelope& header(ActorRef& rcv, ActorRef& snd, MsgClass clz);
@@ -604,30 +607,35 @@ class EventBus<Event, Subscriber, Classifier> {
     virtual ~EventBus() {}
 };
 
-class MsgClassClassifier {
+class EnvelopeClassifier {
   public:
     uint32_t _check;
     //    ActorRef* _sender;
     //    MsgClass _msgClass;
-    MsgClassClassifier(ActorRef* sender, MsgClass msgClass) {
-        _check = (sender->id() << 16) + msgClass.id();
+    EnvelopeClassifier(Uid sender, Uid msgClass) {
+        _check = (sender.id() << 16) + msgClass.id();
     }
 
-    bool operator==(MsgClassClassifier a) {
+    bool operator==(EnvelopeClassifier a) {
         return a._check == _check; // TODO or AnyClass
     }
 };
 
-class ActorMsgBus : public EventBus<Envelope&, ActorRef&, MsgClassClassifier> {
+class ActorMsgBus : public EventBus<Envelope&, ActorRef&, EnvelopeClassifier> {
   public:
     void push(Envelope& envelope, ActorRef& ref) {
         envelope.receiver = &ref;
+        //      INFO(" push to %s from %s on  event %s ", ref.label(),
+        //           envelope.sender->label(), envelope.msgClass.label());
         ref.mailbox().enqueue(envelope);
     }
-    MsgClassClassifier classify(Envelope& envelope) {
-        return *(new MsgClassClassifier(envelope.sender, envelope.msgClass));
+    EnvelopeClassifier classify(Envelope& envelope) {
+        //       INFO(" classifying %s => %s  : %s ", envelope.sender->label(),
+        //           envelope.receiver->label(), envelope.msgClass.label());
+        return EnvelopeClassifier(*envelope.sender, envelope.msgClass);
     }
     int compareSubscribers(ActorRef& a, ActorRef& b) {
+        //      INFO(" compare %s to %s ", a.label(), b.label());
         return a.id() == b.id();
     }
     ~ActorMsgBus() {}

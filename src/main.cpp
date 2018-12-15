@@ -28,17 +28,12 @@ int main() {
     MessageDispatcher& defaultDispatcher = *new MessageDispatcher();
 
     ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
-    ActorMsgBus eb;
 
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
-    eb.subscribe(sender, MsgClassClassifier(&sender, Echo::PING));
-    Envelope& env = defaultDispatcher.txdEnvelope();
-    env.sender = &sender;
-    env.msgClass = Echo::PING;
-    eb.publish(env);
-    //    ActorRef system = actorSystem.actorOf<System>("System");
+
+    ActorRef system = actorSystem.actorOf<System>("System");
     ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
-    ActorRef mqttBridge = actorSystem.actorOf<MqttBridge>(
+    ActorRef mqtt = actorSystem.actorOf<MqttBridge>(
         Props::create()
             .withMailbox(remoteMailbox)
             .withDispatcher(defaultDispatcher),
@@ -46,7 +41,16 @@ int main() {
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
-    defaultDispatcher.unhandled(mqttBridge.cell());
+    defaultDispatcher.unhandled(mqtt.cell());
+
+    /*   eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Disconnected));
+       eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Connected));
+    eb.subscribe(system, EnvelopeClassifier(mqtt, MqttBridge::Connected));
+    eb.subscribe(system, EnvelopeClassifier(mqtt, MqttBridge::Disconnected));*/
+
+    ActorMsgBus eb;
+
+    eb.subscribe(sender, EnvelopeClassifier("system/Wifi", Echo::PING));
 
     while (true) {
         defaultDispatcher.execute();

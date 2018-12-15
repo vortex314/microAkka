@@ -236,6 +236,10 @@ Envelope::Envelope(uint32_t size)
 Envelope::Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz)
     : sender(&snd), receiver(&rcv), msgClass(clz), id(newId()), message(32) {}
 
+Envelope::Envelope(ActorRef& snd, MsgClass clz)
+    : sender(&snd), receiver(&NoSender()), msgClass(clz), id(newId()),
+      message(32) {}
+
 uint32_t Envelope::_idCounter = 0;
 
 uint32_t Envelope::newId() { return _idCounter++; }

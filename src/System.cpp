@@ -2,7 +2,9 @@
 
 #include <System.h>
 
-const MsgClass System::EXIT("EXIT");
+const MsgClass System::Exit("Exit");
+const MsgClass System::ConfigRequest("ConfigRequest");
+const MsgClass System::ConfigReply("ConfigReply");
 
 System::System(va_list args) : str(80) {}
 System::~System() {}

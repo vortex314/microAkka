@@ -13,6 +13,8 @@ MsgClass MqttBridge::MQTT_PUBLISH_RCVD() {
 }
 
 void MqttBridge::preStart() {
+    timers().startPeriodicTimer("PUB_TIMER", TimerExpired, 5000);
+
     //   context().mailbox(remoteMailbox);
     _conn_opts = MQTTAsync_connectOptions_initializer;
 
@@ -126,6 +128,15 @@ Receive& MqttBridge::createReceive() {
                        WARN(" processing failed : %s ", message.c_str());
                    }
                })
+        .match(TimerExpired,
+               [this](Envelope& msg) {
+                   string topic = "src/";
+                   topic += context().system().label();
+                   topic += "/system/alive";
+                   if (_connected) {
+                       mqttPublish(topic.c_str(), "true");
+                   }
+               })
         .build();
 }
 
@@ -169,6 +180,7 @@ bool MqttBridge::handleMqttMessage(const char* message) {
 void MqttBridge::onConnect(void* context, MQTTAsync_successData* response) {
     MqttBridge* me = (MqttBridge*)context;
     INFO("Successful connection");
+    me->_connected = true;
     std::string topic = "dst/";
     topic += me->context().system().label();
     topic += "/#";
