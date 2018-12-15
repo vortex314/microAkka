@@ -9,6 +9,9 @@ class Sender : public Actor {
     ActorRef echo;
     ActorRef anchorRef;
     uint32_t _counter;
+    Uid _startTest;
+    Uid _endTest;
+    bool _testing;
 
   public:
     Sender(va_list args);

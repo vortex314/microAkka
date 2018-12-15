@@ -6,8 +6,8 @@ class Echo : public Actor {
     Str str;
 
   public:
-    static const MsgClass PING();
-    const static MsgClass PONG();
+    static MsgClass PING;
+    static MsgClass PONG;
 
     Echo(va_list args);
     ~Echo();

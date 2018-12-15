@@ -142,7 +142,7 @@ bool MqttBridge::handleMqttMessage(const char* message) {
 
     ActorRef* rcv = ActorRef::lookup(Uid::hash(array.get<const char*>(0)));
     if (rcv == 0) {
-        rcv = &NoSender;
+        rcv = &NoSender();
         WARN(" local Actor : %s not found ", array.get<const char*>(0));
     }
     ActorRef* snd = ActorRef::lookup(Uid::hash(array.get<const char*>(1)));

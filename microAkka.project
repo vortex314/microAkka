@@ -34,7 +34,6 @@
     <File Name="src/Sys.cpp"/>
     <File Name="src/MqttBridge.cpp"/>
     <File Name="src/Linux.cpp"/>
-    <File Name="src/LinkedList.hpp"/>
     <File Name="src/Akka.h"/>
     <File Name="src/Akka.cpp"/>
   </VirtualDirectory>

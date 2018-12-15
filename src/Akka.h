@@ -57,11 +57,8 @@ using namespace std;
 
 #include <Cbor.h>
 #include <CborQueue.h>
-#include <Erc.h>
-//#include <list.hpp>
 #include <Log.h>
-//#include <string.h>
-//#include <Uid.h>
+#include <Semaphore.h>
 
 extern string string_format(string& str, const char* fmt, ...);
 
@@ -93,17 +90,20 @@ class ActorMsgBus;
 class MsgClass;
 class TimerScheduler;
 
+//_____________________________________________________________________ Static
+
+extern const MsgClass ReceiveTimeout;
+extern const MsgClass TimerExpired;
+extern const MsgClass PoisonPill;
+extern const MsgClass AnyClass;
+extern Receive NullReceive;
+extern ActorRef& NoSender();
+
 //_____________________________________________________________________ Message
 
 typedef bool (*MsgMatch)(Envelope& msg);
 typedef std::function<void(Envelope&)> MessageHandler;
 typedef std::function<bool(Envelope&)> MessageMatcher;
-
-// extern ActorRef& AnyActor;
-// extern MsgClass& AnyClass;
-// extern Envelope& NoMessage; // to handle references cleanly
-
-//extern ActorCell& noActorCell;
 
 typedef uint16_t uid_type;
 #define UID_LENGTH 16
@@ -126,6 +126,8 @@ typedef uint16_t uid_type;
 #define FNV_OFFSET 14695981039346656037ull
 #endif
 
+#define STEP printf("%s:%d\n", __FILE__, __LINE__)
+
 constexpr uint32_t fnv1(uint32_t h, const char* s) {
     return (*s == 0) ? h
                      : fnv1((h * FNV_PRIME) ^ static_cast<uint32_t>(*s), s + 1);
@@ -142,21 +144,21 @@ class Uid {
   public:
     Uid(const char* label);
     Uid(uid_type id);
-	Uid(void*);
+    Uid(void*);
     Uid() { _id = 0; }
     void operator=(uid_type a) { _id = a; }
     bool operator==(Uid b) { return _id == b._id; }
-	
+
     static uid_type hash(const char* label);
     static uid_type add(const char* label);
     static const char* label(uid_type id);
-	const char* label();
-	
-	static uid_type hash(void*);
-	static uid_type add(void* object);
+    const char* label();
+
+    static uid_type hash(void*);
+    static uid_type add(void* object);
     static void* object(uid_type id);
-	void* object();
-	
+    void* object();
+
     static unordered_map<uint16_t, void*>* uids();
     uid_type id() { return _id; }
 };
@@ -169,10 +171,6 @@ class MsgClass : public Uid {
     MsgClass(const char* name) : Uid(name) {}
     bool operator==(MsgClass b) { return id() == b.id(); };
 };
-const MsgClass ReceiveTimeout("ReceiveTimeout");
-const MsgClass TimerExpired("TimerExpired");
-const MsgClass PoisonPill("PoisonPill");
-const MsgClass AnyClass("AnyClass");
 
 //_________________________________________________________________ Timer
 //
@@ -222,8 +220,6 @@ class Receive {
     static Receive emptyBehavior;
 };
 
-const Receive nullReceive();
-
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
     list<Mailbox*> _mailboxes;
@@ -262,9 +258,6 @@ class ActorRefFactory {
         virtual ActorSelection actorSelection(const char* path) = 0;*/
 };
 
-//_______________________________________________________________ AbstractActor
-//
-
 //__________________________________________________________ ActorRef
 class ActorRef : public Uid {
     Mailbox* _mailbox;
@@ -295,9 +288,6 @@ class ActorRef : public Uid {
     void cell(ActorCell* cell);
     ActorCell* cell();
 };
-
-const ActorRef NoSender("NoSender");
-
 
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorRefFactory {
@@ -385,18 +375,6 @@ class ActorCell : public ActorContext {
     static list<ActorCell*>& actorCells();
 };
 
-//________________________________________________________ ActorRef
-/*class ActorRef : public ActorRef {
-    ActorCell* _actorCell;
-
-  public:
-    ActorRef(Uid  id) : ActorRef(id) {
-        isLocal(true);
-        //   : _actorCell(system, ref, mailbox, dispatcher){};
-    };
-    void cell(ActorCell* c) { _actorCell = c; };
-    ActorCell* cell() { return _actorCell; }
-};*/
 //_________________________________________________________ Actor
 //
 class Actor {
@@ -462,6 +440,7 @@ class MessageQueue {
     CborQueue _cborQueue;
     Cbor _txd;
     Cbor _rxd;
+    Semaphore& _sema;
 
   public:
     MessageQueue(int queueSize, int messageSize);

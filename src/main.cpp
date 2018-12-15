@@ -31,10 +31,10 @@ int main() {
     ActorMsgBus eb;
 
     ActorRef sender = actorSystem.actorOf<Sender>("sender");
-    eb.subscribe(sender, MsgClassClassifier(&sender, Echo::PING()));
+    eb.subscribe(sender, MsgClassClassifier(&sender, Echo::PING));
     Envelope& env = defaultDispatcher.txdEnvelope();
     env.sender = &sender;
-    env.msgClass = Echo::PING();
+    env.msgClass = Echo::PING;
     eb.publish(env);
     //    ActorRef system = actorSystem.actorOf<System>("System");
     ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
@@ -42,7 +42,7 @@ int main() {
         Props::create()
             .withMailbox(remoteMailbox)
             .withDispatcher(defaultDispatcher),
-        "mqttBridge", "tcp://test.mosquitto.org:1883");
+        "mqttBridge", "tcp://limero.ddns.net:1883");
 
     defaultDispatcher.attach(defaultMailbox);
     defaultDispatcher.attach(remoteMailbox);
@@ -50,7 +50,10 @@ int main() {
 
     while (true) {
         defaultDispatcher.execute();
-        if (defaultDispatcher.nextWakeup() > (Sys::millis()+100))
-            Sys::delay(Sys::millis()-defaultDispatcher.nextWakeup());
+        if (defaultDispatcher.nextWakeup() > (Sys::millis() + 100)) {
+            /*INFO(" sleeping %d ",
+                 defaultDispatcher.nextWakeup() - Sys::millis());*/
+            Sys::delay(defaultDispatcher.nextWakeup() - Sys::millis());
+        }
     };
 }
