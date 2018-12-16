@@ -1,35 +1,87 @@
-# DRAFT -- DRAFT -- WORK IN PROGRESS
-# Akka Cpp Actor Framework for Embedded systems - µAkka
+
+# microAkka an Akka alike framework in C++ to run on microcontrollers
 
 C++ Actor Framework for Embedded Systems - akka alike
 
-## DRAFT 
+## Target 
 
-The project has a dependency with my Common generic c++ classes
+The purpose is to provide a standard C++ framework for writing message drive actors. 
+
+Seen the popularity of the Lightbend Akka framework and its extensive documentation and features, I decided to build this
+framework on the same principles and naming conventions.
+
+The intention is that a central brain running on PC can manage IOT devices , the communication between both should be transparently 
+as communicating local between actors. The actor systems can communicate using MQTT.
+
+The MQTT protocol is based on certain conventions to support serialization. 
+- address : "${actorSystem}/${actor}"
+- dst/<${actorSystem} = ["${address_dest}","${address_src}",${message-class},id-int,.....] 
+
+## Platforms supported
+- Linux ( Debian ), should work on all linux versions - repository microAkka
+- ESP32 with ESP-IDF - repository akkaEsp32
+- ESP8266 with ESP-OPEN-RTOS - repository akkaEsp8266
+- NOT YET : Arduino ( ESP 32 and ESP8266 )
+
 
 ### Prerequisites
+- C++ 11 compiler
+- MQTT library dependent on platform
+- Common repository with platform specifics
 
-At this stage C++ 11 should be sufficient
+### Example
+An actor that replies with an increment of a counter
+
+C++ code 
 
 ```
-Give examples
+__________________________________________________ main
+
+int main() {
+
+    Sys::init();
+    Mailbox defaultMailbox = *new Mailbox("default", 20000, 1000);
+    MessageDispatcher& defaultDispatcher = *new MessageDispatcher();
+    ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
+    ActorRef echo = actorSystem.actorOf<Echo>("echo");
+__________________________________________________ Echo.cpp
+#include <Echo.h>
+
+MsgClass Echo::PING = "PING";
+MsgClass Echo::PONG = "PONG";
+
+Echo::Echo(va_list args) : str(80) {}
+Echo::~Echo() {}
+
+Receive& Echo::createReceive() {
+    return receiveBuilder()
+        .match(PING,
+               [this](Envelope& msg) {
+                   uint32_t counter;
+                   msg.scanf("u", &counter);
+                   sender().tell(self(), PONG, msg.id, "u", counter+1);
+               })
+        .build();
+}
 ```
+
+Java / Scala code 
+```
+Coming
+```
+
 
 ### Installing
 
-A step by step series of examples that tell you how to get a development env running
-
-Say what the step will be
+- Download git repo https://github.com/vortex314/microAkka
+- Download git repo https://github.com/vortex314/Common
+- Download git repo https://github.com/bblanchon/ArduinoJson
+- set env variables and mqtt URL
 
 ```
 Give the example
 ```
 
-And repeat
-
-```
-until finished
-```
 
 End with an example of getting some data out of the system or using it for a little demo
 
@@ -59,13 +111,10 @@ Add additional notes about how to deploy this on a live system
 
 ## Built With
 
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
+* [Codelite](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
+* [Akka doc](https://doc.akka.io/docs/akka/2.5/general/actor-systems.html) - Documentation
+* [How Akka Actors work ](https://medium.com/@unmeshvjoshi/how-akka-actors-work-b0301ec269d6) - Used to generate RSS Feeds
 
-## Contributing
-
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
 
 ## Versioning
 
@@ -75,14 +124,8 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 * **Lieven Merckx** - *Initial work* - 
 
-
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
 
-## Acknowledgments
 
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc

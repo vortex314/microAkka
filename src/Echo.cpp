@@ -12,10 +12,7 @@ Receive& Echo::createReceive() {
                [this](Envelope& msg) {
                    uint32_t counter;
                    msg.scanf("u", &counter);
-                   sender().tell(self(), PONG, msg.id, "uu", counter, counter);
-                   //                   sender().tell(self(), PONG, msg.id,
-                   //                   "uuuuS",
-                   //                   counter,Uid::count(),ActorRef::count(),ActorCell::count(),str);
+                   sender().tell(self(), PONG, msg.id, "u", counter + 1);
                })
         .build();
 }

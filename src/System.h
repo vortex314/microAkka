@@ -2,12 +2,14 @@
 #define SYSTEM_H
 
 #include <Akka.h>
+#include <Config.h>
 
 class System : public Actor {
-    Str str;
 
   public:
-    static const MsgClass EXIT;
+    static const MsgClass Exit;
+    static const MsgClass ConfigRequest;
+    static const MsgClass ConfigReply;
 
     System(va_list args);
     ~System();

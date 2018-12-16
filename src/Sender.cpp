@@ -14,7 +14,7 @@ void Sender::preStart() {
 
 Receive& Sender::createReceive() {
     return receiveBuilder()
-        .match(Echo::PONG, [this](Envelope& msg) { handlePing(msg); })
+        .match(Echo::PONG, [this](Envelope& msg) { handlePong(msg); })
         .match(TimerExpired,
                [this](Envelope& msg) {
                    uint32_t k;
@@ -31,7 +31,7 @@ Receive& Sender::createReceive() {
                    } else if (key == _endTest) {
                        float delta = Sys::millis() - startTime;
                        _testing = false;
-                       INFO("End test.");
+                       INFO("End test. %d", _counter);
                        INFO(" '%s' done in %f msec %f msg/sec", self().path(),
                             delta, _counter * 1000.0 / delta);
                    }
@@ -40,9 +40,9 @@ Receive& Sender::createReceive() {
         .build();
 }
 
-void Sender::handlePing(Envelope& msg) {
+void Sender::handlePong(Envelope& msg) {
     if (_testing) {
-        msg.scanf("uu", &_counter, &_counter);
-        sender().tell(self(), Echo::PING, "u", ++_counter);
+        msg.scanf("u", &_counter);
+        sender().tell(self(), Echo::PING, "u", _counter);
     }
 }
