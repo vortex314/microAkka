@@ -1,17 +1,16 @@
-#include <Akka.h>
 #ifndef ECHO_H
 #define ECHO_H
+#include <Akka.h>
+
 
 class Echo : public Actor {
-    Str str;
 
-  public:
-    static MsgClass PING;
-    static MsgClass PONG;
+	public:
+		enum { PING=H("PING"),PONG=H("PONG") };
 
-    Echo(va_list args);
-    ~Echo();
+		Echo(va_list args);
+		~Echo();
 
-    Receive& createReceive();
+		Receive& createReceive();
 };
 #endif

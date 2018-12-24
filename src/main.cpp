@@ -1,6 +1,7 @@
 #include "Akka.h"
 #include <Echo.h>
-#include <MqttBridge.h>
+#include <Mqtt.h>
+#include <Bridge.h>
 #include <NeuralPid.h>
 #include <Sender.h>
 #include <System.h>
@@ -10,54 +11,47 @@
 //
 
 Log logger(1024);
+ActorMsgBus eb;
+
 
 void logHeap() {
-    struct mallinfo mi;
+	struct mallinfo mi;
 
-    mi = mallinfo();
-    INFO(" heap size %d ", mi.uordblks);
+	mi = mallinfo();
+	INFO(" heap size %d ", mi.uordblks);
 }
 
 int main() {
 
-    Sys::init();
+	Sys::init();
 
-    INFO(" starting microAkka test ");
-    Mailbox defaultMailbox = *new Mailbox("default", 20000, 1000);
-    Mailbox remoteMailbox = *new Mailbox("remote", 20000, 1000);
-    MessageDispatcher& defaultDispatcher = *new MessageDispatcher();
+	INFO(" starting microAkka test ");
+	Mailbox defaultMailbox = *new Mailbox("default", 20000, 1000);
+	MessageDispatcher& defaultDispatcher = *new MessageDispatcher();
 
-    ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
+	ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
 
-    ActorRef sender = actorSystem.actorOf<Sender>("sender");
+	ActorRef sender = actorSystem.actorOf<Sender>("sender");
 
-    ActorRef system = actorSystem.actorOf<System>("System");
-    ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
-    ActorRef mqtt = actorSystem.actorOf<MqttBridge>(
-        Props::create()
-            .withMailbox(remoteMailbox)
-            .withDispatcher(defaultDispatcher),
-        "mqttBridge", "tcp://limero.ddns.net:1883");
+	ActorRef system = actorSystem.actorOf<System>("System");
+	ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
+	ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
+	ActorRef bridge = actorSystem.actorOf<Bridge>("bridge",mqtt);
 
-    defaultDispatcher.attach(defaultMailbox);
-    defaultDispatcher.attach(remoteMailbox);
-    defaultDispatcher.unhandled(mqtt.cell());
+	defaultDispatcher.attach(defaultMailbox);
+	defaultDispatcher.unhandled(bridge.cell());
 
-    /*   eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Disconnected));
-       eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Connected));
-    eb.subscribe(system, EnvelopeClassifier(mqtt, MqttBridge::Connected));
-    eb.subscribe(system, EnvelopeClassifier(mqtt, MqttBridge::Disconnected));*/
+	/*   eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Disconnected));
+	   eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Connected));*/
 
-    ActorMsgBus eb;
 
-    eb.subscribe(sender, EnvelopeClassifier("system/Wifi", Echo::PING));
 
-    while (true) {
-        defaultDispatcher.execute();
-        if (defaultDispatcher.nextWakeup() > (Sys::millis() + 100)) {
-            /*INFO(" sleeping %d ",
-                 defaultDispatcher.nextWakeup() - Sys::millis());*/
-            Sys::delay(defaultDispatcher.nextWakeup() - Sys::millis());
-        }
-    };
+	while (true) {
+		defaultDispatcher.execute();
+		if (defaultDispatcher.nextWakeup() > (Sys::millis() + 100)) {
+			/*INFO(" sleeping %d ",
+			     defaultDispatcher.nextWakeup() - Sys::millis());*/
+			Sys::delay(defaultDispatcher.nextWakeup() - Sys::millis());
+		}
+	};
 }
