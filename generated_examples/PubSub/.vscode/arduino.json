@@ -1,0 +1,6 @@
+{
+    "sketch": "PubSub.ino",
+    "port": "/dev/ttyUSB0",
+    "board": "esp32:esp32:esp32doit-devkit-v1",
+    "configuration": "FlashFreq=80,UploadSpeed=921600,DebugLevel=none"
+}
