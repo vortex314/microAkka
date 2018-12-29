@@ -16,7 +16,7 @@ MsgClass Mqtt::Subscribe("Mqtt/Subscribe");
 
 
 void Mqtt::preStart() {
-	timers().startPeriodicTimer("PUB_TIMER", TimerExpired, 5000);
+	timers().startPeriodicTimer("PUB_TIMER", TimerExpired(), 5000);
 
 	//   context().mailbox(remoteMailbox);
 	_conn_opts = MQTTAsync_connectOptions_initializer;
@@ -61,7 +61,7 @@ void Mqtt::mqttDisconnect() {
 
 Receive& Mqtt::createReceive() {
 	return receiveBuilder()
-	       .match(TimerExpired,
+	       .match(TimerExpired(),
 	[this](Envelope& msg) {
 		string topic = "src/";
 		topic += context().system().label();
@@ -164,9 +164,9 @@ int Mqtt::onMessageArrived(void* context, char* topicName, int topicLen,
 		topic.assign(topicName, topicLen);
 		std::string msg;
 		msg.assign((char*)message->payload, message->payloadlen);
-		INFO(" MQTT RXD : %s = %s ", topicName, message->payload);
+		INFO(" MQTT RXD : %s = %s ", topicName, msg.c_str());
 		//   me->self().tell(me-self(),MQTT_PUBLISH_RCVD,"SS",&topic,&msg);
-		Msg  pub(PublishRcvd,100);
+		Msg  pub(PublishRcvd);
 		pub("topic", topic);
 		pub("message", msg);
 		pub(UID_SRC,me->self().id());

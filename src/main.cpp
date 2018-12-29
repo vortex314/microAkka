@@ -8,31 +8,31 @@
 #include <malloc.h>
 
 //______________________________________________________________
-//
+/*
+ * sender : actor to start benchmark of messages send, will also start echo actor
+ * system : platform specific
+ * nnPid : neural network to simulate PID control
+ * bridge : acts as a gateway via mqtt to other actorsystems
+ *
+ *
+ *
+ *
+ *
+ */
 
 Log logger(1024);
 ActorMsgBus eb;
-
-
-void logHeap() {
-	struct mallinfo mi;
-
-	mi = mallinfo();
-	INFO(" heap size %d ", mi.uordblks);
-}
 
 int main() {
 
 	Sys::init();
 
 	INFO(" starting microAkka test ");
-	Mailbox defaultMailbox = *new Mailbox("default", 20000, 1000);
-	MessageDispatcher& defaultDispatcher = *new MessageDispatcher();
-
+	Mailbox defaultMailbox("default", 100); // nbr of messages in queue max
+	MessageDispatcher defaultDispatcher;
 	ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
 
 	ActorRef sender = actorSystem.actorOf<Sender>("sender");
-
 	ActorRef system = actorSystem.actorOf<System>("System");
 	ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
 	ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
@@ -40,18 +40,6 @@ int main() {
 
 	defaultDispatcher.attach(defaultMailbox);
 	defaultDispatcher.unhandled(bridge.cell());
+	defaultDispatcher.execute();
 
-	/*   eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Disconnected));
-	   eb.subscribe(mqtt, EnvelopeClassifier(wifi, Wifi::Connected));*/
-
-
-
-	while (true) {
-		defaultDispatcher.execute();
-		if (defaultDispatcher.nextWakeup() > (Sys::millis() + 100)) {
-			/*INFO(" sleeping %d ",
-			     defaultDispatcher.nextWakeup() - Sys::millis());*/
-			Sys::delay(defaultDispatcher.nextWakeup() - Sys::millis());
-		}
-	};
 }

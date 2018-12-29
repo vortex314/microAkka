@@ -17,6 +17,8 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="src/Publisher.cpp"/>
+    <File Name="src/Publisher.h"/>
     <File Name="src/Mqtt.h"/>
     <File Name="src/Mqtt.cpp"/>
     <File Name="src/Bridge.h"/>
@@ -55,15 +57,15 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="Debug" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-O0;-std=c++11;-Wall;-fno-rtti;-fno-exceptions" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+    <Configuration Name="Debug" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;-O0;-std=c++11;-Wall" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="src"/>
         <IncludePath Value="../Common"/>
         <IncludePath Value="../paho.mqtt.c/src"/>
         <IncludePath Value="../ArduinoJson/src"/>
       </Compiler>
-      <Linker Options="-pthread" Required="yes">
+      <Linker Options="-pthread;-lrt" Required="yes">
         <LibraryPath Value="../Common/Debug"/>
         <LibraryPath Value="../paho.mqtt.c/src"/>
         <Library Value="Common"/>

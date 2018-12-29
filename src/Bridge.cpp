@@ -4,14 +4,14 @@
 #include <unistd.h>
 // volatile MQTTAsync_token deliveredtoken;
 
-Bridge::Bridge(va_list args) : _mqtt(NoSender()) {
+Bridge::Bridge(va_list args) : _mqtt ( ActorRef::NoSender()) {
 	_mqtt = va_arg(args,ActorRef) ;
 };
 Bridge::~Bridge() {}
 
 
 void Bridge::preStart() {
-	timers().startPeriodicTimer("PUB_TIMER", TimerExpired, 5000);
+	timers().startPeriodicTimer("PUB_TIMER", TimerExpired(), 5000);
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::PublishRcvd));
@@ -20,21 +20,21 @@ void Bridge::preStart() {
 
 Receive& Bridge::createReceive() {
 	return receiveBuilder()
-	       .match(AnyClass,
+	       .match(AnyClass(),
 	[this](Envelope& msg) {
 		if (!(*msg.receiver == self())) {
-			INFO(" message received %s:%s:%s  in %s",
-			     msg.sender->path(), msg.receiver->path(),
-			     msg.msgClass.label(),
-			     context().self().path());
+			/*			INFO(" message received %s:%s:%s  in %s",
+						     msg.sender->path(), msg.receiver->path(),
+						     msg.msgClass.label(),
+						     context().self().path());*/
 			std::string json;
 			messageToJson(json, msg);
 			std::string topic = "dst/";
 			topic += msg.receiver->path();
-			Msg m(Mqtt::Publish,100);
+			Msg m(Mqtt::Publish);
 			m("topic",topic);
 			m("message",json);
-			_mqtt.tell(self(),m);
+			_mqtt.tell(m,self());
 		}
 	})
 	.match(Mqtt::Connected,
@@ -51,29 +51,33 @@ Receive& Bridge::createReceive() {
 	[this](Envelope& env) {
 		std::string topic;
 		std::string message;
-		Msg msg(100);
+		Msg msg;
+//		INFO("envelope %s",env.toString().c_str());
 
-		if (env.get("topic",topic)==0 && env.get("message",message)==0 &&
-		        jsonToMessage(msg,message)) {
+		if (env.get("topic",topic)==0
+		        && env.get("message",message)==0
+		        && jsonToMessage(msg,message)) {
 			uid_type uid;
 			ActorRef* dst,*src;
 			if ( msg.get(UID_DST,uid)==0 && (dst=ActorRef::lookup(uid))!=0 && msg.get(UID_SRC,uid)==0 && (src=ActorRef::lookup(uid))!=0) {
 				dst->mailbox().enqueue(msg);
+				INFO(" processed message %s", msg.toString().c_str());
+			} else {
+				WARN(" incorrect message : %s", message.c_str());
 			}
-			INFO(" processed message %s", message.c_str());
 		} else {
 			WARN(" processing failed : %s ", message.c_str());
 		}
 	})
-	.match(TimerExpired,
+	.match(Actor::TimerExpired(),
 	[this](Envelope& msg) {
 		string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
 		if (_connected) {
-			Msg m(Mqtt::Publish,100);
+			Msg m(Mqtt::Publish);
 			m("topic",topic)("data","true");
-			_mqtt.tell(self(),m);
+			_mqtt.tell(m,self());
 		}
 	})
 	.build();
@@ -128,11 +132,15 @@ bool Bridge::messageToJson(std::string& json, Msg& payload) {
 
 bool Bridge::jsonToMessage(Msg& msg,std::string& message) {
 	_jsonBuffer.clear();
-	JsonObject& jsonObject = _jsonBuffer.parseObject((char*)message.c_str());
-	if (jsonObject == JsonObject::invalid())
+	JsonObject& jsonObject = _jsonBuffer.parseObject(message);
+	if (jsonObject == JsonObject::invalid()) {
+		WARN(" Invalid Json : %s ",message.c_str());
 		return false;
-	if (!jsonObject.containsKey(AKKA_SRC) || !jsonObject.containsKey(AKKA_DST) || !jsonObject.containsKey(AKKA_CLS))
+	}
+	if (!jsonObject.containsKey(AKKA_SRC) || !jsonObject.containsKey(AKKA_DST) || !jsonObject.containsKey(AKKA_CLS)) {
+		WARN(" missing dst,src,cls in json message : %s ",message.c_str());
 		return false;
+	}
 
 	uid_type uidDst = Uid::add(jsonObject.get<const char*>(AKKA_DST));
 	uid_type uidSrc = Uid::add(jsonObject.get<const char*>(AKKA_SRC));
@@ -143,7 +151,6 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& message) {
 
 	ActorRef* dst = ActorRef::lookup(uidDst);
 	if (dst == 0) {
-		dst = &NoSender();
 		WARN(" local Actor : %s not found ", Uid::label(uidDst));
 	}
 	ActorRef* src = ActorRef::lookup(uidSrc);
@@ -165,6 +172,6 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& message) {
 			}
 		}
 	}
-	INFO("%s = %s => %s : %s",Uid::label(uidSrc),Uid::label(uidCls),Uid::label(uidDst),message.c_str());
+//	INFO("%s = %s => %s : %s",Uid::label(uidSrc),Uid::label(uidCls),Uid::label(uidDst),message.c_str());
 	return true;
 }

@@ -5,16 +5,17 @@
 #include <Config.h>
 
 class System : public Actor {
+		Uid _propTimer;
+	public:
+		static const MsgClass Exit;
+		static const MsgClass ConfigRequest;
+		static const MsgClass ConfigReply;
 
-  public:
-    static const MsgClass Exit;
-    static const MsgClass ConfigRequest;
-    static const MsgClass ConfigReply;
+		System(va_list args);
+		~System();
 
-    System(va_list args);
-    ~System();
-
-    Receive& createReceive();
+		Receive& createReceive();
+		void preStart();
 };
 
 #endif // SYSTEM_H

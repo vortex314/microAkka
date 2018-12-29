@@ -10,6 +10,9 @@ const MsgClass System::ConfigReply("ConfigReply");
 System::System(va_list args) {}
 System::~System() {}
 
+void System::preStart() {
+	_propTimer = timers().startPeriodicTimer("propTimer", TimerExpired(), 5000);
+}
 
 
 Receive& System::createReceive() {
@@ -17,16 +20,16 @@ Receive& System::createReceive() {
 	.match(Exit, [](Envelope& msg) { exit(0); })
 	.match(ConfigRequest, [](Envelope& msg) { exit(0); })
 	.match(ConfigReply, [](Envelope& msg) { exit(0); })
-	.match(Properties,[this](Envelope& msg) {
+	.match(Properties(),[this](Envelope& msg) {
 		INFO(" Properties requested ");
 		struct sysinfo info;
 		sysinfo(&info);
-		Msg m(PropertiesReply,40);
-		m("cpu","x86_64");
-		m("procs",get_nprocs());
-		m("upTime",info.uptime*1000);
-		m("ram",info.totalram);
-		sender().tell(self(),m);
+
+		sender().tell(Msg(PropertiesReply())
+		              ("cpu","x86_64")
+		              ("procs",get_nprocs())
+		              ("upTime",info.uptime*1000)
+		              ("ram",info.totalram),self());
 	})
 	.build();
 }
