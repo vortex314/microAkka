@@ -3,16 +3,17 @@
 
 C++ Actor Framework for Embedded Systems - akka alike
 
+![Alt text](doc/esp8266.jpg?raw=true "ESP8266")
 ## Target
 
 The purpose is to provide a standard C++ framework for writing message drive actors.
 
-	Seen the popularity of the Lightbend Akka framework and its extensive documentation and features, I decided to build this
+Seen the popularity of the Lightbend Akka framework and its extensive documentation and features, I decided to build this 
 framework on the same principles and naming conventions. Also the article :
 https://medium.com/@unmeshvjoshi/how-akka-actors-work-b0301ec269d6
-	was very helpful to understand the inner working of Akka framework.
+was very helpful to understand the inner working of Akka framework.
 
-The intention is that a central brain running on PC can manage IOT devices, the communication between both should be transparently
+The intention is that a central brain running on PC or server can manage IOT devices, the communication between both should be transparently
 as communicating local between actors. The actor systems can communicate using MQTT.
 
 The MQTT topic and message are based on some conventions to ease integration.
@@ -22,6 +23,14 @@ The MQTT topic and message are based on some conventions to ease integration.
 #### Event / properties 
 - addres : "${actorSystem}" => each device broadcast on his own topic and subtopics
 	- src/${actorSystem}/${actor}/${Property} = ${value}
+
+## Design decisions
+- To reduce resource consumptions in a limited embedded environment some design aspects are different from Akka Java/Scala. 
+- actors can share the same mailbox, each mailbox has 1 thread ( MessageDispatcher ) to invoke the actors. On FreeRtos based controllers multiple threads ( aka Tasks ) can be started running dispatchers with multiple mailboxes. On Arduino common platform this will be likely limited to 1 thread.
+- C++ has limited introspection facilities, so message classes are put explicitly into the message
+- the message passed between actors is in a in-memory serialized form, based on aspects from Xdr ( 4 byte granularity ) and Protobuf ( each element is tagged ). The message is copied and a pointer to this copy is passed on. Since most controllers are already 32 bit word aligned, the Xdr form should speed up data retrieval.
+- little attention has been given on stopping actors as in an embedded environment these actors are started once and run forever, so no resource cleanup yet there.
+- Unique id's are created based on FNV hashing, when compiler optimization is activated this is executed at compile time and not run-time. These unique id's are used for string references in 16 bit and actor references. These 16 bit hashes speed up comparison and extraction
 
 ## Platforms supported
 - Linux ( Debian ), should work on all linux versions - repository microAkka
