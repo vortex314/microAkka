@@ -3,13 +3,17 @@
 
 C++ Actor Framework for Embedded Systems - akka alike
 
-![Alt text](doc/esp8266.jpg?raw=true "ESP8266")
+<img src="doc/ESP8266.jpg" height="100">
+<img src="doc/ESP32.png" height="100">
+
 ## Target
 
-The purpose is to provide a standard C++ framework for writing message drive actors.
+The purpose is to provide a  C++ framework for writing message driven actors. 
 
 Seen the popularity of the Lightbend Akka framework and its extensive documentation and features, I decided to build this 
-framework on the same principles and naming conventions. Also the article :
+framework on the same principles and naming conventions. Saves me some time on documenting my own stuff. ;-) 
+
+The article :
 https://medium.com/@unmeshvjoshi/how-akka-actors-work-b0301ec269d6
 was very helpful to understand the inner working of Akka framework.
 
@@ -25,6 +29,7 @@ The MQTT topic and message are based on some conventions to ease integration.
 	- src/${actorSystem}/${actor}/${Property} = ${value}
 
 ## Design decisions
+- The interface is close to the Java API of Akka as C++ translation was easier compared to the Scala interface.  
 - To reduce resource consumptions in a limited embedded environment some design aspects are different from Akka Java/Scala. 
 - actors can share the same mailbox, each mailbox has 1 thread ( MessageDispatcher ) to invoke the actors. On FreeRtos based controllers multiple threads ( aka Tasks ) can be started running dispatchers with multiple mailboxes. On Arduino common platform this will be likely limited to 1 thread.
 - C++ has limited introspection facilities, so message classes are put explicitly into the message
