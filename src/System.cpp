@@ -3,9 +3,9 @@
 #include <System.h>
 #include <sys/sysinfo.h>
 
-const MsgClass System::Exit("Exit");
-const MsgClass System::ConfigRequest("ConfigRequest");
-const MsgClass System::ConfigReply("ConfigReply");
+const MsgClass System::Exit("system/Exit");
+const MsgClass System::ConfigRequest("system/ConfigRequest");
+const MsgClass System::ConfigReply("system/ConfigReply");
 
 System::System(va_list args) {}
 System::~System() {}
@@ -18,8 +18,8 @@ void System::preStart() {
 Receive& System::createReceive() {
 	return receiveBuilder()
 	.match(Exit, [](Envelope& msg) { exit(0); })
-	.match(ConfigRequest, [](Envelope& msg) { exit(0); })
-	.match(ConfigReply, [](Envelope& msg) { exit(0); })
+	.match(ConfigRequest, [](Envelope& msg) {  })
+	.match(ConfigReply, [](Envelope& msg) {  })
 	.match(Properties(),[this](Envelope& msg) {
 		INFO(" Properties requested ");
 		struct sysinfo info;
@@ -29,7 +29,8 @@ Receive& System::createReceive() {
 		              ("cpu","x86_64")
 		              ("procs",get_nprocs())
 		              ("upTime",info.uptime*1000)
-		              ("ram",info.totalram),self());
+		              ("ram",info.totalram)
+		              ("hostname",Sys::hostname()),self());
 	})
 	.build();
 }

@@ -16,9 +16,10 @@ class Bridge : public Actor {
 
 		bool _connected;
 		StaticJsonBuffer<2000> _jsonBuffer;
-		string _clientId;
 		string _address;
 		ActorRef _mqtt;
+		uint32_t _rxd;
+		uint32_t _txd;
 
 	public:
 		static MsgClass MQTT_PUBLISH_RCVD();

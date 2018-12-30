@@ -8,6 +8,8 @@ class Publisher: public Actor {
 	public:
 		Uid _propTimer;
 		ActorRef _mqtt;
+		std::list<ActorRef*>::iterator _it;
+		bool _mqttConnected=false;
 	public:
 		static const MsgClass Exit;
 		static const MsgClass ConfigRequest;
@@ -18,6 +20,8 @@ class Publisher: public Actor {
 
 		Receive& createReceive();
 		void preStart();
+
+		ActorRef* nextRef();
 
 };
 

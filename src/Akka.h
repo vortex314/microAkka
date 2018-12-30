@@ -548,24 +548,14 @@ class Props {
 //___________________________________________________________ ActorSystem
 class ActorSystem : public Uid {
 		const char* _name;
-		Mailbox* _defaultMailbox;
-		MessageDispatcher* _defaultDispatcher;
 		Props _defaultProps;
-		static list<ActorSystem*> _actorSystems;
-		static ActorSystem* _defaulActorSystem;
+		list<ActorRef*> _actorRefs;
 
 	public:
 		ActorSystem(const char* name, MessageDispatcher& defaultDispatcher,
 		            Mailbox& defaultMailbox);
 		Uid uniqueId(const char* name);
-
-		ActorRef& actorFor(const char* address) {
-			// TODO check local or remote
-			ActorRef* ref = ActorRef::lookup(Uid::add(address));
-			if (ref == 0)
-				ref = new ActorRef(address, _defaultMailbox);
-			return *ref;
-		}
+		ActorRef& actorFor(const char* address);
 
 		template <class T> ActorRef& actorOf(const char* name, ...) {
 			va_list args;
@@ -585,30 +575,10 @@ class ActorSystem : public Uid {
 			return *create(actor, name, props);
 		}
 
-		ActorRef* create(Actor* actor, const char* name, Props& props) {
-			Uid id = ActorSystem::uniqueId(name);
-			ActorRef* actorRef;
-			if (ActorRef::lookup(id)) {
-				actorRef = ActorRef::lookup(id);
-			} else {
-				actorRef = new ActorRef(Uid(id), &props.mailbox());
-			}
-			ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
-			                                     props.dispatcher());
-			actorRef->cell(actorCell);
-			actorCell->actor(actor);
-			actor->context(actorCell);
-			actor->preStart();
-			actorCell->become(actor->createReceive(), true);
-			//      INFO(" new actor '%s' created", actorRef->path());
-
-			//     INFO(" actor '%s' preStarted", actorRef->path());
-			props.dispatcher().attach(*actorCell);
-			return actorRef;
-		}
-
-		MessageDispatcher& defaultDispatcher() { return *_defaultDispatcher; }
-		Mailbox& defaultMailbox() { return *_defaultMailbox; }
+		ActorRef* create(Actor* actor, const char* name, Props& props) ;
+		MessageDispatcher& defaultDispatcher() { return _defaultProps.dispatcher(); }
+		Mailbox& defaultMailbox() { return _defaultProps.mailbox(); }
+		list<ActorRef*>& actorRefs() { return _actorRefs;};
 };
 //____________________________________________________________ Eventbus
 
@@ -679,7 +649,7 @@ class ActorMsgBus : public EventBus<Msg, ActorRef&, MessageClassifier> {
 			buf.resize(msg.size()+2);
 			buf=msg;
 			buf(UID_DST,ref.id());
-			INFO(" event : %s on mailbox : %X ",buf.toString().c_str(),&ref.mailbox());
+//			INFO(" event : %s on mailbox : %X ",buf.toString().c_str(),&ref.mailbox());
 			ref.mailbox().enqueue(buf);
 		}
 		MessageClassifier classify(Msg& msg) {

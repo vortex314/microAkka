@@ -5,6 +5,7 @@
 #include <NeuralPid.h>
 #include <Sender.h>
 #include <System.h>
+#include <Publisher.h>
 #include <malloc.h>
 
 //______________________________________________________________
@@ -33,10 +34,12 @@ int main() {
 	ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
 
 	ActorRef sender = actorSystem.actorOf<Sender>("sender");
-	ActorRef system = actorSystem.actorOf<System>("System");
+	ActorRef system = actorSystem.actorOf<System>("system");
 	ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
 	ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
 	ActorRef bridge = actorSystem.actorOf<Bridge>("bridge",mqtt);
+	ActorRef publisher = actorSystem.actorOf<Publisher>("publisher",mqtt);
+
 
 	defaultDispatcher.attach(defaultMailbox);
 	defaultDispatcher.unhandled(bridge.cell());

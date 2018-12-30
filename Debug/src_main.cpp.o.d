@@ -89,7 +89,8 @@ Debug/src_main.cpp.o: src/main.cpp src/Akka.h ../Common/Log.h \
  ../ArduinoJson/src/ArduinoJson/Polyfills/parseInteger.hpp \
  ../ArduinoJson/src/ArduinoJson/Serialization/JsonSerializerImpl.hpp \
  src/Bridge.h src/NeuralPid.h src/Machinelearning.h src/Machinelearning.h \
- src/Sender.h src/Metric.h src/System.h ../Common/Config.h
+ src/Sender.h src/Metric.h src/System.h ../Common/Config.h \
+ src/Publisher.h
 
 src/Akka.h:
 
@@ -310,3 +311,5 @@ src/Metric.h:
 src/System.h:
 
 ../Common/Config.h:
+
+src/Publisher.h:

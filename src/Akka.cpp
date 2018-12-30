@@ -262,9 +262,7 @@ int Mailbox::dequeue(Envelope& msg,uint32_t time) {
 //
 ActorSystem::ActorSystem(const char* name, MessageDispatcher& defaultDispatcher,
                          Mailbox& defaultMailbox)
-	: Uid(name), _name(name), _defaultMailbox(&defaultMailbox),
-	  _defaultDispatcher(&defaultDispatcher),
-	  _defaultProps(defaultDispatcher, defaultMailbox) {
+	: Uid(name), _name(name),_defaultProps(defaultDispatcher, defaultMailbox) {
 	Uid::add(AKKA_DST);
 	Uid::add(AKKA_SRC);
 	Uid::add(AKKA_CLS);
@@ -292,6 +290,38 @@ Uid ActorSystem::uniqueId(const char* name) {
 			i++;
 	};
 }
+
+ActorRef& ActorSystem::actorFor(const char* address) {
+	// TODO check local or remote
+	ActorRef* ref = ActorRef::lookup(Uid::add(address));
+	if (ref == 0)
+		ref = new ActorRef(address, &_defaultProps.mailbox());
+	return *ref;
+}
+
+ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props) {
+	Uid id = ActorSystem::uniqueId(name);
+	ActorRef* actorRef;
+	if (ActorRef::lookup(id)) {
+		actorRef = ActorRef::lookup(id);
+	} else {
+		actorRef = new ActorRef(Uid(id), &props.mailbox());
+	}
+	ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
+	                                     props.dispatcher());
+	actorRef->cell(actorCell);
+	actorCell->actor(actor);
+	actor->context(actorCell);
+	actor->preStart();
+	actorCell->become(actor->createReceive(), true);
+	//      INFO(" new actor '%s' created", actorRef->path());
+
+	//     INFO(" actor '%s' preStarted", actorRef->path());
+	props.dispatcher().attach(*actorCell);
+	_actorRefs.push_back(actorRef);
+	return actorRef;
+}
+
 
 //___________________________________________________________ Receive
 
@@ -447,7 +477,7 @@ void Receive::onMessage(Envelope& envelope) {
 	}
 	if ( !found ) {
 		WARN(" no receiver : '%s'=>'%s'=>'%s'",envelope.sender->label(),envelope.msgClass.label(),envelope.receiver->label());
-		WARN(" msg : %s",envelope.toString().c_str());
+//		WARN(" msg : %s",envelope.toString().c_str());
 	}
 }
 
@@ -597,8 +627,8 @@ void MessageDispatcher::execute() {
 //		if ( isTask())		INFO(" next wakeup in %d msec",delta);
 
 
-		for ( uint32_t loopCount=0; loopCount<delta; loopCount++) {
-			if( _mailbox->dequeue(_rxdEnvelope,delta)) break; // no message
+		/*for ( uint32_t loopCount=0; loopCount<delta; loopCount++){*/
+		if( _mailbox->dequeue(_rxdEnvelope,delta)==0) { // no message*/
 			assert(_rxdEnvelope.receiver != 0);
 			assert(_rxdEnvelope.sender != 0);
 			ActorCell* cell = _rxdEnvelope.receiver->cell();

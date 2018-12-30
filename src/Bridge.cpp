@@ -35,6 +35,7 @@ Receive& Bridge::createReceive() {
 			m("topic",topic);
 			m("message",json);
 			_mqtt.tell(m,self());
+			_txd++;
 		}
 	})
 	.match(Mqtt::Connected,
@@ -61,6 +62,7 @@ Receive& Bridge::createReceive() {
 			ActorRef* dst,*src;
 			if ( msg.get(UID_DST,uid)==0 && (dst=ActorRef::lookup(uid))!=0 && msg.get(UID_SRC,uid)==0 && (src=ActorRef::lookup(uid))!=0) {
 				dst->mailbox().enqueue(msg);
+				_rxd++;
 				INFO(" processed message %s", msg.toString().c_str());
 			} else {
 				WARN(" incorrect message : %s", message.c_str());
@@ -79,6 +81,12 @@ Receive& Bridge::createReceive() {
 			m("topic",topic)("data","true");
 			_mqtt.tell(m,self());
 		}
+	})
+	.match(Properties(),[this](Envelope& msg) {
+		sender().tell(Msg(PropertiesReply())
+		              ("txd",_txd)
+		              ("rxd",_rxd)
+		              ,self());
 	})
 	.build();
 }
