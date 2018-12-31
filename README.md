@@ -3,8 +3,8 @@
 
 ---
 
-<h1 id="microakka-an-akka-alike-framework-in-c-to-run-on-microcontrollers">microAkka an Akka alike framework in C++ to run on microcontrollers</h1>
-<p>C++ Actor Framework for Embedded Systems - akka alike</p>
+<h1 id="microakka--akka--framework-in-c--on-microcontrollers">microAkka : Akka  framework in C++  on microcontrollers</h1>
+<p>C++ Actor Framework for Embedded Systems - <a href="https://akka.io/">Akka</a> alike</p>
 <p><img src="doc/ESP8266.jpg" height="100"><img src="doc/ESP32.png" height="100"></p>
 <h2 id="target">Target</h2>
 <p>The purpose is to provide a  C++ framework for writing message driven actors.</p>
