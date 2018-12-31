@@ -46,8 +46,8 @@ as communicating local between actors. The actor systems can bridge communicatio
 <h2 id="platforms-supported">Platforms supported</h2>
 <ul>
 <li>Linux ( Debian ), should work on all linux versions - repository microAkka</li>
-<li>ESP32 with ESP-IDF - repository akkaEsp32</li>
-<li>ESP8266 with ESP-OPEN-RTOS - repository akkaEsp8266</li>
+<li>ESP32 with ESP-IDF - repository <a href="https://github.com/vortex314/akkaEsp32">akkaEsp32</a></li>
+<li>ESP8266 with ESP-OPEN-RTOS - repository <a href="https://github.com/vortex314/akkaEsp8266">akkaEsp8266</a></li>
 <li>NOT YET :<br>
 Arduino ( ESP 32 and ESP8266 )</li>
 </ul>
