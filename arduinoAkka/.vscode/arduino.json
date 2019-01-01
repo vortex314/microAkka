@@ -1,5 +1,0 @@
-{
-    "port": "/dev/ttyUSB1",
-    "board": "esp32:esp32:nodemcu-32s",
-    "configuration": "FlashFreq=80,UploadSpeed=921600"
-}

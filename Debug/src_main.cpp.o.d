@@ -1,6 +1,5 @@
 Debug/src_main.cpp.o: src/main.cpp src/Akka.h ../Common/Log.h \
- ../Common/Semaphore.h ../Common/Str.h ../Common/Bytes.h ../Common/Erc.h \
- ../Common/Sys.h ../Common/Sys.h ../Common/Uid.h ../Common/Xdr.h \
+ ../Common/Semaphore.h ../Common/Sys.h ../Common/Uid.h ../Common/Xdr.h \
  ../Common/RtosQueue.h src/Echo.h src/Akka.h src/Mqtt.h \
  ../paho.mqtt.c/src/MQTTAsync.h ../paho.mqtt.c/src/MQTTProperties.h \
  ../paho.mqtt.c/src/MQTTReasonCodes.h \
@@ -90,21 +89,13 @@ Debug/src_main.cpp.o: src/main.cpp src/Akka.h ../Common/Log.h \
  ../ArduinoJson/src/ArduinoJson/Serialization/JsonSerializerImpl.hpp \
  src/Bridge.h src/NeuralPid.h src/Machinelearning.h src/Machinelearning.h \
  src/Sender.h src/Metric.h src/System.h ../Common/Config.h \
- src/Publisher.h
+ src/Publisher.h src/ConfigActor.h
 
 src/Akka.h:
 
 ../Common/Log.h:
 
 ../Common/Semaphore.h:
-
-../Common/Str.h:
-
-../Common/Bytes.h:
-
-../Common/Erc.h:
-
-../Common/Sys.h:
 
 ../Common/Sys.h:
 
@@ -313,3 +304,5 @@ src/System.h:
 ../Common/Config.h:
 
 src/Publisher.h:
+
+src/ConfigActor.h:

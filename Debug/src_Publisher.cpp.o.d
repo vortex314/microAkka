@@ -1,6 +1,5 @@
 Debug/src_Publisher.cpp.o: src/Publisher.cpp src/Publisher.h src/Akka.h \
- ../Common/Log.h ../Common/Semaphore.h ../Common/Str.h ../Common/Bytes.h \
- ../Common/Erc.h ../Common/Sys.h ../Common/Sys.h ../Common/Uid.h \
+ ../Common/Log.h ../Common/Semaphore.h ../Common/Sys.h ../Common/Uid.h \
  ../Common/Xdr.h ../Common/RtosQueue.h src/Mqtt.h \
  ../paho.mqtt.c/src/MQTTAsync.h ../paho.mqtt.c/src/MQTTProperties.h \
  ../paho.mqtt.c/src/MQTTReasonCodes.h \
@@ -96,14 +95,6 @@ src/Akka.h:
 ../Common/Log.h:
 
 ../Common/Semaphore.h:
-
-../Common/Str.h:
-
-../Common/Bytes.h:
-
-../Common/Erc.h:
-
-../Common/Sys.h:
 
 ../Common/Sys.h:
 

@@ -1,6 +1,5 @@
 Debug/src_Bridge.cpp.o: src/Bridge.cpp src/Bridge.h src/Akka.h \
- ../Common/Log.h ../Common/Semaphore.h ../Common/Str.h ../Common/Bytes.h \
- ../Common/Erc.h ../Common/Sys.h ../Common/Sys.h ../Common/Uid.h \
+ ../Common/Log.h ../Common/Semaphore.h ../Common/Sys.h ../Common/Uid.h \
  ../Common/Xdr.h ../Common/RtosQueue.h ../ArduinoJson/src/ArduinoJson.h \
  ../ArduinoJson/src/ArduinoJson.hpp \
  ../ArduinoJson/src/ArduinoJson/version.hpp \
@@ -96,14 +95,6 @@ src/Akka.h:
 ../Common/Log.h:
 
 ../Common/Semaphore.h:
-
-../Common/Str.h:
-
-../Common/Bytes.h:
-
-../Common/Erc.h:
-
-../Common/Sys.h:
 
 ../Common/Sys.h:
 

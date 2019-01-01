@@ -18,6 +18,44 @@ typedef void (*MsgHandler)(void);
 //_________________________________________________ MsgClass
 
 
+//_________________________________________________ Msg
+
+Msg::Msg() : Xdr(12) {
+}
+Msg::Msg(MsgClass cls) : Xdr(12) {
+	add(UID_CLS,cls.id());
+}
+Msg::Msg(Uid cls,Uid src) : Xdr(12) {
+	add(UID_CLS,cls.id());
+	add(UID_SRC,src.id());
+}
+
+Msg Msg::reply() {
+	Msg msg;
+	uint32_t id=0;
+	if ( get(UID_ID,id)==0)
+		msg.add(UID_ID,id);
+	std::string s="request";
+	uint64_t u64;
+	get(UID_CLS,u64);
+	s = Uid::label(u64);
+	s += "Reply";
+	msg.add(UID_CLS,Uid::add(s.c_str()));
+	return msg;
+}
+
+Msg& Msg::src(Uid uid) {
+	add(UID_SRC,uid.id());
+	return* this;
+}
+
+Msg& Msg::dst(Uid uid) {
+	add(UID_DST,uid.id());
+	return *this;
+}
+
+
+
 //_________________________________________________ Actor
 
 MsgClass Actor::TimerExpired() {
@@ -39,12 +77,12 @@ MsgClass Actor::AnyClass() {
 }
 
 MsgClass Actor::Properties() {
-	static MsgClass m("Properties");
+	static MsgClass m("properties");
 	return m;
 }
 
 MsgClass Actor::PropertiesReply() {
-	static MsgClass m("PropertiesReply");
+	static MsgClass m("propertiesReply");
 	return m;
 }
 list<Actor*> Actor::_actors;
@@ -61,8 +99,8 @@ ActorContext& Actor::context() { return *_context; }
 
 TimerScheduler& Actor::timers() { return _context->timers(); }
 
-void Actor::unhandled(Envelope& msg) {
-	INFO("unhandled message for Actor : %s ", self().path());
+void Actor::unhandled(Envelope& envelope) {
+	WARN(" unhandled : '%s'=>'%s'=>'%s'",envelope.sender->label(),envelope.msgClass.label(),envelope.receiver->label());
 }
 
 ActorRef& Actor::sender() { return _context->sender(); }
@@ -118,7 +156,7 @@ void ActorRef::tell(  Msg& msg,ActorRef src) {
 
 	msg.add(UID_SRC,src.id());
 	msg.add(UID_DST,this->id());
-	msg.add(UID_ID,Envelope::newId());
+//	msg.add(UID_ID,Envelope::newId());
 
 	if (_mailbox != 0)
 		_mailbox->enqueue(msg);
@@ -464,21 +502,19 @@ Receive& Receive::match(MsgClass msgClass, MessageHandler doSome) {
 
 Receive& Receive::build() { return *this; }
 
-void Receive::onMessage(Envelope& envelope) {
+Receive& Receive::receive(ActorCell& cell,Envelope& envelope) {
 	bool found=false;
-//	WARN(" onMessage '%s'=>'%s'=>'%s'",envelope.sender->label(),envelope.msgClass.label(),envelope.receiver->label());
 
 	for (auto receiver : _receivers) {
 		if (receiver->match(envelope)) {
-//			envelope.offset(0);
 			receiver->onMessage(envelope);
 			found=true;
 		}
 	}
 	if ( !found ) {
-		WARN(" no receiver : '%s'=>'%s'=>'%s'",envelope.sender->label(),envelope.msgClass.label(),envelope.receiver->label());
-//		WARN(" msg : %s",envelope.toString().c_str());
+		cell.unhandled(envelope);
 	}
+	return *this;
 }
 
 //______________________________________________________________ ActorCell
@@ -496,6 +532,7 @@ ActorCell::ActorCell(ActorSystem& system, ActorRef& ref, Mailbox& mailbox,
 	_receive = 0;
 	_prevReceive = 0;
 	_actorCells.push_back(this);
+//	INFO(" ActorCell created %s [%d]",_self.path(),sizeof(ActorCell));
 }
 
 const char* ActorCell::path() { return _self.path(); }
@@ -514,7 +551,11 @@ void ActorCell::actor(Actor* actor) { _actor=actor;};
 
 void ActorCell::invoke(Envelope& msg) {
 	_currentMessage = &msg;
-	_receive->onMessage(msg);
+	_receive->receive(*this,msg);
+}
+
+void ActorCell::unhandled(Envelope& envelope) {
+	_actor->unhandled(envelope);
 }
 
 ActorRef& ActorCell::sender() { return *_currentMessage->sender; }
@@ -589,7 +630,7 @@ uint64_t MessageDispatcher::nextWakeup() { return _nextWakeup; }
 
 extern bool isTask();
 
-void MessageDispatcher::execute() {
+void MessageDispatcher::execute(bool loop) {
 
 	while (true) {
 		_nextWakeup = Sys::millis() + 1000;
@@ -646,6 +687,7 @@ void MessageDispatcher::execute() {
 				}
 			}
 		}
+		if ( !loop ) break;
 	};
 }
 // void arduinoLoop() { defaultDispatcher.execute(); }

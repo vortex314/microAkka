@@ -1,7 +1,7 @@
 #include <Echo.h>
 #include <Sender.h>
 
-Sender::Sender(va_list args) : startTime(0), str(80), _counter(0) {}
+Sender::Sender(va_list args) : startTime(0),  _counter(0) {}
 Sender::~Sender() {}
 
 

@@ -2,6 +2,7 @@
 #define __BRIDGE_H
 
 #include <Akka.h>
+#define ARDUINOJSON_ENABLE_STD_STRING 1
 #include <ArduinoJson.h>
 #include <Mqtt.h>
 
@@ -22,15 +23,14 @@ class Bridge : public Actor {
 		uint32_t _txd;
 
 	public:
-		static MsgClass MQTT_PUBLISH_RCVD();
 		Bridge(va_list args);
 		~Bridge();
 		void preStart();
 		Receive& createReceive();
 		enum { Connected=H("Connected") };
 
-		bool jsonToMessage(Msg& msg,std::string& json);
-		bool messageToJson(std::string& json,Msg& msg);
+		bool jsonToMessage(Msg& msg,std::string& topic,std::string& message);
+		bool messageToJson(std::string& topic,std::string& message,Envelope& msg);
 
 		bool handleMqttMessage(const char* message);
 };

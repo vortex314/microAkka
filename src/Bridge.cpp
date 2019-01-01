@@ -6,6 +6,8 @@
 
 Bridge::Bridge(va_list args) : _mqtt ( ActorRef::NoSender()) {
 	_mqtt = va_arg(args,ActorRef) ;
+	_rxd=0;
+	_txd=0;
 };
 Bridge::~Bridge() {}
 
@@ -23,18 +25,10 @@ Receive& Bridge::createReceive() {
 	       .match(AnyClass(),
 	[this](Envelope& msg) {
 		if (!(*msg.receiver == self())) {
-			/*			INFO(" message received %s:%s:%s  in %s",
-						     msg.sender->path(), msg.receiver->path(),
-						     msg.msgClass.label(),
-						     context().self().path());*/
-			std::string json;
-			messageToJson(json, msg);
-			std::string topic = "dst/";
-			topic += msg.receiver->path();
-			Msg m(Mqtt::Publish);
-			m("topic",topic);
-			m("message",json);
-			_mqtt.tell(m,self());
+			std::string message;
+			std::string topic ;
+			messageToJson(topic,message, msg);
+			_mqtt.tell(Msg(Mqtt::Publish)("topic",topic)("message",message),self());
 			_txd++;
 		}
 	})
@@ -57,7 +51,7 @@ Receive& Bridge::createReceive() {
 
 		if (env.get("topic",topic)==0
 		        && env.get("message",message)==0
-		        && jsonToMessage(msg,message)) {
+		        && jsonToMessage(msg,topic,message)) {
 			uid_type uid;
 			ActorRef* dst,*src;
 			if ( msg.get(UID_DST,uid)==0 && (dst=ActorRef::lookup(uid))!=0 && msg.get(UID_SRC,uid)==0 && (src=ActorRef::lookup(uid))!=0) {
@@ -91,27 +85,35 @@ Receive& Bridge::createReceive() {
 	.build();
 }
 
-bool Bridge::messageToJson(std::string& json, Msg& payload) {
+bool Bridge::messageToJson(std::string& topic,std::string& message, Envelope& msg) {
+	topic= "dst/";
+	topic += msg.receiver->path();
+	topic +="/";
+	uid_type uid;
+	msg.get(UID_CLS,uid);
+	topic += Uid(uid).label();
+
 	Tag tag(0);
-	payload.rewind();
+	msg.rewind();
 	_jsonBuffer.clear();
 	JsonObject& jsonObject = _jsonBuffer.createObject();
 
 	std::string str;
-	while (payload.hasData()) {
-		tag.ui32 = payload.peek();
+	while (msg.hasData()) {
+		tag.ui32 = msg.peek();
 		Uid tagUid=Uid(tag.uid);
 		switch (tag.type) {
 			case Xdr::BYTES: {
-					payload.get(tag.uid,str);
-					jsonObject.set(Uid::label(tag.uid),str);
+					msg.getNext(tag.uid,str);
+					jsonObject.set(Uid::label(tag.uid),str.c_str());
 					break;
 				}
 			case Xdr::UINT: {
 					uint64_t u64;
-					payload.get(tag.uid,u64);
+					msg.getNext(tag.uid,u64);
 					if ( tagUid==UID_DST || tagUid==UID_SRC || tagUid==UID_CLS ) {
-						jsonObject.set(Uid::label(tag.uid),Uid::label(u64));
+						if ( tagUid==UID_SRC )
+							jsonObject.set(Uid::label(tag.uid),Uid::label(u64));
 					} else {
 						jsonObject.set(Uid::label(tag.uid),u64);
 					}
@@ -119,43 +121,65 @@ bool Bridge::messageToJson(std::string& json, Msg& payload) {
 				}
 			case Xdr::INT: {
 					int64_t i64;
-					payload.get(tag.uid,i64);
+					msg.getNext(tag.uid,i64);
 					jsonObject.set(Uid::label(tag.uid),i64);
 					break;
 				}
 			case Xdr::FLOAT: {
 					double d;
-					payload.get(tag.uid,d);
+					msg.getNext(tag.uid,d);
 					jsonObject.set(Uid::label(tag.uid),d);
 					break;
 				}
 			default:
-				{ payload.skip(); }
+				{ msg.skip(); }
 		}
 	};
-	jsonObject.printTo(json);
+	jsonObject.printTo(message);
 	return true;
 }
+/*
+ *  dst/actorSystem/actor/message_type
+ *
+ *
+ *
+ *
+ */
 
-
-bool Bridge::jsonToMessage(Msg& msg,std::string& message) {
+bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 	_jsonBuffer.clear();
-	JsonObject& jsonObject = _jsonBuffer.parseObject(message);
+	JsonObject& jsonObject = _jsonBuffer.parseObject(message.data());
 	if (jsonObject == JsonObject::invalid()) {
 		WARN(" Invalid Json : %s ",message.c_str());
 		return false;
 	}
-	if (!jsonObject.containsKey(AKKA_SRC) || !jsonObject.containsKey(AKKA_DST) || !jsonObject.containsKey(AKKA_CLS)) {
-		WARN(" missing dst,src,cls in json message : %s ",message.c_str());
+	if (!jsonObject.containsKey(AKKA_SRC) ) {
+		WARN(" missing source in json message : %s ",message.c_str());
+		return false;
+	}
+	uint32_t offsets[3]= {0,0,0};
+	uint32_t prevOffset=0;
+	for(uint32_t i=0; i<3; i++) {
+		uint32_t offset = topic.find('/',prevOffset);
+		if ( offset == string::npos ) break;
+		offsets[i]= offset;
+		prevOffset=offset+1;
+	}
+	if ( offsets[0]==0 || offsets[2]==0 ) {
+		WARN(" invalid topic : %s",topic.c_str());
 		return false;
 	}
 
-	uid_type uidDst = Uid::add(jsonObject.get<const char*>(AKKA_DST));
-	uid_type uidSrc = Uid::add(jsonObject.get<const char*>(AKKA_SRC));
-	uid_type uidCls = Uid::add(jsonObject.get<const char*>(AKKA_CLS));
+	INFO(" topic : %s %d,%d,%d",topic.c_str(),offsets[0],offsets[1],offsets[2]);
+	INFO(" local actor : %s ",topic.substr(offsets[0]+1,offsets[2]-offsets[0]-1).c_str());
+	INFO(" local msg class : %s ",topic.substr(offsets[2]+1).c_str());
+
+	uid_type uidDst = Uid::add(topic.substr(offsets[0]+1,offsets[2]-offsets[0]-1).c_str());
+	uid_type uidCls = Uid::add(topic.substr(offsets[2]+1).c_str());
 	msg(UID_DST,uidDst);
-	msg(UID_SRC,uidSrc);
 	msg(UID_CLS,uidCls);
+	uid_type uidSrc = Uid::add(jsonObject.get<const char*>(AKKA_SRC));
+	msg(UID_SRC,uidSrc);
 
 	ActorRef* dst = ActorRef::lookup(uidDst);
 	if (dst == 0) {
@@ -168,7 +192,7 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& message) {
 
 	for (JsonObject::iterator it = jsonObject.begin(); it != jsonObject.end() ; ++it) {
 		const char* key=it->key;
-		if ( strcmp(key,AKKA_SRC)==0 || strcmp(key,AKKA_DST)==0 || strcmp(key,AKKA_CLS)==0 ) {} else {
+		if ( strcmp(key,AKKA_SRC)==0  ) {} else {
 			if (it->value.is<char*>()) {
 				msg(it->key,it->value.as<char*>());
 			} else if (it->value.is<unsigned long>()) {

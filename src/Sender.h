@@ -4,22 +4,21 @@
 #include <Metric.h>
 
 class Sender : public Actor {
-    uint64_t startTime;
-    Str str;
-    ActorRef echo;
-    ActorRef anchorRef;
-    uint32_t _counter;
-    Uid _startTest;
-    Uid _endTest;
-    bool _testing;
+		uint64_t startTime;
+		ActorRef echo;
+		ActorRef anchorRef;
+		uint32_t _counter;
+		Uid _startTest;
+		Uid _endTest;
+		bool _testing;
 
-  public:
-    Sender(va_list args);
-    ~Sender();
+	public:
+		Sender(va_list args);
+		~Sender();
 
-    void preStart();
-    Receive& createReceive();
+		void preStart();
+		Receive& createReceive();
 
-    void handlePong(Envelope& msg);
+		void handlePong(Envelope& msg);
 };
 #endif

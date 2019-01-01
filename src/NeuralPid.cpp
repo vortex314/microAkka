@@ -1,6 +1,6 @@
 #include "NeuralPid.h"
 
-NeuralPid::NeuralPid(va_list args) : str(100) {
+NeuralPid::NeuralPid(va_list args)  {
 	_topology.push_back(10);
 	_topology.push_back(10);
 	_topology.push_back(1);

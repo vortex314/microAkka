@@ -5,8 +5,7 @@ Debug/src_Mqtt.cpp.o: src/Mqtt.cpp src/Mqtt.h \
  ../paho.mqtt.c/src/MQTTClientPersistence.h \
  ../paho.mqtt.c/src/MQTTClient.h \
  ../paho.mqtt.c/src/MQTTClientPersistence.h src/Akka.h ../Common/Log.h \
- ../Common/Semaphore.h ../Common/Str.h ../Common/Bytes.h ../Common/Erc.h \
- ../Common/Sys.h ../Common/Sys.h ../Common/Uid.h ../Common/Xdr.h \
+ ../Common/Semaphore.h ../Common/Sys.h ../Common/Uid.h ../Common/Xdr.h \
  ../Common/RtosQueue.h ../ArduinoJson/src/ArduinoJson.h \
  ../ArduinoJson/src/ArduinoJson.hpp \
  ../ArduinoJson/src/ArduinoJson/version.hpp \
@@ -87,7 +86,8 @@ Debug/src_Mqtt.cpp.o: src/Mqtt.cpp src/Mqtt.h \
  ../ArduinoJson/src/ArduinoJson/Polyfills/isInteger.hpp \
  ../ArduinoJson/src/ArduinoJson/Polyfills/parseFloat.hpp \
  ../ArduinoJson/src/ArduinoJson/Polyfills/parseInteger.hpp \
- ../ArduinoJson/src/ArduinoJson/Serialization/JsonSerializerImpl.hpp
+ ../ArduinoJson/src/ArduinoJson/Serialization/JsonSerializerImpl.hpp \
+ ../Common/Config.h
 
 src/Mqtt.h:
 
@@ -110,14 +110,6 @@ src/Akka.h:
 ../Common/Log.h:
 
 ../Common/Semaphore.h:
-
-../Common/Str.h:
-
-../Common/Bytes.h:
-
-../Common/Erc.h:
-
-../Common/Sys.h:
 
 ../Common/Sys.h:
 
@@ -288,3 +280,5 @@ src/Akka.h:
 ../ArduinoJson/src/ArduinoJson/Polyfills/parseInteger.hpp:
 
 ../ArduinoJson/src/ArduinoJson/Serialization/JsonSerializerImpl.hpp:
+
+../Common/Config.h:

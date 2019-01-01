@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Lieven
-Date                   :=30/12/18
+Date                   :=01/01/19
 CodeLitePath           :=/home/lieven/.codelite
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -60,8 +60,8 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/src_Linux.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Publisher.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix) \
-	$(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Publisher.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) \
+	$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) 
 
 
 
@@ -99,14 +99,6 @@ PreBuild:
 ##
 ## Objects
 ##
-$(IntermediateDirectory)/src_Linux.cpp$(ObjectSuffix): src/Linux.cpp $(IntermediateDirectory)/src_Linux.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Linux.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Linux.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_Linux.cpp$(DependSuffix): src/Linux.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_Linux.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_Linux.cpp$(DependSuffix) -MM src/Linux.cpp
-
-$(IntermediateDirectory)/src_Linux.cpp$(PreprocessSuffix): src/Linux.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Linux.cpp$(PreprocessSuffix) src/Linux.cpp
-
 $(IntermediateDirectory)/src_main.cpp$(ObjectSuffix): src/main.cpp $(IntermediateDirectory)/src_main.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/main.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/src_main.cpp$(DependSuffix): src/main.cpp
@@ -186,14 +178,6 @@ $(IntermediateDirectory)/src_Metric.cpp$(DependSuffix): src/Metric.cpp
 
 $(IntermediateDirectory)/src_Metric.cpp$(PreprocessSuffix): src/Metric.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Metric.cpp$(PreprocessSuffix) src/Metric.cpp
-
-$(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix): src/Sys.cpp $(IntermediateDirectory)/src_Sys.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Sys.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_Sys.cpp$(DependSuffix): src/Sys.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_Sys.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_Sys.cpp$(DependSuffix) -MM src/Sys.cpp
-
-$(IntermediateDirectory)/src_Sys.cpp$(PreprocessSuffix): src/Sys.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Sys.cpp$(PreprocessSuffix) src/Sys.cpp
 
 $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix): src/NeuralPid.cpp $(IntermediateDirectory)/src_NeuralPid.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/NeuralPid.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IncludePath)

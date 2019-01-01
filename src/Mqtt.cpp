@@ -2,9 +2,13 @@
 #include <Mqtt.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <Config.h>
 // volatile MQTTAsync_token deliveredtoken;
 
-Mqtt::Mqtt(va_list args) { _address = va_arg(args, const char*); };
+Mqtt::Mqtt(va_list args) {
+	_address = va_arg(args, const char*);
+	config.setNameSpace("mqtt");
+};
 Mqtt::~Mqtt() {}
 
 MsgClass Mqtt::PublishRcvd("Mqtt/Publish");

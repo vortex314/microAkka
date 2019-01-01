@@ -185,32 +185,16 @@ class MsgClass : public Uid {
 class Msg : public Xdr {
 		enum { OFF_DST=0,OFF_CLS,OFF_SRC,OFF_ID };
 	public :
-		Msg() : Xdr(12) {
-		}
-		Msg(MsgClass cls) : Xdr(12) {
-			add(UID_CLS,cls.id());
-		}
-		Msg(Uid cls,Uid src) : Xdr(12) {
-			add(UID_CLS,cls.id());
-			add(UID_SRC,src.id());
-		}
-
-
+		Msg();
+		Msg(MsgClass cls) ;
+		Msg(Uid cls,Uid src);
+		Msg reply() ;
 		template <typename T> Msg& operator()(Uid key, T v) {
 			add(key,v);
 			return *this;
 		};
-
-		Msg& src(Uid uid) {
-			add(UID_SRC,uid.id());
-			return* this;
-		}
-
-		Msg& dst(Uid uid) {
-			add(UID_DST,uid.id());
-			return *this;
-		}
-
+		Msg& src(Uid uid) ;
+		Msg& dst(Uid uid);
 };
 //_________________________________________________________________ Timer
 //
@@ -261,7 +245,7 @@ class Receive {
 		Receive();
 		Receive& match(MsgClass msgClass, MessageHandler doSome);
 		Receive& build();
-		void onMessage(Envelope&);
+		Receive& receive(ActorCell&,Envelope&);
 		Receive& orElse(Receive&);
 };
 
@@ -383,6 +367,7 @@ class ActorCell : public ActorContext {
 		void become(Receive& receive, bool discardOld);
 		void unbecome();
 		void invoke(Envelope& envelope);
+		void unhandled(Envelope& envelope);
 
 		ActorRef& sender();
 
@@ -422,8 +407,8 @@ class Actor {
 		ActorContext& context();
 		void context(ActorCell* context) { _context = context; }
 		virtual void preStart() {};
-		void aroundPrestart() {};
-		void postStop() {};
+		void aroundPrestart() { assert(false);};
+		void postStop() { assert(false);};
 		void unhandled(Envelope& msg);
 		virtual Receive& createReceive() = 0;
 		TimerScheduler& timers();
@@ -479,7 +464,7 @@ class MessageDispatcher {
 		void detach(Mailbox&);
 		void attach(ActorCell&);
 		void detach(ActorCell&);
-		void execute();
+		void execute(bool loop=true);
 		void resume(ActorCell&);
 		void suspend(ActorCell&);
 		void handle(Envelope&);
