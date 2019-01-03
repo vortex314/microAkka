@@ -22,7 +22,7 @@ as communicating local between actors. The actor systems can bridge communicatio
 <li>The MessageClass is extended with “Reply” to specify the message type reply</li>
 <li>message is a JSON object with a reply address in “<span class="katex--inline"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>s</mi><mi>r</mi><mi>c</mi><mi mathvariant="normal">&amp;quot;</mi><mi>f</mi><mi>i</mi><mi>e</mi><mi>l</mi><mi>d</mi><mi>a</mi><mi>n</mi><mi>d</mi><mi mathvariant="normal">&amp;quot;</mi></mrow><annotation encoding="application/x-tex">src&amp;quot; field and &amp;quot;</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.88888em; vertical-align: -0.19444em;"></span><span class="mord mathit">s</span><span class="mord mathit" style="margin-right: 0.02778em;">r</span><span class="mord mathit">c</span><span class="mord">"</span><span class="mord mathit" style="margin-right: 0.10764em;">f</span><span class="mord mathit">i</span><span class="mord mathit">e</span><span class="mord mathit" style="margin-right: 0.01968em;">l</span><span class="mord mathit">d</span><span class="mord mathit">a</span><span class="mord mathit">n</span><span class="mord mathit">d</span><span class="mord">"</span></span></span></span></span>id” for each request to be used in the reply. The rest of the field names can be freely chosen specific for the Request/Reply handled.</li>
 </ul>
-<h4 id="topicsmessages-for-request-reply-pattern-1">Topics&amp;Messages for request-reply pattern</h4>
+<h4 id="topicsmessages-for-event-pattern">Topics&amp;Messages for event pattern</h4>
 <ul>
 <li>some for emitting events and properties : <em><strong>src/ActorSystem/Actor/Property</strong></em></li>
 <li>The values are most of the time simple singular JSON values</li>
@@ -37,7 +37,7 @@ as communicating local between actors. The actor systems can bridge communicatio
 <ul>
 <li>The interface is close to the Java API of Akka as C++ translation was easier compared to the Scala interface.</li>
 <li>To reduce resource consumptions in a limited embedded environment some design aspects are different from Akka Java/Scala.</li>
-<li>actors can share the same mailbox, each mailbox has 1 thread ( MessageDispatcher ) to invoke the actors. On FreeRtos based controllers multiple threads ( aka Tasks ) can be started running dispatchers with multiple mailboxes. On Arduino common platform this will be likely limited to 1 thread.</li>
+<li>actors can share the same mailbox, each mailbox has 1 thread ( MessageDispatcher ) to invoke the actors. On FreeRtos based controllers multiple threads ( aka Tasks ) can be started running dispatchers with multiple mailboxes. On Arduino common platform this will be likely limited to 1 thread. This is close to a coroutine model.</li>
 <li>C++ has limited introspection facilities, so message classes are put explicitly into the message</li>
 <li>the message passed between actors is in a in-memory serialized form, based on aspects from Xdr ( 4 byte granularity ) and Protobuf ( each element is tagged ). The message is copied and a pointer to this copy is passed on. Since most controllers are already 32 bit word aligned, the Xdr form should speed up data retrieval.</li>
 <li>little attention has been given on stopping actors as in an embedded environment these actors are started once and run forever, so no resource cleanup yet there.</li>
@@ -48,8 +48,7 @@ as communicating local between actors. The actor systems can bridge communicatio
 <li>Linux ( Debian ), should work on all linux versions - repository microAkka</li>
 <li>ESP32 with ESP-IDF - repository <a href="https://github.com/vortex314/akkaEsp32">akkaEsp32</a></li>
 <li>ESP8266 with ESP-OPEN-RTOS - repository <a href="https://github.com/vortex314/akkaEsp8266">akkaEsp8266</a></li>
-<li>NOT YET :<br>
-Arduino ( ESP 32 and ESP8266 )</li>
+<li>Arduino : see <a href="https://github.com/vortex314/akkaArduino">akkaArduino</a>  (  ESP8266 )</li>
 </ul>
 <h3 id="prerequisites">Prerequisites</h3>
 <ul>
