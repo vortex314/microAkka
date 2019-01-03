@@ -128,7 +128,7 @@ Receive&amp; Echo::createReceive() {
 <p>Add additional notes about how to deploy this on a live system</p>
 <h2 id="built-with">Built With</h2>
 <ul>
-<li><a href="http://www.dropwizard.io/1.0.2/docs/">Codelite</a> - The web framework used</li>
+<li><a href="http://www.dropwizard.io/1.0.2/docs/">Codelite</a> - The  C++ IDE  used</li>
 <li><a href="https://doc.akka.io/docs/akka/2.5/general/actor-systems.html">Akka doc</a> - Documentation</li>
 <li><a href="https://medium.com/@unmeshvjoshi/how-akka-actors-work-b0301ec269d6">How Akka Actors work </a> - Used to generate RSS Feeds</li>
 </ul>
