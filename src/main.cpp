@@ -19,7 +19,28 @@
  *
  */
 
+void vAssertCalled( unsigned long ulLine, const char * const pcFileName ) {
+	printf("Assert called on : %s:%d",pcFileName,ulLine);
+}
+
+extern "C" void vApplicationMallocFailedHook() {
+	WARN(" malloc failed ! ");
+	assert(false);
+}
+
+
+
 Log logger(1024);
+
+static void  main_task(void *pvParameters) {
+	INFO(" MAIN task started");
+	MessageDispatcher* dispatcher = (MessageDispatcher*)pvParameters;
+
+	dispatcher->execute();
+	INFO(" MAIN task ended !! ");
+
+
+}
 ActorMsgBus eb;
 
 int main() {
@@ -47,6 +68,9 @@ int main() {
 
 	defaultDispatcher.attach(defaultMailbox);
 	defaultDispatcher.unhandled(bridge.cell());
-	defaultDispatcher.execute();
+
+	xTaskCreate(&main_task, "mqtt_task", 10000, &defaultDispatcher, tskIDLE_PRIORITY + 2, NULL);
+	vTaskStartScheduler();
+
 
 }

@@ -242,18 +242,28 @@ typedef std::function<void(Envelope&)> MessageHandler;
 //________________________________________________________ Mailbox
 //
 
-Mailbox::Mailbox(const char* name, uint32_t queueSize):  _queue(RtosQueue::create(queueSize))
-	,_name(name),_sema(Semaphore::create()) {
-
+Mailbox::Mailbox(const char* name, uint32_t queueSize) : _name(name) {
+	_sema=xSemaphoreCreateBinary();
+	_queue = xQueueCreate(100,sizeof(Xdr*));
+	xSemaphoreGive(_sema);
 }
 
-int Mailbox::enqueue(Msg& msg) {
-	return _queue.enqueue(msg);
+int Mailbox::enqueue(Msg& xdr) {
+	Xdr* nx = new Xdr(xdr.size());
+	*nx=xdr;
+	if ( xQueueSend(_queue,&nx,1)!=pdTRUE ) {
+		WARN("enqueue failed");
+		return ENOENT;
+	}
+	return 0;
 }
 
 int Mailbox::enqueue(Envelope& msg) {
 	uid_type uid;
-	_sema.wait();
+	if (xSemaphoreTake(_sema, (TickType_t)10000) != pdTRUE) {
+		WARN(" xSemaphoreTake()  timed out ");
+		return EIO;
+	}
 	_txd.clear();
 	_txd.add(UID_DST,msg.receiver->id());
 	_txd.add(UID_SRC,msg.sender->id());
@@ -263,19 +273,29 @@ int Mailbox::enqueue(Envelope& msg) {
 	assert(_txd.get(UID_SRC,uid)==0);
 	assert(_txd.get(UID_CLS,uid)==0);
 
-	_queue.enqueue(_txd);
-	_sema.release();
+	enqueue(_txd);
+	if (xSemaphoreGive(_sema) != pdTRUE) {
+		WARN("xSemaphoreGive() failed");
+	}
 	return 0;
 }
 
 int Mailbox::dequeue(Envelope& msg,uint32_t time) {
-	_sema.wait();
-	if ( _queue.dequeue(_rxd,time)!=0) {
-		_sema.release();
+	if (xSemaphoreTake(_sema, (TickType_t)10000) != pdTRUE) {
+		WARN(" xSemaphoreTake()  timed out ");
+		return EIO;
+	}
+	Xdr* px;
+	if ( time < 10 ) time=10; // timer tick is at 10 msec
+	if ( xQueueReceive(_queue,&px,time/portTICK_PERIOD_MS+1)!=pdTRUE) {
+		if (xSemaphoreGive(_sema) != pdTRUE) {
+			WARN("xSemaphoreGive() failed");
+		}
 		return ENOENT;
 	}
-//	INFO(" dequeued %d words.",_rxd.size());
-
+//	INFO(" dequeue : %s ",px->toString().c_str());
+	(Xdr&)_rxd = *px; // copy data
+	delete px;
 	uid_type uid;
 	if ( _rxd.get(UID_DST,uid)==0 ) {
 		msg.receiver = ActorRef::lookup(uid);
@@ -292,7 +312,9 @@ int Mailbox::dequeue(Envelope& msg,uint32_t time) {
 	_rxd.get(UID_ID,msg.id);
 	msg.clear();
 	msg.add(_rxd);
-	_sema.release();
+	if (xSemaphoreGive(_sema) != pdTRUE) {
+		WARN("xSemaphoreGive() failed");
+	}
 	return 0;
 }
 
@@ -352,9 +374,7 @@ ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props) {
 	actor->context(actorCell);
 	actor->preStart();
 	actorCell->become(actor->createReceive(), true);
-	//      INFO(" new actor '%s' created", actorRef->path());
-
-	//     INFO(" actor '%s' preStarted", actorRef->path());
+	INFO(" new actor '%s'[%u] created", actorRef->path(),actorRef->id());
 	props.dispatcher().attach(*actorCell);
 	_actorRefs.push_back(actorRef);
 	return actorRef;

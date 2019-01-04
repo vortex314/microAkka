@@ -27,6 +27,7 @@ Receive& System::createReceive() {
 		struct sysinfo info;
 		sysinfo(&info);
 		sender().tell(msg.reply()
+		              ("build",__DATE__ " " __TIME__)
 		              ("cpu","x86_64")
 		              ("procs",get_nprocs())
 		              ("upTime",info.uptime*1000)
@@ -49,6 +50,8 @@ Receive& System::createReceive() {
 		INFO(" Properties requested ");
 
 		sender().tell(msg.reply()
+		              ("build",__DATE__ " " __TIME__)
+
 		              ("cpu","esp8266")("framework","Arduino")
 		              ("freq",ESP.getCpuFreqMHz())
 		              ("flash",ESP.getFlashChipSize())

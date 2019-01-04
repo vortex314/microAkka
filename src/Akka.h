@@ -23,7 +23,10 @@ using namespace std;
 #include <Semaphore.h>
 #include <Uid.h>
 #include <Xdr.h>
-#include <RtosQueue.h>
+#include <FreeRTOS.h>
+#include <semphr.h>
+#include <queue.h>
+#include <task.h>
 
 #ifdef PROD
 #undef assert
@@ -477,11 +480,11 @@ class MessageDispatcher {
 
 //__________________________________________________________ Mailbox
 class Mailbox  {
-		RtosQueue& _queue;
+		QueueHandle_t _queue;
 		const char* _name;
 		Msg _txd;
 		Msg _rxd;
-		Semaphore& _sema;
+		SemaphoreHandle_t _sema;
 //		static list<Mailbox*> _mailboxes;
 
 	public:

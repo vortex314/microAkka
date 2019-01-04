@@ -5,6 +5,34 @@
       <![CDATA[00010001N0005Debug000000000000]]>
     </Plugin>
   </Plugins>
+  <VirtualDirectory Name="FreeRTOS">
+    <File Name="FreeRTOS/portable/MemMang/heap_3.c"/>
+    <File Name="FreeRTOS/timers.c"/>
+    <File Name="FreeRTOS/tasks.c"/>
+    <File Name="FreeRTOS/stream_buffer.c"/>
+    <File Name="FreeRTOS/queue.c"/>
+    <File Name="FreeRTOS/portable/MemMang/heap_5.c" ExcludeProjConfig="Debug;"/>
+    <File Name="FreeRTOS/list.c"/>
+    <File Name="FreeRTOS/include/timers.h"/>
+    <File Name="FreeRTOS/include/task.h"/>
+    <File Name="FreeRTOS/include/stream_buffer.h"/>
+    <File Name="FreeRTOS/include/stack_macros.h"/>
+    <File Name="FreeRTOS/include/semphr.h"/>
+    <File Name="FreeRTOS/include/queue.h"/>
+    <File Name="FreeRTOS/include/projdefs.h"/>
+    <File Name="FreeRTOS/include/portable.h"/>
+    <File Name="FreeRTOS/include/mpu_wrappers.h"/>
+    <File Name="FreeRTOS/include/mpu_prototypes.h"/>
+    <File Name="FreeRTOS/include/message_buffer.h"/>
+    <File Name="FreeRTOS/include/list.h"/>
+    <File Name="FreeRTOS/include/event_groups.h"/>
+    <File Name="FreeRTOS/include/deprecated_definitions.h"/>
+    <File Name="FreeRTOS/include/croutine.h"/>
+    <File Name="FreeRTOS/include/StackMacros.h"/>
+    <File Name="FreeRTOS/include/FreeRTOS.h"/>
+    <File Name="FreeRTOS/event_groups.c"/>
+    <File Name="FreeRTOS/croutine.c"/>
+  </VirtualDirectory>
   <Reconciliation>
     <Regexes/>
     <Excludepaths/>
@@ -16,7 +44,12 @@
   </Reconciliation>
   <Description/>
   <Dependencies/>
+  <VirtualDirectory Name="Linux">
+    <File Name="Linux/portmacro.h"/>
+    <File Name="Linux/port.c"/>
+  </VirtualDirectory>
   <VirtualDirectory Name="src">
+    <File Name="src/FreeRTOSConfig.h"/>
     <File Name="src/Publisher.cpp"/>
     <File Name="src/Publisher.h"/>
     <File Name="src/Mqtt.h"/>
@@ -41,6 +74,10 @@
     <File Name="src/Akka.h"/>
     <File Name="src/Akka.cpp"/>
   </VirtualDirectory>
+  <Dependencies Name="Debug">
+    <Project Name="Common"/>
+  </Dependencies>
+  <Dependencies Name="Release"/>
   <Settings Type="Executable">
     <GlobalSettings>
       <Compiler Options="" C_Options="" Assembler="">
@@ -58,6 +95,8 @@
         <IncludePath Value="../Common"/>
         <IncludePath Value="../paho.mqtt.c/src"/>
         <IncludePath Value="../ArduinoJson/src"/>
+        <IncludePath Value="../FreeRTOS/Source/include"/>
+        <IncludePath Value="../freertos-addons/Linux/portable/GCC/Linux"/>
       </Compiler>
       <Linker Options="-pthread;-lrt" Required="yes">
         <LibraryPath Value="../Common/Debug"/>
@@ -140,8 +179,4 @@
       </Completion>
     </Configuration>
   </Settings>
-  <Dependencies Name="Debug">
-    <Project Name="Common"/>
-  </Dependencies>
-  <Dependencies Name="Release"/>
 </CodeLite_Project>
