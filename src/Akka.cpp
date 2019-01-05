@@ -21,36 +21,84 @@ typedef void (*MsgHandler)(void);
 //_________________________________________________ Msg
 
 Msg::Msg() : Xdr(12) {
+//	INFO("ctor %X : [%d]",this,capacity());
+	add(UD_CLS,(uid_type)0);
+	add(UD_SRC,(uid_type)0);
+	add(UD_DST,(uid_type)0);
 }
+
+Msg::Msg(uint32_t size) : Xdr(size) {
+//	INFO("ctor %X : [%d]",this,capacity());
+	add(UD_CLS,(uid_type)0);
+	add(UD_SRC,(uid_type)0);
+	add(UD_DST,(uid_type)0);
+}
+
 Msg::Msg(MsgClass cls) : Xdr(12) {
-	add(UID_CLS,cls.id());
+//	INFO("ctor %X : [%d]",this,capacity());
+
+	add(UD_CLS,cls.id());
+	add(UD_SRC,(uid_type)0);
+	add(UD_DST,(uid_type)0);
 }
 Msg::Msg(Uid cls,Uid src) : Xdr(12) {
-	add(UID_CLS,cls.id());
-	add(UID_SRC,src.id());
+//	INFO("ctor %X : [%d]",this,capacity());
+	add(UD_CLS,cls.id());
+	add(UD_SRC,src.id());
+	add(UD_DST,(uid_type)0);
+}
+
+Msg& Msg::clear() {
+	Xdr::clear();
+	add(UD_CLS,(uid_type)0);
+	add(UD_SRC,(uid_type)0);
+	add(UD_DST,(uid_type)0);
+	return *this;
+}
+
+uint32_t Msg::id() {
+	uint32_t id=0;
+	get(UD_ID,id);
+	return id;
+}
+
+Msg&  Msg::id(uint32_t i) {
+	add(UD_ID,i);
+	return *this;
 }
 
 Msg Msg::reply() {
 	Msg msg;
-	uint32_t id=0;
-	if ( get(UID_ID,id)==0)
-		msg.add(UID_ID,id);
+//	INFO("%s",this->toString().c_str());
 	std::string s="request";
-	uint64_t u64;
-	get(UID_CLS,u64);
-	s = Uid::label(u64);
+	uint32_t req;
+	req=cls();
+
+	const char* rq = Uid::label(req);
+	if ( rq !=0 ) s=rq;
+	else WARN(" no label %u ",req);
 	s += "Reply";
-	msg.add(UID_CLS,Uid::add(s.c_str()));
+	msg.dst(src());
+	msg.src(dst());
+	msg.cls(Uid::add(s.c_str()));
+	msg.id(id());
 	return msg;
 }
 
-Msg& Msg::src(Uid uid) {
-	add(UID_SRC,uid.id());
-	return* this;
+Msg& Msg::src(uid_type uid) {poke(OFF_SRC,uid);	return* this;}
+Msg& Msg::dst(uid_type uid) {poke(OFF_DST,uid);	return *this;}
+Msg& Msg::cls(uid_type uid) {poke(OFF_CLS,uid);	return *this;}
+
+uid_type Msg::dst() {	return peek(OFF_DST);}
+uid_type Msg::src() {	return peek(OFF_SRC);}
+uid_type Msg::cls() {	return peek(OFF_CLS);}
+
+Msg::~Msg() {
+//	INFO("dtor %X : [%d]",this,capacity());
 }
 
-Msg& Msg::dst(Uid uid) {
-	add(UID_DST,uid.id());
+Msg& Msg::operator=(const Msg& src) {
+	(Xdr&)*this = (const Xdr& )src;
 	return *this;
 }
 
@@ -58,10 +106,7 @@ Msg& Msg::dst(Uid uid) {
 
 //_________________________________________________ Actor
 
-MsgClass Actor::TimerExpired() {
-	static MsgClass m("TimerExpired");
-	return m;
-}
+
 MsgClass Actor::ReceiveTimeout() {
 	static MsgClass m("ReceiveTimeout");
 	return m;
@@ -154,8 +199,8 @@ bool ActorRef::operator==(ActorRef v) { return id() == v.id(); }
 
 void ActorRef::tell(  Msg& msg,ActorRef src) {
 
-	msg.add(UID_SRC,src.id());
-	msg.add(UID_DST,this->id());
+	msg.src(src.id());
+	msg.dst(this->id());
 //	msg.add(UID_ID,Envelope::newId());
 
 	if (_mailbox != 0)
@@ -164,6 +209,16 @@ void ActorRef::tell(  Msg& msg,ActorRef src) {
 		WARN(" no mailbox attached to ActorRef %s ", label());
 	}
 }
+
+void ActorRef::tell(Msg& msg ) {
+	if (_mailbox != 0)
+		_mailbox->enqueue(msg);
+	else {
+		WARN(" no mailbox attached to ActorRef %s ", label());
+	}
+}
+
+
 /*
 void ActorRef::tell(ActorRef& src, MsgClass cls, uint16_t id, const char* fmt,
                     ...) {
@@ -244,34 +299,44 @@ typedef std::function<void(Envelope&)> MessageHandler;
 
 Mailbox::Mailbox(const char* name, uint32_t queueSize) : _name(name) {
 	_sema=xSemaphoreCreateBinary();
-	_queue = xQueueCreate(100,sizeof(Xdr*));
+	_queue = xQueueCreate(100,sizeof(Msg*));
 	xSemaphoreGive(_sema);
 }
 
-int Mailbox::enqueue(Msg& xdr) {
-	Xdr* nx = new Xdr(xdr.size());
-	*nx=xdr;
-	if ( xQueueSend(_queue,&nx,1)!=pdTRUE ) {
+int Mailbox::enqueue(Msg& msg) {
+//	INFO(" enqueue : %s ",msg.toString().c_str());
+
+	Msg* px = new Msg(msg.size());
+	*px = msg;
+	configASSERT(msg.src()!=0);
+	configASSERT(msg.dst()!=0);
+
+//	INFO(" enqueue : %s ",px->toString().c_str());
+
+	if ( xQueueSend(_queue,&px,1)!=pdTRUE ) {
 		WARN("enqueue failed");
 		return ENOENT;
 	}
 	return 0;
 }
 
-int Mailbox::enqueue(Envelope& msg) {
-	uid_type uid;
-	if (xSemaphoreTake(_sema, (TickType_t)10000) != pdTRUE) {
+int Mailbox::enqueue(Envelope& envelope) {
+//	INFO(" enqueue : %s ",envelope.toString().c_str());
+
+	if (xSemaphoreTake(_sema, (TickType_t)100) != pdTRUE) {
 		WARN(" xSemaphoreTake()  timed out ");
 		return EIO;
 	}
 	_txd.clear();
-	_txd.add(UID_DST,msg.receiver->id());
-	_txd.add(UID_SRC,msg.sender->id());
-	_txd.add(UID_CLS,msg.msgClass.id());
-	_txd.add(UID_ID,msg.id);
-	_txd.add(msg);
-	assert(_txd.get(UID_SRC,uid)==0);
-	assert(_txd.get(UID_CLS,uid)==0);
+	_txd.dst(envelope.receiver->id());
+	_txd.src(envelope.sender->id());
+	_txd.cls(envelope.msgClass.id());
+	_txd.id(envelope.id);
+	_txd.add(envelope);
+	configASSERT(_txd.src()!=0);
+	configASSERT(_txd.cls()!=0);
+	configASSERT(_txd.dst()!=0);
+
 
 	enqueue(_txd);
 	if (xSemaphoreGive(_sema) != pdTRUE) {
@@ -280,41 +345,44 @@ int Mailbox::enqueue(Envelope& msg) {
 	return 0;
 }
 
-int Mailbox::dequeue(Envelope& msg,uint32_t time) {
-	if (xSemaphoreTake(_sema, (TickType_t)10000) != pdTRUE) {
+int Mailbox::dequeue(Envelope& envelope,uint32_t time) {
+	if (xSemaphoreTake(_sema, (TickType_t)100) != pdTRUE) {
 		WARN(" xSemaphoreTake()  timed out ");
 		return EIO;
 	}
-	Xdr* px;
-	if ( time < 10 ) time=10; // timer tick is at 10 msec
-	if ( xQueueReceive(_queue,&px,time/portTICK_PERIOD_MS+1)!=pdTRUE) {
+
+	Msg* px;
+	if ( xQueueReceive(_queue,&px,pdMS_TO_TICKS(time))!=pdTRUE) {
 		if (xSemaphoreGive(_sema) != pdTRUE) {
 			WARN("xSemaphoreGive() failed");
 		}
 		return ENOENT;
 	}
-//	INFO(" dequeue : %s ",px->toString().c_str());
-	(Xdr&)_rxd = *px; // copy data
-	delete px;
+//	_rxd = *px; // copy data
+//	INFO(" dequeue : %s ",_rxd.toString().c_str());
+
 	uid_type uid;
-	if ( _rxd.get(UID_DST,uid)==0 ) {
-		msg.receiver = ActorRef::lookup(uid);
-	} else {
-		msg.receiver = 0;
-	};
-	assert(msg.receiver!=0);
-	if ( _rxd.get(UID_SRC,uid) !=0 ) WARN("NO source : %s",_rxd.toString().c_str());
-	assert( _rxd.get(UID_SRC,uid) ==0);
-	msg.sender = ActorRef::lookup(uid);
-	assert(msg.sender !=0);
-	assert ( _rxd.get(UID_CLS,uid)==0);
-	msg.msgClass = MsgClass(uid);
-	_rxd.get(UID_ID,msg.id);
-	msg.clear();
-	msg.add(_rxd);
+
+	(Msg&)envelope = *px;
+	uid=px->dst();
+	envelope.receiver = ActorRef::lookup(uid);
+	if (envelope.receiver==0) WARN("src ? %s",px->toString().c_str());
+
+	uid = px->src();
+	envelope.sender = ActorRef::lookup(uid);
+	if (envelope.sender==0) WARN("dst ? %s",px->toString().c_str());
+
+	uid = px->cls();
+	envelope.msgClass = MsgClass(uid);
+	if (uid==0) WARN("cls ? %s",px->toString().c_str());
+
+	envelope.id = px->id();
+
 	if (xSemaphoreGive(_sema) != pdTRUE) {
 		WARN("xSemaphoreGive() failed");
 	}
+//	INFO(" dequeue : %s ",_rxd.toString().c_str());
+	delete px;
 	return 0;
 }
 
@@ -406,43 +474,70 @@ string& Receiver::tostringing(string& s) {
 }
 //_____________________________________________ Timer
 
-Timer::Timer(Uid key, bool active, bool periodic, uint64_t interval,uid_type cls)
-	: Uid(key), _active(active), _periodic(periodic), _interval(interval),_cls(cls) {
-	load();
+void Timer::callBack(TimerHandle_t handle) {
+	Timer* timer=(Timer*) pvTimerGetTimerID(handle);
+//	INFO(" timer call back %s ",timer->label());
+	timer->_timerScheduler.timerCallback(*timer);
 }
 
-bool Timer::active() { return _active; }
+Timer::Timer(Uid key,  bool autoReload, uint32_t interval,const Msg& m,TimerScheduler& scheduler)
+	: Uid(key),  _timerScheduler(scheduler) {
+	INFO("[%X] timer created %s : %u ",this,label(),interval);
+	_msg = new Msg();
+	*_msg = m;
+	_msg->dst(scheduler.ref().id());
+	_msg->src(scheduler.ref().id());
+	_autoReload=autoReload;
+	configASSERT((_timer = xTimerCreate(label(),pdMS_TO_TICKS(interval),autoReload,this,callBack))!=NULL);
+	start();
+}
 
-void Timer::active(bool t) { _active = t; }
+
+void Timer::start() {
+//	INFO("[%X] timer start",this);
+	configASSERT( xTimerStart(_timer,0) == pdPASS ) ;
+}
+
+void Timer::stop() {
+//	INFO("[%X] timer stop",this);
+	configASSERT(xTimerStop(_timer,0)==pdPASS);
+}
+
+Timer::~Timer() {
+	INFO("[%X] timer dtor",this);
+	xTimerDelete(_timer,0);
+	delete _msg;
+}
+
+Msg& Timer::msg() {
+	return *_msg;
+}
+
+void Timer::msg(const Msg& msg) {
+//	if ( _msg != 0 ) delete _msg;
+	*_msg = msg;
+	_msg->dst(_timerScheduler.ref().id());
+	_msg->src(_timerScheduler.ref().id());
+}
+
+void Timer::interval(uint32_t interv) {
+	INFO("[%X] timer interval(%u)",this,interv);
+	configASSERT(xTimerDelete(_timer,0)==pdPASS);
+	configASSERT((_timer = xTimerCreate(label(),pdMS_TO_TICKS(interv),_autoReload,this,callBack))!=NULL);
+	start();
+}
+
 
 Uid Timer::key() { return id(); }
 
-void Timer::load() { _expiresAt = Sys::millis() + _interval; }
-
-void Timer::reload() {
-	if (_periodic) {
-		load();
-	} else {
-		_active = false;
-	}
-}
-
-bool Timer::expired() { return Sys::millis() > _expiresAt; }
-
-uint64_t Timer::expiresAt() {
-	if (_active)
-		return _expiresAt;
-	return UINT64_MAX;
-}
-void Timer::set(bool active, bool periodic, uint32_t msec) {
-	_active = active;
-	_periodic = periodic;
-	_interval = msec;
-	load();
-}
 //__________________________________________________________ TimerScheduler
 
-TimerScheduler::TimerScheduler() {}
+void TimerScheduler::timerCallback(Timer& timer) {
+//	INFO(" timer call back : %s %s ",timer.label(),_ref.label());
+	_ref.tell(timer.msg());
+}
+
+TimerScheduler::TimerScheduler(ActorRef ref) :_ref(ref) {}
 
 Timer* TimerScheduler::find(Uid key) {
 	for (Timer* timer : _timers) {
@@ -452,36 +547,28 @@ Timer* TimerScheduler::find(Uid key) {
 	return 0;
 }
 
-Timer* TimerScheduler::findNextTimeout() {
-	uint64_t nextTimeout = UINT64_MAX;
-	Timer* to = 0;
-	for (auto t : _timers) {
-		if (t->active() && t->expiresAt() < nextTimeout) {
-			to = t;
-			nextTimeout = t->expiresAt();
-		}
-	}
-	return to;
-}
 
-Uid TimerScheduler::startPeriodicTimer(Uid key, MsgClass cls, uint32_t msec) {
+
+Uid TimerScheduler::startPeriodicTimer(Uid key,const Msg& msg, uint32_t msec) {
 	Timer* timer = find(key.id());
 
 	if (timer == 0) {
-		_timers.push_back(new Timer(key, true, true, msec,cls.id()));
+		_timers.push_back(new Timer(key,  true, msec, msg,*this));
 	} else {
-		timer->set(true, true, msec);
+		timer->msg(msg);
+		timer->start();
 	}
 	return key.id();
 }
 
-Uid TimerScheduler::startSingleTimer(Uid key, MsgClass cls, uint32_t msec) {
+Uid TimerScheduler::startSingleTimer(Uid key, const Msg& msg, uint32_t msec) {
 	Timer* timer = find(key.id());
 
 	if (timer == 0) {
-		_timers.push_back(new Timer(key, true, false, msec,cls.id()));
+		_timers.push_back(new Timer(key,  false, msec,msg,*this));
 	} else {
-		timer->set(true, false, msec);
+		timer->msg(msg);
+		timer->start();
 	}
 	return key.id();
 }
@@ -489,26 +576,21 @@ Uid TimerScheduler::startSingleTimer(Uid key, MsgClass cls, uint32_t msec) {
 void TimerScheduler::cancel(Uid key) {
 	Timer* timer = find(key);
 	if (timer)
-		timer->active(false);
+		timer->stop();
 	else
 		WARN(" timer.cancel()  key not found : %s ", key.label());
 }
 
 void TimerScheduler::cancelAll() {
 	for (Timer* t : _timers) {
-		t->active(false);
+		t->stop();
 	}
 }
 
-bool TimerScheduler::isTimerActive(Uid key) {
-	for (Timer* t : _timers) {
-		if (t->key() == key) {
-			return t->active();
-		}
-	}
-	WARN(" timer.isTimerActive()  key not found : %s ", key.label());
-	return false;
+ActorRef& TimerScheduler::ref() {
+	return _ref;
 }
+
 
 //___________________________________________________________________ Receive
 //
@@ -612,7 +694,7 @@ bool ActorCell::hasReceiveTimedOut() {
 
 TimerScheduler& ActorCell::timers() {
 	if (_timers == 0)
-		_timers = new TimerScheduler();
+		_timers = new TimerScheduler(self());
 	return *_timers;
 }
 
@@ -651,47 +733,11 @@ uint64_t MessageDispatcher::nextWakeup() { return _nextWakeup; }
 extern bool isTask();
 
 void MessageDispatcher::execute(bool loop) {
-
-	while (true) {
-		_nextWakeup = Sys::millis() + 1000;
-		MsgClass timerMessage;
-
-		for (auto ac : _actorCells) {
-//			if (isTask()) INFO(">%s",ac->self().label());
-
-			Timer* timer;
-			if (ac->hasTimers() && (timer = ac->timers().findNextTimeout())) {
-//				if ( isTask()) INFO(">>%s",ac->self().label());
-				if (timer->expiresAt() < Sys::millis()) {
-					timer->reload(); // retrigger now message will be send
-					ac->self().tell(Msg(timer->cls())(UID_TIMER,timer->id()),ActorRef::NoSender() );
-//					if (isTask()) INFO(">>>%s",ac->self().label());
-				} else {
-					nextWakeup(timer->expiresAt());
-				}
-			}
-			if (ac->hasReceiveTimedOut()) {
-				Msg receiveTimeout(Actor::ReceiveTimeout()); // TBD
-				ac->self().tell(receiveTimeout,ActorRef::NoSender() );
-				ac->resetReceiveTimeout();
-//				INFO(">>>>%s",receiveTimeout.toString().c_str());
-			} else {
-				nextWakeup(ac->expiresAt());
-			}
-		};
-
-		int64_t delta = nextWakeup();
-		delta-=Sys::millis();
-		if ( delta > 1000 || delta < 0  ) {
-			delta=10;
-		}
-//		if ( isTask())		INFO(" next wakeup in %d msec",delta);
-
-
-		/*for ( uint32_t loopCount=0; loopCount<delta; loopCount++){*/
-		if( _mailbox->dequeue(_rxdEnvelope,delta)==0) { // no message*/
-			assert(_rxdEnvelope.receiver != 0);
-			assert(_rxdEnvelope.sender != 0);
+	while(loop) {
+		while( _mailbox->dequeue(_rxdEnvelope,100)==0) { // no message*/
+//			INFO("%s",_rxdEnvelope.toString().c_str());
+			configASSERT(_rxdEnvelope.receiver != 0);
+			configASSERT(_rxdEnvelope.sender != 0);
 			ActorCell* cell = _rxdEnvelope.receiver->cell();
 			if (cell) {
 				cell->invoke(_rxdEnvelope);
@@ -707,7 +753,6 @@ void MessageDispatcher::execute(bool loop) {
 				}
 			}
 		}
-		if ( !loop ) break;
-	};
+	}
 }
 // void arduinoLoop() { defaultDispatcher.execute(); }

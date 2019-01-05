@@ -4,9 +4,10 @@
 
 
 class Echo : public Actor {
-	
+
 	public:
-		enum { PING=H("PING"),PONG=H("PONG") };
+		static const MsgClass PING;
+		static const MsgClass PONG;
 
 		Echo(va_list args);
 		~Echo();

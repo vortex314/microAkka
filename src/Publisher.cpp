@@ -10,7 +10,7 @@ Publisher::~Publisher() {
 }
 
 void Publisher::preStart() {
-	timers().startPeriodicTimer("START_TEST", TimerExpired(), 1000);
+	timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
 	_it = context().system().actorRefs().begin();
 	eb.subscribe(self(), MessageClassifier(_mqtt,Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt,Mqtt::Connected));
@@ -28,8 +28,7 @@ ActorRef* Publisher::nextRef() {
 
 Receive& Publisher::createReceive() {
 	return receiveBuilder()
-	       .match(PropertiesReply(),
-	[this](Envelope& msg) {
+	.match(PropertiesReply(),[this](Envelope& msg) {
 		msg.rewind();
 		while(msg.hasData() ) {
 			std::stringstream topic;
@@ -37,7 +36,7 @@ Receive& Publisher::createReceive() {
 			Tag tag(msg.peek());
 			Msg m(Mqtt::Publish);
 			Uid tag_uid(tag.uid);
-			if ( tag_uid == UID_DST  || tag_uid==UID_SRC || tag_uid==UID_CLS || tag_uid==UID_ID  ) {
+			if ( tag.uid == UD_DST  || tag.uid==UD_SRC || tag.uid==UD_CLS || tag.uid==UD_ID  ) {
 				msg.skip();
 			} else {
 				topic  << "src/" <<  sender().path() << "/" << tag_uid.label();
@@ -73,18 +72,14 @@ Receive& Publisher::createReceive() {
 		m.add("system/alive","true");
 		_mqtt.tell(m,self());
 	})
-	.match(TimerExpired(),
-	[this](Envelope& msg) {
+	.match(MsgClass("pollTimer"),[this](Envelope& msg) {
 		if ( _mqttConnected == true ) {
 			ActorRef* ref=nextRef();
-			ref->tell(Msg(Properties()).src(self()),self());
+			ref->tell(Msg(Properties()).src(self().id()).dst(ref->id()));
 		}
 	})
 
-	.match(Mqtt::Connected,
-	[this](Envelope& msg) { _mqttConnected=true; })
-
-	.match(Mqtt::Disconnected,
-	[this](Envelope& msg) { _mqttConnected=false;  })
+	.match(Mqtt::Connected,	[this](Envelope& msg) { _mqttConnected=true; })
+	.match(Mqtt::Disconnected,	[this](Envelope& msg) { _mqttConnected=false;  })
 	.build();
 }

@@ -10,7 +10,7 @@ NeuralPid::NeuralPid(va_list args)  {
 NeuralPid::~NeuralPid() {}
 
 void NeuralPid::preStart() {
-	timers().startPeriodicTimer("SAMPLE_TIMER_1", TimerExpired(), 1000);
+	timers().startPeriodicTimer("SAMPLE_TIMER_1", Msg("neuralTimer"), 1000);
 	for (uint32_t i = 0; i < _topology[0]; i++) {
 		_inputVals.push_back(0.0);
 	}
@@ -33,7 +33,7 @@ Receive& NeuralPid::createReceive() {
 		     context().self().path());
 		//
 	})
-	.match(TimerExpired(),
+	.match(MsgClass("neuralTimer"),
 	[this](Envelope& msg) {
 		double v = 0.5;
 		newInput(v);

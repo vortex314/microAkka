@@ -20,30 +20,25 @@
  */
 
 void vAssertCalled( unsigned long ulLine, const char * const pcFileName ) {
-	printf("Assert called on : %s:%d",pcFileName,ulLine);
+	printf("Assert called on : %s:%lu",pcFileName,ulLine);
 }
 
 extern "C" void vApplicationMallocFailedHook() {
 	WARN(" malloc failed ! ");
-	assert(false);
+	exit(-1);
 }
 
 
 
 Log logger(1024);
 
+
+MessageDispatcher defaultDispatcher;
+
+
 static void  main_task(void *pvParameters) {
 	INFO(" MAIN task started");
 	MessageDispatcher* dispatcher = (MessageDispatcher*)pvParameters;
-
-	dispatcher->execute();
-	INFO(" MAIN task ended !! ");
-
-
-}
-ActorMsgBus eb;
-
-int main() {
 
 	Sys::init();
 	config.load();
@@ -54,7 +49,6 @@ int main() {
 
 	INFO(" starting microAkka test ");
 	Mailbox defaultMailbox("default", 100); // nbr of messages in queue max
-	MessageDispatcher defaultDispatcher;
 	ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
 
 	ActorRef sender = actorSystem.actorOf<Sender>("sender");
@@ -67,9 +61,21 @@ int main() {
 
 
 	defaultDispatcher.attach(defaultMailbox);
-	defaultDispatcher.unhandled(bridge.cell());
+//	defaultDispatcher.unhandled(bridge.cell());
 
-	xTaskCreate(&main_task, "mqtt_task", 10000, &defaultDispatcher, tskIDLE_PRIORITY + 2, NULL);
+	dispatcher->execute();
+	INFO(" MAIN task ended !! ");
+
+
+}
+
+ActorMsgBus eb;
+
+int main() {
+
+
+	xTaskCreate(&main_task, "mqtt_task", 10000, &defaultDispatcher,  2, NULL);
+	sleep(1);
 	vTaskStartScheduler();
 
 

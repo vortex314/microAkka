@@ -13,7 +13,7 @@ Bridge::~Bridge() {}
 
 
 void Bridge::preStart() {
-	timers().startPeriodicTimer("PUB_TIMER", TimerExpired(), 5000);
+	timers().startPeriodicTimer("pubTimer", Msg("pubTimer"), 5000);
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::PublishRcvd));
@@ -32,18 +32,15 @@ Receive& Bridge::createReceive() {
 			_txd++;
 		}
 	})
-	.match(Mqtt::Connected,
-	[this](Envelope& env) {
+	.match(Mqtt::Connected,	[this](Envelope& env) {
 		INFO(" MQTT CONNECTED");
 		_connected=true;
 	})
-	.match(Mqtt::Disconnected,
-	[this](Envelope& env) {
+	.match(Mqtt::Disconnected,	[this](Envelope& env) {
 		INFO(" MQTT DISCONNECTED");
 		_connected=false;
 	})
-	.match(Mqtt::PublishRcvd,
-	[this](Envelope& env) {
+	.match(Mqtt::PublishRcvd,	[this](Envelope& env) {
 		std::string topic;
 		std::string message;
 		Msg msg;
@@ -52,21 +49,22 @@ Receive& Bridge::createReceive() {
 		if (env.get("topic",topic)==0
 		        && env.get("message",message)==0
 		        && jsonToMessage(msg,topic,message)) {
-			uid_type uid;
+
 			ActorRef* dst,*src;
-			if ( msg.get(UID_DST,uid)==0 && (dst=ActorRef::lookup(uid))!=0 && msg.get(UID_SRC,uid)==0 && (src=ActorRef::lookup(uid))!=0) {
+			if ( msg.dst() ==0  || (dst=ActorRef::lookup(msg.dst()))==0 ) {
+				WARN(" dst invalid %u ",msg.dst());
+			} else if ( msg.src()==0 && (src=ActorRef::lookup(msg.src()))==0)  {
+				WARN(" src invalid %u ",msg.src());
+			} else {
 				dst->mailbox().enqueue(msg);
 				_rxd++;
 				INFO(" processed message %s", msg.toString().c_str());
-			} else {
-				WARN(" incorrect message : %s", message.c_str());
 			}
 		} else {
 			WARN(" processing failed : %s ", message.c_str());
 		}
 	})
-	.match(Actor::TimerExpired(),
-	[this](Envelope& msg) {
+	.match(MsgClass("pubTimer"),	[this](Envelope& msg) {
 		string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
@@ -89,8 +87,7 @@ bool Bridge::messageToJson(std::string& topic,std::string& message, Envelope& ms
 	topic= "dst/";
 	topic += msg.receiver->path();
 	topic +="/";
-	uid_type uid;
-	msg.get(UID_CLS,uid);
+	uid_type uid = msg.cls();
 	topic += Uid(uid).label();
 
 	Tag tag(0);
@@ -111,8 +108,8 @@ bool Bridge::messageToJson(std::string& topic,std::string& message, Envelope& ms
 			case Xdr::UINT: {
 					uint64_t u64;
 					msg.getNext(tag.uid,u64);
-					if ( tagUid==UID_DST || tagUid==UID_SRC || tagUid==UID_CLS ) {
-						if ( tagUid==UID_SRC )
+					if ( tag.uid==UD_DST || tag.uid==UD_SRC || tag.uid==UD_CLS ) {
+						if ( tag.uid==UD_SRC )
 							jsonObject.set(Uid::label(tag.uid),Uid::label(u64));
 					} else {
 						jsonObject.set(Uid::label(tag.uid),u64);
@@ -176,14 +173,15 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 
 	uid_type uidDst = Uid::add(topic.substr(offsets[0]+1,offsets[2]-offsets[0]-1).c_str());
 	uid_type uidCls = Uid::add(topic.substr(offsets[2]+1).c_str());
-	msg(UID_DST,uidDst);
-	msg(UID_CLS,uidCls);
+	msg.dst(uidDst);
+	msg.cls(uidCls);
 	uid_type uidSrc = Uid::add(jsonObject.get<const char*>(AKKA_SRC));
-	msg(UID_SRC,uidSrc);
+	msg.src(uidSrc);
 
 	ActorRef* dst = ActorRef::lookup(uidDst);
 	if (dst == 0) {
 		WARN(" local Actor : %s not found ", Uid::label(uidDst));
+		return false;
 	}
 	ActorRef* src = ActorRef::lookup(uidSrc);
 	if (src == 0) {
@@ -204,6 +202,6 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 			}
 		}
 	}
-//	INFO("%s = %s => %s : %s",Uid::label(uidSrc),Uid::label(uidCls),Uid::label(uidDst),message.c_str());
+	INFO("%s",msg.toString().c_str());
 	return true;
 }

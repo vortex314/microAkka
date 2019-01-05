@@ -20,7 +20,7 @@ MsgClass Mqtt::Subscribe("Mqtt/Subscribe");
 
 
 void Mqtt::preStart() {
-	timers().startPeriodicTimer("PUB_TIMER", TimerExpired(), 5000);
+	timers().startPeriodicTimer("PUB_TIMER", Msg("pubTimer"), 5000);
 
 	//   context().mailbox(remoteMailbox);
 	_conn_opts = MQTTAsync_connectOptions_initializer;
@@ -65,8 +65,7 @@ void Mqtt::mqttDisconnect() {
 
 Receive& Mqtt::createReceive() {
 	return receiveBuilder()
-	       .match(TimerExpired(),
-	[this](Envelope& msg) {
+	.match(MsgClass("pubTimer"),[this](Envelope& msg) {
 		string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
@@ -90,7 +89,7 @@ void Mqtt::onConnect(void* context, MQTTAsync_successData* response) {
 	Mqtt* me = (Mqtt*)context;
 	// publish Connected
 	Msg msg(Connected);
-	msg(UID_SRC,me->self().id());
+	msg.src(me->self().id());
 	eb.publish(msg);
 	me->_connected = true;
 	// SUBSCRIBE
@@ -104,7 +103,7 @@ void Mqtt::onConnect(void* context, MQTTAsync_successData* response) {
 void Mqtt::onConnectionLost(void* context, char* cause) {
 	Mqtt* me = (Mqtt*)context;
 	Msg msg(Disconnected);
-	msg(UID_SRC,me->self().id());
+	msg.src(me->self().id());
 	eb.publish(msg);
 	me->_connected = false;
 	me->_conn_opts = MQTTAsync_connectOptions_initializer;
@@ -173,7 +172,7 @@ int Mqtt::onMessageArrived(void* context, char* topicName, int topicLen,
 		Msg  pub(PublishRcvd);
 		pub("topic", topic);
 		pub("message", msg);
-		pub(UID_SRC,me->self().id());
+		pub.src(me->self().id());
 		INFO("%s",pub.toString().c_str());
 		eb.publish(pub);
 		busy=false;
