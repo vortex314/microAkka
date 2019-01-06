@@ -2,7 +2,6 @@
 #define PUBLISHER_H
 
 #include <Akka.h>
-#include <Mqtt.h>
 
 class Publisher: public Actor {
 	public:
@@ -13,7 +12,7 @@ class Publisher: public Actor {
 	public:
 		static const MsgClass Exit;
 		static const MsgClass ConfigRequest;
-		static const MsgClass ConfigReply;
+		static const MsgClass PollMe;
 
 		Publisher(va_list args);
 		~Publisher();

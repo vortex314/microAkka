@@ -527,7 +527,7 @@ class Receiver {
 		Receiver(MsgClass msgClass, MessageHandler handler);
 		bool match(Envelope& msg);
 		void onMessage(Envelope& msg);
-		const static bool alwaysTrue(Envelope&) { return true; }
+		static bool alwaysTrue(Envelope&) { return true; }
 		string& tostringing(string& s);
 };
 

@@ -312,9 +312,10 @@ int Mailbox::enqueue(Msg& msg) {
 	configASSERT(msg.dst()!=0);
 
 //	INFO(" enqueue : %s ",px->toString().c_str());
-
-	if ( xQueueSend(_queue,&px,1)!=pdTRUE ) {
-		WARN("enqueue failed");
+	BaseType_t rc =  xQueueSend(_queue,&px,10);
+	if ( rc != pdTRUE ) {
+		WARN("enqueue failed %d for %s ",rc,msg.toString().c_str());
+		delete px;
 		return ENOENT;
 	}
 	return 0;
@@ -740,7 +741,12 @@ void MessageDispatcher::execute(bool loop) {
 			configASSERT(_rxdEnvelope.sender != 0);
 			ActorCell* cell = _rxdEnvelope.receiver->cell();
 			if (cell) {
+				uint64_t startTime = Sys::millis();
 				cell->invoke(_rxdEnvelope);
+				uint32_t delta = Sys::millis() - startTime ;
+				if ( delta > 10 ) {
+					WARN(" slow actor %d msec : %s on %s ",delta,cell->self().label(),_rxdEnvelope.msgClass.label());
+				}
 				cell->resetReceiveTimeout();
 			} else {
 				if (_unhandledCell) {
@@ -753,6 +759,7 @@ void MessageDispatcher::execute(bool loop) {
 				}
 			}
 		}
+//		INFO("");
 	}
 }
 // void arduinoLoop() { defaultDispatcher.execute(); }

@@ -1,4 +1,5 @@
 #include "Publisher.h"
+#include <Mqtt.h>
 
 #include <sstream>
 
@@ -8,6 +9,8 @@ Publisher::Publisher(va_list args) :_mqtt ( ActorRef::NoSender()) {
 
 Publisher::~Publisher() {
 }
+
+const MsgClass Publisher::PollMe("pollMe");
 
 void Publisher::preStart() {
 	timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
@@ -76,6 +79,11 @@ Receive& Publisher::createReceive() {
 		if ( _mqttConnected == true ) {
 			ActorRef* ref=nextRef();
 			ref->tell(Msg(Properties()).src(self().id()).dst(ref->id()));
+		}
+	})
+	.match(MsgClass("pollMe"),[this](Envelope& msg) {
+		if ( _mqttConnected == true ) {
+			sender().tell(Msg(Properties()).src(self().id()).dst(sender().id()));
 		}
 	})
 
