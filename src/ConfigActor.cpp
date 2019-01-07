@@ -12,16 +12,16 @@ void ConfigActor::preStart() {
 
 Receive& ConfigActor::createReceive() {
 	return receiveBuilder()
-	.match(Get, [this](Envelope& msg) {
+	.match(Get, [this](Msg& msg) {
 		std::string output;
 		config.print(output);
-		sender().tell(msg.reply()("config",output),self());
+		sender().tell(replyBuilder(msg)("config",output),self());
 	})
-	.match(Clear,[this](Envelope& msg) {
+	.match(Clear,[this](Msg& msg) {
 		config.clear();
-		sender().tell(msg.reply()("erc",0),self());
+		sender().tell(replyBuilder(msg)("erc",0),self());
 	})
-	.match(Set, [this](Envelope& msg) {
+	.match(Set, [this](Msg& msg) {
 		std::string ns;
 		std::string key;
 		std::string value;
@@ -30,10 +30,10 @@ Receive& ConfigActor::createReceive() {
 				config.setNameSpace(ns.c_str());
 				config.set(key.c_str(),value);
 				config.save();
-				sender().tell(msg.reply()("erc",0),self());
+				sender().tell(replyBuilder(msg)("erc",0),self());
 			} //TODO add other types
 		} else {
-			sender().tell(msg.reply()("erc",EINVAL),self());
+			sender().tell(replyBuilder(msg)("erc",EINVAL),self());
 		}
 	})
 

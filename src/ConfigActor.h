@@ -21,7 +21,7 @@ class ConfigActor : public Actor {
 		void preStart();
 		Receive& createReceive();
 
-		void handlePong(Envelope& msg);
+		void handlePong(Msg& msg);
 };
 
 #endif // CONFIGACTOR_H

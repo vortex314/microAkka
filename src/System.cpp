@@ -19,14 +19,14 @@ void System::preStart() {
 
 Receive& System::createReceive() {
 	return receiveBuilder()
-	.match(Exit, [](Envelope& msg) { exit(0); })
-	.match(ConfigRequest, [](Envelope& msg) {  })
-	.match(ConfigReply, [](Envelope& msg) {  })
-	.match(Properties(),[this](Envelope& msg) {
+	.match(Exit, [](Msg& msg) { exit(0); })
+	.match(ConfigRequest, [](Msg& msg) {  })
+	.match(ConfigReply, [](Msg& msg) {  })
+	.match(Properties(),[this](Msg& msg) {
 		INFO(" Properties requested ");
 		struct sysinfo info;
 		sysinfo(&info);
-		sender().tell(msg.reply()
+		sender().tell(replyBuilder(msg)
 		              ("build",__DATE__ " " __TIME__)
 		              ("cpu","x86_64")
 		              ("procs",get_nprocs())
@@ -43,15 +43,14 @@ Receive& System::createReceive() {
 #include <Esp.h>
 Receive& System::createReceive() {
 	return receiveBuilder()
-	.match(Exit, [](Envelope& msg) { exit(0); })
-	.match(ConfigRequest, [](Envelope& msg) {  })
-	.match(ConfigReply, [](Envelope& msg) {  })
-	.match(Properties(),[this](Envelope& msg) {
+	.match(Exit, [](Msg& msg) { exit(0); })
+	.match(ConfigRequest, [](Msg& msg) {  })
+	.match(ConfigReply, [](Msg& msg) {  })
+	.match(Properties(),[this](Msg& msg) {
 		INFO(" Properties requested ");
 
-		sender().tell(msg.reply()
+		sender().tell(replyBuilder(msg)
 		              ("build",__DATE__ " " __TIME__)
-
 		              ("cpu","esp8266")("framework","Arduino")
 		              ("freq",ESP.getCpuFreqMHz())
 		              ("flash",ESP.getFlashChipSize())

@@ -31,7 +31,7 @@ ActorRef* Publisher::nextRef() {
 
 Receive& Publisher::createReceive() {
 	return receiveBuilder()
-	.match(PropertiesReply(),[this](Envelope& msg) {
+	.match(PropertiesReply(),[this](Msg& msg) {
 		msg.rewind();
 		while(msg.hasData() ) {
 			std::stringstream topic;
@@ -65,7 +65,7 @@ Receive& Publisher::createReceive() {
 				} else {
 					msg.skip();
 				}
-				_mqtt.tell(Msg(Mqtt::Publish)("topic",topic.str())("message",message),self());
+				_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic.str())("message",message),self());
 			}
 
 		}
@@ -75,19 +75,19 @@ Receive& Publisher::createReceive() {
 		m.add("system/alive","true");
 		_mqtt.tell(m,self());
 	})
-	.match(MsgClass("pollTimer"),[this](Envelope& msg) {
+	.match(MsgClass("pollTimer"),[this](Msg& msg) {
 		if ( _mqttConnected == true ) {
 			ActorRef* ref=nextRef();
-			ref->tell(Msg(Properties()).src(self().id()).dst(ref->id()));
+			ref->tell(msgBuilder(Properties()).src(self().id()).dst(ref->id()));
 		}
 	})
-	.match(MsgClass("pollMe"),[this](Envelope& msg) {
+	.match(MsgClass("pollMe"),[this](Msg& msg) {
 		if ( _mqttConnected == true ) {
-			sender().tell(Msg(Properties()).src(self().id()).dst(sender().id()));
+			sender().tell(msgBuilder(Properties()).src(self().id()).dst(sender().id()));
 		}
 	})
 
-	.match(Mqtt::Connected,	[this](Envelope& msg) { _mqttConnected=true; })
-	.match(Mqtt::Disconnected,	[this](Envelope& msg) { _mqttConnected=false;  })
+	.match(Mqtt::Connected,	[this](Msg& msg) { _mqttConnected=true; })
+	.match(Mqtt::Disconnected,	[this](Msg& msg) { _mqttConnected=false;  })
 	.build();
 }

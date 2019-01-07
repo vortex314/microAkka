@@ -19,6 +19,6 @@ class Sender : public Actor {
 		void preStart();
 		Receive& createReceive();
 
-		void handlePong(Envelope& msg);
+		void handlePong(Msg& msg);
 };
 #endif

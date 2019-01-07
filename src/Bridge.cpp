@@ -23,24 +23,24 @@ void Bridge::preStart() {
 Receive& Bridge::createReceive() {
 	return receiveBuilder()
 	       .match(AnyClass(),
-	[this](Envelope& msg) {
-		if (!(*msg.receiver == self())) {
+	[this](Msg& msg) {
+		if (!(msg.dst() == self().id())) {
 			std::string message;
 			std::string topic ;
 			messageToJson(topic,message, msg);
-			_mqtt.tell(Msg(Mqtt::Publish)("topic",topic)("message",message),self());
+			_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("message",message),self());
 			_txd++;
 		}
 	})
-	.match(Mqtt::Connected,	[this](Envelope& env) {
+	.match(Mqtt::Connected,	[this](Msg& env) {
 		INFO(" MQTT CONNECTED");
 		_connected=true;
 	})
-	.match(Mqtt::Disconnected,	[this](Envelope& env) {
+	.match(Mqtt::Disconnected,	[this](Msg& env) {
 		INFO(" MQTT DISCONNECTED");
 		_connected=false;
 	})
-	.match(Mqtt::PublishRcvd,	[this](Envelope& env) {
+	.match(Mqtt::PublishRcvd,	[this](Msg& env) {
 		std::string topic;
 		std::string message;
 		Msg msg;
@@ -64,18 +64,14 @@ Receive& Bridge::createReceive() {
 			WARN(" processing failed : %s ", message.c_str());
 		}
 	})
-	.match(MsgClass("pubTimer"),	[this](Envelope& msg) {
+	.match(MsgClass("pubTimer"),	[this](Msg& msg) {
 		string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
-		if (_connected) {
-			Msg m(Mqtt::Publish);
-			m("topic",topic)("data","true");
-			_mqtt.tell(m,self());
-		}
+		if (_connected) {_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("data","true"),self());		}
 	})
-	.match(Properties(),[this](Envelope& msg) {
-		sender().tell(Msg(PropertiesReply())
+	.match(Properties(),[this](Msg& msg) {
+		sender().tell(replyBuilder(msg)
 		              ("txd",_txd)
 		              ("rxd",_rxd)
 		              ,self());
@@ -83,9 +79,9 @@ Receive& Bridge::createReceive() {
 	.build();
 }
 
-bool Bridge::messageToJson(std::string& topic,std::string& message, Envelope& msg) {
+bool Bridge::messageToJson(std::string& topic,std::string& message, Msg& msg) {
 	topic= "dst/";
-	topic += msg.receiver->path();
+	topic += Uid::label(msg.dst());
 	topic +="/";
 	uid_type uid = msg.cls();
 	topic += Uid(uid).label();

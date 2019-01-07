@@ -30,7 +30,7 @@ class Bridge : public Actor {
 		enum { Connected=H("Connected") };
 
 		bool jsonToMessage(Msg& msg,std::string& topic,std::string& message);
-		bool messageToJson(std::string& topic,std::string& message,Envelope& msg);
+		bool messageToJson(std::string& topic,std::string& message,Msg& msg);
 
 		bool handleMqttMessage(const char* message);
 };

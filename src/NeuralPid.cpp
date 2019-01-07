@@ -27,14 +27,14 @@ void NeuralPid::newInput(double m) {
 Receive& NeuralPid::createReceive() {
 	return receiveBuilder()
 	       .match(("sample"),
-	[this](Envelope& msg) {
-		INFO(" message received %s:%s:%s in %s", msg.sender->path(),
-		     msg.receiver->path(), msg.msgClass.label(),
+	[this](Msg& msg) {
+		INFO(" message received %s:%s:%s in %s", Uid::label(msg.src()),
+		     Uid::label(msg.dst()), Uid::label(msg.cls()),
 		     context().self().path());
 		//
 	})
 	.match(MsgClass("neuralTimer"),
-	[this](Envelope& msg) {
+	[this](Msg& msg) {
 		double v = 0.5;
 		newInput(v);
 		_pidNet.feedForward(_inputVals);

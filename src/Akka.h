@@ -47,10 +47,6 @@ const uid_type UD_SRC= H(AKKA_SRC);
 const uid_type UD_ID= H(AKKA_ID);
 const uid_type UD_TIMER=H(AKKA_TIMER);
 
-
-
-
-
 /*============================================================================
  // Name        : akkaMicro
  // Author      : Lieven
@@ -86,92 +82,66 @@ tell => mailbox == N = 1 ==> dispatcher =1toN=> actorcells
  //
  //============================================================================*/
 
-
-
-#define MAX_ACTOR_CELLS 20
-
 typedef void (*MsgHandler)(void);
 
-class Envelope;
 class Receiver;
 class Mailbox;
 class MessageDispatcher;
 class Actor;
-class AbstractActor;
 class ActorRefFactory;
 class ActorContext;
 class ActorRef;
 class ActorRef;
 class ActorSelection;
-class ActorPath;
 class ActorSystem;
 class ActorCell;
-class Envelope;
 class Message;
-class SystemMessage;
 class Receive;
 class Props;
 class Timer;
 class ActorMsgBus;
 class MsgClass;
 class TimerScheduler;
-
-//_____________________________________________________________________ Static
-
-//extern const MsgClass ReceiveTimeout;
-
-
-
+//_____________________________________________________________________ static
 extern ActorMsgBus eb;
 
 //_____________________________________________________________________ Message
 
-typedef bool (*MsgMatch)(Envelope& msg);
-typedef std::function<void(Envelope&)> MessageHandler;
-typedef std::function<bool(Envelope&)> MessageMatcher;
+
 
 //______________________________JUST an IDEA _______________________________ Ref
 //
-/*class Reference {
-		const char* _label;
-		void *_pv;
-		uid_type _cls;
-		uid_type _id;
+class Ref {
+		typedef struct {
+			uid_type _id;	// id used for serialization and sharing
+			const char* _label; // the name assigned
+			void* _object; // the real object == this
+			uid_type _cls; // the C++ class
+		} RefStruct;
+		RefStruct* _ref;		// the Ref data minimal also to be used for sharing
+		static unordered_map<uid_type,Ref*> _refs;
 	public :
-		Reference(const char* label,void *pv,uid_type cls,uid_type id) {
-			_label=label;
-			_pv=pv;
-			_cls=cls;
-			_id=id;
-		}
-		Reference(const char* label) {
-			_label=label;
-			_pv=0;
-			_cls=0;
-			_id=H(label);
-		}
+		Ref(const char* label,void *object,const uid_type cls) ;
+		Ref(const char* label);
+		~Ref(); // the object destruction should lead to Ref lookup destruction
+		uid_type id();
+		template <class T> T* get() { return (T*)(_ref->_object); }
+		const char* label() { return _ref->_label; };
+		uid_type cls() { return _ref->_cls; };
+		template <class T> T* lookup(uid_type) { return (T*)(_ref->_object); }
+		bool operator==(Ref& dst) { return _ref->_id==dst._ref->_id; }
+
 } ;
 
-class Ref : public Uid {
-		uid_type _id;
-		static unordered_map<uid_type,Reference*>* _refs;
-		static unordered_map<uid_type,Reference*>* refs() {
-			if ( _refs==0) {
-				_refs = new unordered_map<uid_type,Reference*>();
-			}
+class ActorRef2 : public Ref   {
+		static ActorRef2 NoRef;
+		ActorRef2(const char* name) :Ref (name,this,H("ActorRef")) {
+			NoRef = "NoActorRef";
 		}
-	public :
-		Ref(const char* label,void* ths) {
-
+		ActorRef2* lookup(uid_type id) {
+			return Ref::lookup<ActorRef2>(id);
 		}
-		template <typename T>  T* get(uid_type id) {
-			std::unordered_map<uid_type, void*>::const_iterator p = refs()->find(id);
-			if (p == uids()->end())
-				return 0;
-			return (T*)(p->second);
-		}
-
-};*/
+};
 
 //_____________________________________________________________ MsgClass
 //
@@ -194,7 +164,7 @@ class Msg : public Xdr {
 		Msg(MsgClass cls) ;
 		Msg(uint32_t);
 		Msg(Uid cls,Uid src);
-		Msg reply() ;
+		Msg& reply(Msg& req) ;
 		Msg& clear();
 		template <typename T> Msg& operator()(Uid key, T v) {
 			add(key,v);
@@ -211,6 +181,11 @@ class Msg : public Xdr {
 
 		Msg& operator=(const Msg& );
 };
+
+typedef bool (*MessageMatch)(Msg& msg);
+typedef std::function<void(Msg&)> MessageHandler;
+typedef std::function<bool(Msg&)> MessageMatcher;
+
 //_________________________________________________________________ Timer
 //
 class Timer : public Uid {
@@ -247,19 +222,18 @@ class ActorRef : public Uid {
 
 	public:
 
-		static ActorRef NoSender() ;
+		static ActorRef& NoSender() ;
 		ActorRef();
 		ActorRef(Uid id);
 		ActorRef(Uid id, Mailbox* mb);
 
-		void ask(ActorRef dst, MsgClass type, Envelope& msg, uint32_t timeout);
-		void forward(Envelope& msg);
-		void tell(Envelope& message);
+		void ask(ActorRef dst, MsgClass type, Msg& msg, uint32_t timeout);
+		void forward(Msg& msg);
 		void tell(Msg& msg);
 		void tell(Msg& msg,ActorRef sender);
 //		void tell(ActorRef& sender, MsgClass type, uint16_t id, const char* format,
 //		...);
-		void forward(Envelope& message, ActorContext& context);
+		void forward(Msg& message, ActorContext& context);
 		Mailbox& mailbox();
 		void mailbox(Mailbox& mailbox);
 		bool operator==(ActorRef src);
@@ -301,7 +275,7 @@ class Receive {
 		Receive();
 		Receive& match(MsgClass msgClass, MessageHandler doSome);
 		Receive& build();
-		Receive& receive(ActorCell&,Envelope&);
+		Receive& receive(ActorCell&,Msg&);
 		Receive& orElse(Receive&);
 };
 
@@ -322,7 +296,7 @@ class ActorRefFactory {
 //_______________________________________________________________ ActorContext
 class ActorContext : public ActorRefFactory {
 
-		void systemInvoke(Envelope& systemMessage);
+		void systemInvoke(Msg& systemMessage);
 
 	public:
 		virtual ActorRef& self() = 0;
@@ -347,7 +321,7 @@ class ActorContext : public ActorRefFactory {
 		TimerScheduler& timers();
 		bool hasTimers();
 		static list<ActorContext*>& actorContexts();
-		void invoke(Envelope&);
+		void invoke(Msg&);
 		//   ActorRef actorOf(Props props);
 		//   ActorRef actorOf(Props props, const char* name);
 		//  ActorSelection actorSelection(ActorPath path);
@@ -363,7 +337,7 @@ class ActorCell : public ActorContext {
 		Receive* _receive;
 		Receive* _prevReceive;
 		Actor* _actor;
-		Envelope* _currentMessage;
+		Msg* _currentMessage;
 
 		uint32_t _inactivityPeriod;
 		uint64_t _lastReceive;
@@ -380,13 +354,14 @@ class ActorCell : public ActorContext {
 		ActorSystem& system();
 		ActorRef& self();
 		MessageDispatcher& dispatcher();
+		Msg& txd();
 
 		uint32_t receiveTimeout();
 		void setReceiveTimeout(uint32_t msec);
 		void become(Receive& receive, bool discardOld);
 		void unbecome();
-		void invoke(Envelope& envelope);
-		void unhandled(Envelope& envelope);
+		void invoke(Msg& envelope);
+		void unhandled(Msg& envelope);
 
 		ActorRef& sender();
 
@@ -429,10 +404,13 @@ class Actor {
 		virtual void preStart() {};
 		void aroundPrestart() { WARN(""); assert(false);};
 		void postStop() { WARN(""); assert(false);};
-		void unhandled(Envelope& msg);
+		void unhandled(Msg& msg);
 		virtual Receive& createReceive() = 0;
 		TimerScheduler& timers();
-		Envelope& txdEnvelope();
+		Msg& txdMsg();
+
+		Msg& msgBuilder(MsgClass);
+		Msg& replyBuilder(Msg& );
 
 		static Receive& receiveBuilder();
 };
@@ -444,31 +422,6 @@ class ActorSelection : public ActorRef {
 		ActorSelection(Uid id);
 };
 
-//________________________________________________________ Envelope
-class Envelope : public Msg {
-		static uint32_t _idCounter;
-
-	public:
-		ActorRef* sender;
-		ActorRef* receiver;
-		MsgClass msgClass;
-		uint16_t id;
-	public:
-		Envelope();
-		Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz);
-		Envelope& operator=(Msg& );
-		Envelope(ActorRef& snd, MsgClass clz);
-
-		Envelope(ActorRef& snd, ActorRef& rcv, MsgClass clz, uint32_t size);
-		Envelope& header(ActorRef& rcv, ActorRef& snd, MsgClass clz);
-		Envelope& header(ActorRef& rcv, ActorRef& snd, MsgClass clz, uint16_t id);
-		//    bool getHeader();
-		static uint32_t newId();
-
-//		void copyMessage(Envelope& dst);
-
-};
-
 
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
@@ -476,8 +429,8 @@ class MessageDispatcher {
 //		list<Mailbox*> _mailboxes;
 		list<ActorCell*> _actorCells;
 		ActorCell* _unhandledCell;
-		Envelope _txdEnvelope;
-		Envelope _rxdEnvelope;
+		Msg _txd;
+		Msg _rxd;
 		uint64_t _nextWakeup;
 
 	public:
@@ -489,11 +442,11 @@ class MessageDispatcher {
 		void execute(bool loop=true);
 		void resume(ActorCell&);
 		void suspend(ActorCell&);
-		void handle(Envelope&);
+		void handle(Msg&);
 		void unhandled(ActorCell*);
 		void nextWakeup(uint64_t t);
 		uint64_t nextWakeup();
-		Envelope& txdEnvelope();
+		Msg& txd();
 };
 
 
@@ -501,15 +454,10 @@ class MessageDispatcher {
 class Mailbox  {
 		QueueHandle_t _queue;
 		const char* _name;
-		Msg _txd;
-//		Msg _rxd;
-		SemaphoreHandle_t _sema;
-//		static list<Mailbox*> _mailboxes;
 
 	public:
 		Mailbox(const char* name, uint32_t queueSize);
-		int dequeue(Envelope&,uint32_t );
-		int enqueue(Envelope&);
+		int dequeue(Msg&,uint32_t );
 		int enqueue(Msg& );
 		const char* name() { return _name;};
 };
@@ -525,10 +473,10 @@ class Receiver {
 	public:
 		Receiver(MsgClass msgClass, MessageMatcher matcher, MessageHandler handler);
 		Receiver(MsgClass msgClass, MessageHandler handler);
-		bool match(Envelope& msg);
-		void onMessage(Envelope& msg);
-		static bool alwaysTrue(Envelope&) { return true; }
-		string& tostringing(string& s);
+		bool match(Msg& msg);
+		void onMessage(Msg& msg);
+		static bool alwaysTrue(Msg&) { return true; }
+		string& toString(string& s);
 };
 
 //_____________________________________________________________________ Props
@@ -663,14 +611,6 @@ class ActorMsgBus : public EventBus<Msg, ActorRef&, MessageClassifier> {
 			return a.id() == b.id();
 		}
 		~ActorMsgBus() {}
-};
-
-class Thread {
-		uint32_t _signal;
-
-	public:
-		void signal(uint32_t signal);
-		uint32_t waitSignal(uint32_t msec);
 };
 
 #endif /* SRC_AKKA_H_ */
