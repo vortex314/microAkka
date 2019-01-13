@@ -7,7 +7,7 @@ Sender::~Sender() {}
 
 void Sender::preStart() {
 	echo = context().system().actorOf<Echo>("echo");
-	_startTest = timers().startPeriodicTimer("START_TEST",  Msg("StartTest"), 10000);
+	_startTest = timers().startPeriodicTimer("START_TEST",  Msg("StartTest"), 1000);
 	context().setReceiveTimeout(1000);
 	Uid::add("counter");
 }
@@ -33,7 +33,7 @@ Receive& Sender::createReceive() {
 		INFO(" '%s' done in %f msec %f msg/sec", self().path(),
 		     delta, _counter * 1000.0 / delta);
 	})
-	.match(ReceiveTimeout(), [this](Msg& msg) {})
+	.match(MsgClass::ReceiveTimeout(), [this](Msg& msg) {})
 	.build();
 }
 

@@ -22,7 +22,7 @@ void Bridge::preStart() {
 
 Receive& Bridge::createReceive() {
 	return receiveBuilder()
-	       .match(AnyClass(),
+	       .match(MsgClass::AnyClass(),
 	[this](Msg& msg) {
 		if (!(msg.dst() == self().id())) {
 			std::string message;
@@ -70,7 +70,7 @@ Receive& Bridge::createReceive() {
 		topic += "/system/alive";
 		if (_connected) {_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("data","true"),self());		}
 	})
-	.match(Properties(),[this](Msg& msg) {
+	.match(MsgClass::Properties(),[this](Msg& msg) {
 		sender().tell(replyBuilder(msg)
 		              ("txd",_txd)
 		              ("rxd",_rxd)

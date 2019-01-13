@@ -121,7 +121,7 @@ uid_type Msg::cls() {
 }
 
 Msg::~Msg() {
-//	INFO("dtor %X : [%d]",this,capacity());
+//INFO("dtor %X : [%d]",this,capacity());
 }
 
 Msg& Msg::operator=(const Msg& src) {
@@ -129,28 +129,36 @@ Msg& Msg::operator=(const Msg& src) {
 	return *this;
 }
 
+std::string Msg::toString() {
+	std::string out;
+	out.reserve(100);
+	string_format(out, "'%s'=>'%s'=>'%s'", Uid::label(src()), Uid::label(cls()),
+			Uid::label(dst()));
+	return out;
+}
+
 //_________________________________________________ Actor
 
-MsgClass Actor::ReceiveTimeout() {
+MsgClass MsgClass::ReceiveTimeout() {
 	static MsgClass m("ReceiveTimeout");
 	return m;
 }
-MsgClass Actor::PoisonPill() {
+MsgClass MsgClass::PoisonPill() {
 	static MsgClass m("PoisonPill");
 	return m;
 }
 
-MsgClass Actor::AnyClass() {
+MsgClass MsgClass::AnyClass() {
 	static MsgClass m("AnyClass");
 	return m;
 }
 
-MsgClass Actor::Properties() {
+MsgClass MsgClass::Properties() {
 	static MsgClass m("properties");
 	return m;
 }
 
-MsgClass Actor::PropertiesReply() {
+MsgClass MsgClass::PropertiesReply() {
 	static MsgClass m("propertiesReply");
 	return m;
 }
@@ -178,7 +186,6 @@ Msg& Actor::msgBuilder(MsgClass cls) {
 Msg& Actor::replyBuilder(Msg& msg) {
 	return msgBuilder("0").reply(msg);
 }
-
 ActorContext& Actor::context() {
 	return *_context;
 }
@@ -362,10 +369,12 @@ ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props) {
 		return 0;
 	}
 	actorRef = new ActorRef(uid, &props.mailbox());
-	ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),actor);
+	ActorCell* actorCell = new ActorCell(*this, *actorRef, props.mailbox(),
+			actor);
 	actorRef->cell(actorCell);
 //	actorCell->actor(actor);
 	actor->context(actorCell);
+	actorCell->startReceiveTimeout();
 	actor->preStart();
 	actorCell->become(actor->createReceive(), true);
 	INFO(" new actor '%s'[%u] created", actorRef->path(), actorRef->id());
@@ -403,7 +412,7 @@ inline void Receiver::onMessage(Msg& msg) {
 	_handler(msg);
 }
 bool Receiver::match(Msg& msg) {
-	if (_msgClass.id() == msg.cls() || _msgClass == Actor::AnyClass())
+	if (_msgClass.id() == msg.cls() || _msgClass == MsgClass::AnyClass())
 		return (_matcher(msg));
 	return false;
 }
@@ -423,7 +432,6 @@ void Timer::callBack(TimerHandle_t handle) {
 Timer::Timer(Uid key, bool autoReload, uint32_t interval, const Msg& m,
 		TimerScheduler& scheduler) :
 		Uid(key), _timerScheduler(scheduler) {
-	INFO("[%X] timer created %s : %u ", this, label(), interval);
 	_msg = new Msg();
 	*_msg = m;
 	_msg->dst(scheduler.ref().id());
@@ -431,17 +439,19 @@ Timer::Timer(Uid key, bool autoReload, uint32_t interval, const Msg& m,
 	_autoReload = autoReload;
 	configASSERT(
 			(_timer = xTimerCreate(label(),pdMS_TO_TICKS(interval),autoReload,this,callBack))!=NULL);
+	INFO("[%X] timer created %s : %u , rtosId : %X  ", this, label(), interval,
+			_timer);
 	start();
 }
 
 void Timer::start() {
-//	INFO("[%X] timer start",this);
-	configASSERT(xTimerStart(_timer,0) == pdPASS);
+	INFO("[%X:%X] timer start %s ", this, _timer, label());
+	configASSERT(xTimerStart(_timer,20) == pdPASS);
 }
 
 void Timer::stop() {
 //	INFO("[%X] timer stop",this);
-	configASSERT(xTimerStop(_timer,0)==pdPASS);
+	configASSERT(xTimerStop(_timer,20)==pdPASS);
 }
 
 Timer::~Timer() {
@@ -455,7 +465,6 @@ Msg& Timer::msg() {
 }
 
 void Timer::msg(const Msg& msg) {
-//	if ( _msg != 0 ) delete _msg;
 	*_msg = msg;
 	_msg->dst(_timerScheduler.ref().id());
 	_msg->src(_timerScheduler.ref().id());
@@ -463,10 +472,17 @@ void Timer::msg(const Msg& msg) {
 
 void Timer::interval(uint32_t interv) {
 	INFO("[%X] timer interval(%u)", this, interv);
-	configASSERT(xTimerDelete(_timer,10)==pdPASS);
-	configASSERT(
-			(_timer = xTimerCreate(label(),pdMS_TO_TICKS(interv),_autoReload,this,callBack))!=NULL);
+	configASSERT(xTimerChangePeriod(_timer,interv,20)==pdPASS);
 	start();
+}
+
+uint32_t Timer::interval() {
+	return xTimerGetPeriod(_timer);
+}
+
+void Timer::reset() {
+//	INFO("[%X:%X] timer reset %s ",this,_timer,label());
+//	configASSERT(xTimerReset(_timer,20)==pdPASS);
 }
 
 Uid Timer::key() {
@@ -582,8 +598,15 @@ ActorCell::ActorCell(ActorSystem& system, ActorRef& ref, Mailbox& mailbox,
 	_actorCells.push_back(this);
 	_semaphore = xSemaphoreCreateBinary();
 	xSemaphoreGive(_semaphore);
-	_actor=actor;
+	_actor = actor;
+	_receiveTimer = 0;
 //	INFO(" ActorCell created %s [%d]",_self.path(),sizeof(ActorCell));
+}
+
+void ActorCell::startReceiveTimeout() {
+	_receiveTimer = new Timer(_self.id(), true, UINT32_MAX - 1,
+			Msg(MsgClass::ReceiveTimeout()), timers());
+
 }
 
 ActorCell::~ActorCell() {
@@ -662,16 +685,15 @@ void ActorCell::unbecome() {
 }
 
 void ActorCell::setReceiveTimeout(uint32_t msec) {
-	_inactivityPeriod = msec;
-	_lastReceive = Sys::millis();
+	_receiveTimer->interval(msec);
 }
 
 uint32_t ActorCell::receiveTimeout() {
-	return _inactivityPeriod;
+	return _receiveTimer->interval();
 }
 
 void ActorCell::resetReceiveTimeout() {
-	_lastReceive = Sys::millis();
+	_receiveTimer->reset();
 }
 
 bool ActorCell::hasReceiveTimedOut() {
@@ -789,12 +811,12 @@ void MessageDispatcher::handleMailbox(void* thr) {
 				startTime = Sys::millis();
 				cell->currentThread((Thread*) thr);
 				cell->invoke(rxd);
+				cell->resetReceiveTimeout();
 				uint32_t delta = Sys::millis() - startTime;
 				if (delta > 10) {
 					WARN("slow actor '%s' : %d msec msg : '%s'",
 							cell->self().label(), delta, Uid::label(rxd.cls()));
 				}
-				cell->resetReceiveTimeout();
 			} else {
 				if (dispatcher._unhandledCell) {
 					dispatcher._unhandledCell->invoke(rxd);

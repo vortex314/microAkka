@@ -22,7 +22,7 @@ Receive& System::createReceive() {
 	.match(Exit, [](Msg& msg) { exit(0); })
 	.match(ConfigRequest, [](Msg& msg) {  })
 	.match(ConfigReply, [](Msg& msg) {  })
-	.match(Properties(),[this](Msg& msg) {
+	.match(MsgClass::Properties(),[this](Msg& msg) {
 		INFO(" Properties requested ");
 		struct sysinfo info;
 		sysinfo(&info);

@@ -144,6 +144,13 @@ class Ref {
 //
 class MsgClass: public Uid {
 	public:
+	static MsgClass ReceiveTimeout();
+//		static  MsgClass TimerExpired();
+	static MsgClass PoisonPill();
+	static MsgClass AnyClass();
+	static MsgClass Properties();
+	static MsgClass PropertiesReply();
+
 
 		MsgClass() :
 			Uid("NONE") {
@@ -177,12 +184,10 @@ class Msg: public Xdr {
 			add((uid_type)key.id(),v);
 			return *this;
 		}
-		;
 		template<typename T> Msg& operator()(uid_type key, T v) {
 			add(key, v);
 			return *this;
 		}
-		;
 		Msg& src(uid_type uid);
 		Msg& dst(uid_type uid);
 		Msg& cls(uid_type uid);
@@ -192,6 +197,7 @@ class Msg: public Xdr {
 		uid_type cls();
 		uint32_t id();
 
+		std::string toString();
 		Msg& operator=(const Msg&);
 };
 
@@ -218,6 +224,8 @@ class Timer: public Uid {
 		Uid key();
 
 		void interval(uint32_t);
+		uint32_t interval();
+		void reset();
 		Msg& msg();
 		void msg(const Msg&);
 };
@@ -358,6 +366,7 @@ class ActorCell: public ActorContext {
 
 		uint32_t _inactivityPeriod;
 		uint64_t _lastReceive;
+		Timer* _receiveTimer;
 		bool _enable;
 		TimerScheduler* _timers;
 
@@ -376,6 +385,7 @@ class ActorCell: public ActorContext {
 		void currentThread(Thread*);
 		uint32_t receiveTimeout();
 		void setReceiveTimeout(uint32_t msec);
+		void startReceiveTimeout();
 		void become(Receive& receive, bool discardOld);
 		void unbecome();
 		void invoke(Msg&);
@@ -408,12 +418,6 @@ class Actor {
 		static list<Actor*> _actors;
 
 	public:
-		static MsgClass ReceiveTimeout();
-//		static  MsgClass TimerExpired();
-		static MsgClass PoisonPill();
-		static MsgClass AnyClass();
-		static MsgClass Properties();
-		static MsgClass PropertiesReply();
 		static void timerCallback(ActorRef&, Timer&);
 		Actor();
 		~Actor();
