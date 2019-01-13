@@ -19,8 +19,8 @@
  *
  */
 
-void vAssertCalled( unsigned long ulLine, const char * const pcFileName ) {
-	printf("Assert called on : %s:%lu",pcFileName,ulLine);
+void vAssertCalled(unsigned long ulLine, const char * const pcFileName) {
+	printf("Assert called on : %s:%lu", pcFileName, ulLine);
 }
 
 extern "C" void vApplicationMallocFailedHook() {
@@ -28,55 +28,49 @@ extern "C" void vApplicationMallocFailedHook() {
 	exit(-1);
 }
 
-
-
 Log logger(1024);
 
+extern void XdrTester(uint32_t max);
 
-MessageDispatcher defaultDispatcher;
+static void main_task(void *pvParameters) {
 
-
-static void  main_task(void *pvParameters) {
-	INFO(" MAIN task started");
-	MessageDispatcher* dispatcher = (MessageDispatcher*)pvParameters;
-
-	Sys::init();
-	config.load();
-	config.setNameSpace("mqtt");
-	std::string url;
-	config.get("url",url,"tcp://iot.eclipse.org:1883");
-	config.save();
-
-	INFO(" starting microAkka test ");
-	Mailbox defaultMailbox("default", 100); // nbr of messages in queue max
-	ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
-
-	ActorRef sender = actorSystem.actorOf<Sender>("sender");
-	ActorRef system = actorSystem.actorOf<System>("system");
-	ActorRef config = actorSystem.actorOf<ConfigActor>("config");
-	ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
-	ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
-	ActorRef bridge = actorSystem.actorOf<Bridge>("bridge",mqtt);
-	ActorRef publisher = actorSystem.actorOf<Publisher>("publisher",mqtt);
-
-
-	defaultDispatcher.attach(defaultMailbox);
-//	defaultDispatcher.unhandled(bridge.cell());
-
-	dispatcher->execute();
-	INFO(" MAIN task ended !! ");
-
+	vTaskDelay(100000);
+	//	Sys::delay(100000);
 
 }
 
 ActorMsgBus eb;
 
 int main() {
+	INFO(" MAIN task started");
 
+		Sys::init();
+		config.load();
+		config.setNameSpace("mqtt");
+		std::string url;
+		config.get("url", url, "tcp://iot.eclipse.org:1883");
+		config.save();
 
-	xTaskCreate(&main_task, "mqtt_task", 10000, &defaultDispatcher,  2, NULL);
-	sleep(1);
-	vTaskStartScheduler();
+		INFO(" starting microAkka test ");
+		static Mailbox defaultMailbox("default", 100); // nbr of messages in queue max
+		static MessageDispatcher defaultDispatcher(1,10240,tskIDLE_PRIORITY+1);
+		defaultDispatcher.attach(defaultMailbox);
 
+		static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher,
+				defaultMailbox);
 
+		actorSystem.actorOf<Sender>("sender");
+		actorSystem.actorOf<System>("system");
+		actorSystem.actorOf<ConfigActor>("config");
+		actorSystem.actorOf<NeuralPid>("neuralPid");
+		ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt",
+				"tcp://limero.ddns.net:1883");
+		actorSystem.actorOf<Bridge>("bridge", mqtt);
+		actorSystem.actorOf<Publisher>("publisher", mqtt);
+		defaultDispatcher.start();
+
+	//	defaultDispatcher.unhandled(bridge.cell());
+
+		INFO(" MAIN task ended !! ");
+		vTaskStartScheduler();
 }

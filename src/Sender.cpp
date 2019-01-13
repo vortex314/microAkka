@@ -9,6 +9,7 @@ void Sender::preStart() {
 	echo = context().system().actorOf<Echo>("echo");
 	_startTest = timers().startPeriodicTimer("START_TEST",  Msg("StartTest"), 10000);
 	context().setReceiveTimeout(1000);
+	Uid::add("counter");
 }
 
 Receive& Sender::createReceive() {
@@ -38,7 +39,7 @@ Receive& Sender::createReceive() {
 
 void Sender::handlePong(Msg& msg) {
 	if (_testing) {
-		assert(msg.get("counter", _counter)==0);
-		sender().tell(msgBuilder(Echo::PING)("counter",_counter),self() );
+		assert(msg.get(UID("counter"), _counter)==0);
+		sender().tell(msgBuilder(Echo::PING)(UID("counter"),_counter),self() );
 	}
 }

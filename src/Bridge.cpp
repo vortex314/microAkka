@@ -94,7 +94,7 @@ bool Bridge::messageToJson(std::string& topic,std::string& message, Msg& msg) {
 	std::string str;
 	while (msg.hasData()) {
 		tag.ui32 = msg.peek();
-		Uid tagUid=Uid(tag.uid);
+//		Uid tagUid=Uid(tag.uid);
 		switch (tag.type) {
 			case Xdr::BYTES: {
 					msg.getNext(tag.uid,str);

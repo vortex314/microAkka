@@ -12,6 +12,7 @@ Receive& Echo::createReceive() {
 	[this](Msg& msg) {
 		uint32_t counter;
 		assert(msg.get("counter", counter)==0);
+//		INFO("counter:%d",counter);
 		sender().tell(msgBuilder(PONG)("counter",counter+1),self());
 	})
 	.build();

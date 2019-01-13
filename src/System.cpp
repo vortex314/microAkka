@@ -30,8 +30,8 @@ Receive& System::createReceive() {
 		              ("build",__DATE__ " " __TIME__)
 		              ("cpu","x86_64")
 		              ("procs",get_nprocs())
-		              ("upTime",info.uptime*1000)
-		              ("ram",info.totalram)
+		              ("upTime",(uint64_t)info.uptime*1000)
+		              ("ram",(uint64_t)info.totalram)
 		              ("hostname",Sys::hostname()),self());
 	})
 	.build();
