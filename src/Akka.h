@@ -108,31 +108,41 @@ extern ActorMsgBus eb;
 
 const char* cloneString(const char* s);
 
-
-
 //_____________________________________________________________________ Message
 
 //______________________________JUST an IDEA _______________________________ Ref
 //
+#define UID(x) std::integral_constant<uint16_t, H(x)>::value
+#define LABEL(xxx) Label(UID(xxx),xxx)
+
+class Label {
+		uid_type _id;
+		const char* _label;
+	public:
+		constexpr Label(const char* label) : _id(H(label)),_label(label) {};
+};
 
 class Ref {
 		uid_type _id;
 		static std::unordered_map<uid_type, void*> _refs;
 	public:
 		Ref(uid_type uid, void *object) {
-			if (_refs.find(uid) ==_refs.end()) {
-				_refs.emplace(_id, (void*)object);
+			if (_refs.find(uid) == _refs.end()) {
+				_refs.emplace(_id, (void*) object);
 			}
 		}
-		Ref(uid_type uid,const char* label) {
-			if (_refs.find(uid) ==_refs.end()) {
-				char* object = new char[strlen(label)+1];
-				strcpy(object,label);
-				_refs.emplace(_id, (void*)object);
+		Ref(uid_type uid, const char* label) {
+			if (_refs.find(uid) == _refs.end()) {
+				char* object = new char[strlen(label) + 1];
+				strcpy(object, label);
+				_refs.emplace(_id, (void*) object);
 			}
 		}
 		~Ref(); // the object destruction should lead to Ref lookup destruction
-		inline uid_type id() { return _id; };
+		inline uid_type id() {
+			return _id;
+		}
+		;
 
 		bool operator==(Ref& dst) {
 			return _id == dst._id;
@@ -144,22 +154,21 @@ class Ref {
 //
 class MsgClass: public Uid {
 	public:
-	static MsgClass ReceiveTimeout();
+		static MsgClass ReceiveTimeout();
 //		static  MsgClass TimerExpired();
-	static MsgClass PoisonPill();
-	static MsgClass AnyClass();
-	static MsgClass Properties();
-	static MsgClass PropertiesReply();
+		static MsgClass PoisonPill();
+		static MsgClass AnyClass();
+		static MsgClass Properties();
+		static MsgClass PropertiesReply();
 
-
-		MsgClass() :
-			Uid("NONE") {
+		MsgClass()
+				: Uid("NONE") {
 		}
-		MsgClass(uid_type id) :
-			Uid(id) {
+		MsgClass(uid_type id)
+				: Uid(id) {
 		}
-		MsgClass(const char* name) :
-			Uid(name) {
+		MsgClass(const char* name)
+				: Uid(name) {
 		}
 		bool operator==(MsgClass b) {
 			return id() == b.id();
@@ -181,7 +190,7 @@ class Msg: public Xdr {
 		Msg& reply(Msg& req);
 		Msg& clear();
 		template<typename T> Msg& operator()(Uid key, T v) {
-			add((uid_type)key.id(),v);
+			add((uid_type) key.id(), v);
 			return *this;
 		}
 		template<typename T> Msg& operator()(uid_type key, T v) {
@@ -212,10 +221,12 @@ class Timer: public Uid {
 		TimerHandle_t _timer;
 		bool _autoReload;
 		TimerScheduler& _timerScheduler;
+		uint32_t _interval;
+		uint64_t _lastReset;
 
 	public:
 		Timer(Uid key, bool autoReload, uint32_t interval, const Msg& msg,
-		      TimerScheduler&);
+				TimerScheduler&);
 		~Timer();
 		static void callBack(TimerHandle_t);
 		void start();
@@ -264,7 +275,6 @@ class ActorRef: public Uid {
 		static uint32_t count() {
 			return actorRefs()->size();
 		}
-		;
 		bool isLocal();
 		void isLocal(bool b);
 		void cell(ActorCell* cell);
@@ -374,8 +384,7 @@ class ActorCell: public ActorContext {
 
 	private:
 	public:
-		ActorCell(ActorSystem& system, ActorRef& ref, Mailbox& mailbox,
-		          Actor*);
+		ActorCell(ActorSystem& system, ActorRef& ref, Mailbox& mailbox, Actor*);
 		~ActorCell();
 		Mailbox& mailbox();
 		ActorSystem& system();
@@ -471,15 +480,16 @@ class Thread: public Ref {
 		MessageDispatcher* _dispatcher;
 		std::string _name;
 	public:
-		Thread(MessageDispatcher* dispatcher, const char* name, uint32_t stackSize =
-		           1024, uint32_t priority = tskIDLE_PRIORITY + 1);
+		Thread(MessageDispatcher* dispatcher, const char* name,
+				uint32_t stackSize = 1024,
+				uint32_t priority = tskIDLE_PRIORITY + 1);
 		void currentMessage(Msg* msg);
 		Msg& currentMessage();
 		Msg& txd();
 		Msg& rxd();
 		void start(ThreadCode);
 		MessageDispatcher& dispatcher();
-		const char* name() ;
+		const char* name();
 
 };
 
@@ -497,7 +507,7 @@ class MessageDispatcher {
 
 	public:
 		MessageDispatcher(uint32_t threadCount = 1, uint32_t stackSize = 1024,
-		                  uint32_t priority = tskIDLE_PRIORITY + 1);
+				uint32_t priority = tskIDLE_PRIORITY + 1);
 		void attach(Mailbox&);
 		void detach(Mailbox&);
 		void attach(ActorCell&);
@@ -523,7 +533,7 @@ class Mailbox {
 		Mailbox(const char* name, uint32_t queueSize);
 		int dequeue(Msg&, uint32_t);
 		int enqueue(Msg&);
-		const char* name() ;
+		const char* name();
 };
 
 //__________________________________________________________ Receiver
@@ -535,7 +545,8 @@ class Receiver {
 		MessageHandler _handler;
 
 	public:
-		Receiver(MsgClass msgClass, MessageMatcher matcher, MessageHandler handler);
+		Receiver(MsgClass msgClass, MessageMatcher matcher,
+				MessageHandler handler);
 		Receiver(MsgClass msgClass, MessageHandler handler);
 		bool match(Msg& msg);
 		void onMessage(Msg& msg);
@@ -552,11 +563,11 @@ class Props {
 		Mailbox* _mailbox;
 
 	public:
-		Props(MessageDispatcher& d, Mailbox& mb) :
-			_dispatcher(&d), _mailbox(&mb) {
+		Props(MessageDispatcher& d, Mailbox& mb)
+				: _dispatcher(&d), _mailbox(&mb) {
 		}
-		Props() :
-			_dispatcher(0), _mailbox(0) {
+		Props()
+				: _dispatcher(0), _mailbox(0) {
 		}
 		static Props& create() {
 			return *new Props();
@@ -588,7 +599,7 @@ class ActorSystem: public Uid {
 
 	public:
 		ActorSystem(const char* name, MessageDispatcher& defaultDispatcher,
-		            Mailbox& defaultMailbox);
+				Mailbox& defaultMailbox);
 		Uid uniqueId(const char* name);
 		ActorRef& actorFor(const char* address);
 
@@ -601,7 +612,8 @@ class ActorSystem: public Uid {
 			return *create(actor, name, _defaultProps);
 		}
 
-		template<class T> ActorRef& actorOf(Props& props, const char* name, ...) {
+		template<class T> ActorRef& actorOf(Props& props, const char* name,
+				...) {
 			va_list args;
 			va_start(args, name);
 			T* actor = new T(args);
@@ -623,8 +635,8 @@ template<typename Subscriber, typename Classifier> class SubscriberClassifier {
 	public:
 		Subscriber _subscriber;
 		Classifier _classifier;
-		SubscriberClassifier(Subscriber subscriber, Classifier classifier) :
-			_subscriber(subscriber), _classifier(classifier) {
+		SubscriberClassifier(Subscriber subscriber, Classifier classifier)
+				: _subscriber(subscriber), _classifier(classifier) {
 		}
 };
 
@@ -638,15 +650,12 @@ class EventBus<Event, Subscriber, Classifier> {
 		void publish(Event& event) {
 			Classifier cls = classify(event);
 			for (SubscriberClassifier<Subscriber, Classifier>* sc : _list) {
-				if (cls == sc->_classifier)
-					push(event, sc->_subscriber);
+				if (cls == sc->_classifier) push(event, sc->_subscriber);
 			}
 		}
 
 		bool subscribe(Subscriber subscriber, Classifier classifier) {
-			_list.push_back(
-			    new SubscriberClassifier<Subscriber, Classifier>(subscriber,
-			            classifier));
+			_list.push_back(new SubscriberClassifier<Subscriber, Classifier>(subscriber, classifier));
 			return true;
 		}
 
@@ -680,7 +689,7 @@ class MessageClassifier {
 
 		bool operator==(MessageClassifier a) {
 			return ((a._src == 0 || _src == 0 || a._src == _src)
-			        && (a._cls == 0 || _cls == 0 || a._cls == _cls));
+					&& (a._cls == 0 || _cls == 0 || a._cls == _cls));
 		}
 };
 

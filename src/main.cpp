@@ -29,16 +29,6 @@ extern "C" void vApplicationMallocFailedHook() {
 }
 
 Log logger(1024);
-
-extern void XdrTester(uint32_t max);
-
-static void main_task(void *pvParameters) {
-
-	vTaskDelay(100000);
-	//	Sys::delay(100000);
-
-}
-
 ActorMsgBus eb;
 
 int main() {
