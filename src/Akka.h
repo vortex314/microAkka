@@ -95,7 +95,7 @@ class ActorRef;
 class ActorSelection;
 class ActorSystem;
 class ActorCell;
-class Message;
+// class Message;
 class Receive;
 class Props;
 class Timer;

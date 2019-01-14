@@ -442,17 +442,17 @@ Timer::Timer(Uid key, bool autoReload, uint32_t interval, const Msg& m,
 	_msg->src(scheduler.ref().id());
 	_autoReload = autoReload;
 	configASSERT((_timer = xTimerCreate(label(),pdMS_TO_TICKS(interval),autoReload,this,callBack))!=NULL);
-	INFO("[%X] timer created %s : %u , rtosId : %X  ", this, label(), interval, _timer);
+	INFO("Timer '%s' created : %u ", label(), interval);
 	start();
 }
 
 void Timer::start() {
-	INFO("[%X:%X] timer start %s for %u msec", this, _timer, label(),_interval);
+	INFO("Timer '%s' start for %u msec", label(),_interval);
 	configASSERT(xTimerStart(_timer,20) == pdPASS);
 }
 
 void Timer::stop() {
-//	INFO("[%X] timer stop",this);
+	INFO("Timer %s stop.",label());
 	configASSERT(xTimerStop(_timer,20)==pdPASS);
 }
 
@@ -473,7 +473,7 @@ void Timer::msg(const Msg& msg) {
 }
 
 void Timer::interval(uint32_t interv) {
-	INFO("[%X] timer interval(%u)", this, interv);
+	INFO("Timer '%s' interval(%u)", label(), interv);
 	configASSERT(xTimerChangePeriod(_timer,interv,20)==pdPASS);
 	start();
 }
@@ -495,7 +495,7 @@ Uid Timer::key() {
 
 void TimerScheduler::timerCallback(Timer& timer) {
 // 	INFO(" timer call back : %s %s ",timer.label(),_ref.label());
- 	_ref.mailbox().enqueue(timer.msg());
+ 	_ref.mailbox().enqueue(timer.msg()); // go straight to mailbox , no semaphore on timer thread !
 //	_ref.tell(timer.msg());
 }
 
@@ -645,11 +645,11 @@ void ActorCell::actor(Actor* actor) {
 
 void ActorCell::invoke(Msg& msg) {
 	while (xSemaphoreTake(_semaphore, (TickType_t)10) != pdTRUE) {
-		printf(" xSemaphoreTake()  timed out ");
+		printf("xSemaphoreTake() timed out %s \n",_self.label());
 	}
 	_receive->receive(*this, msg);
 	if (xSemaphoreGive(_semaphore) != pdTRUE) {
-		printf("xSemaphoreGive() failed");
+		printf("xSemaphoreGive() failed %s \n",_self.label());
 	}
 }
 
