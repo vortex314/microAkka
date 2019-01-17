@@ -43,6 +43,7 @@ Ref::~Ref() {
 }
 
 void* Ref::object(uid_type id){
+	if ( _refs.find(id) == _refs.end()) return 0;
 	return _refs.find(id)->second;
 }
 
@@ -175,7 +176,7 @@ MsgClass MsgClass::PropertiesReply() {
 	static MsgClass m("propertiesReply");
 	return m;
 }
-list<Actor*> Actor::_actors;
+std::list<Actor*> Actor::_actors;
 
 Actor::Actor()
 		: _context() {
@@ -349,11 +350,13 @@ bool Mailbox::setAsIdle(){
 }
 
 bool Mailbox::updateStatus(uint32_t oldStatus, uint32_t newStatus) {
-	if (_currentStatus == oldStatus) {
+	return std::atomic_compare_exchange_strong<uint32_t>(&_currentStatus,&oldStatus,newStatus);
+/*	if (_currentStatus == oldStatus) {
 		_currentStatus = newStatus;
 		return true;
 	}
-	return false;
+	return false;*/
+
 }
 
 void Mailbox::processMailbox(Thread* thread) {
@@ -407,7 +410,7 @@ ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props) {
 	actorCell.become(actor->createReceive(), true);
 	INFO(" new actor '%s'[%u] created", localActorRef->path(), localActorRef->id());
 	_actorRefs.push_back(localActorRef);
-	props.dispatcher().attach(actorCell);
+//	props.dispatcher().attach(actorCell);
 	return localActorRef;
 }
 
@@ -415,7 +418,7 @@ MessageDispatcher& ActorSystem::defaultDispatcher() {
 	return _defaultDispatcher;
 }
 
-list<ActorRef*>& ActorSystem::actorRefs() {
+std::list<ActorRef*>& ActorSystem::actorRefs() {
 	return _actorRefs;
 }
 
@@ -442,7 +445,7 @@ bool Receiver::match(Msg& msg) {
 	return false;
 }
 
-string& Receiver::toString(string& s) {
+std::string& Receiver::toString(std::string& s) {
 	string_format(s, " class : %s  ", _msgClass.label());
 	return s;
 }
@@ -598,7 +601,7 @@ Receive& Receive::receive(ActorCell& cell, Msg& msg) {
 //______________________________________________________________ ActorCell
 //
 
-list<ActorCell*> ActorCell::_actorCells;
+std::list<ActorCell*> ActorCell::_actorCells;
 
 ActorCell::ActorCell(ActorSystem& system, ActorRef& ref,
 		MessageDispatcher& dispatcher, Props& props)
@@ -716,7 +719,7 @@ bool ActorCell::hasTimers() {
 	return _timers != 0;
 }
 
-list<ActorCell*>& ActorCell::actorCells() {
+std::list<ActorCell*>& ActorCell::actorCells() {
 	return _actorCells;
 }
 

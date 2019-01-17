@@ -21,8 +21,8 @@ class Mqtt : public Actor {
 		MQTTAsync_connectOptions _conn_opts;
 		MQTTAsync_responseOptions _opts;
 		bool _connected;
-		string _clientId;
-		string _address;
+		std::string _clientId;
+		std::string _address;
 		MQTTAsync_token _deliveredtoken;
 
 	public:

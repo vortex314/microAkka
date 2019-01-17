@@ -66,7 +66,7 @@ Receive& Bridge::createReceive() {
 		}
 	})
 	.match(MsgClass("pubTimer"),	[this](Msg& msg) {
-		string topic = "src/";
+		std::string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
 		if (_connected) {_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("data","true"),self());		}
@@ -155,7 +155,7 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 	uint32_t prevOffset=0;
 	for(uint32_t i=0; i<3; i++) {
 		uint32_t offset = topic.find('/',prevOffset);
-		if ( offset == string::npos ) break;
+		if ( offset == std::string::npos ) break;
 		offsets[i]= offset;
 		prevOffset=offset+1;
 	}

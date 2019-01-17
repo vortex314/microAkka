@@ -2,7 +2,7 @@
 #include <Sender.h>
 
 Sender::Sender(va_list args)
-		: startTime(0), _echo(context().system().actorOf<Echo>("echo")),_counter(0) {
+		: startTime(0), _echo(0),_counter(0) {
 	_testing = false;
 }
 
@@ -14,6 +14,7 @@ void Sender::preStart() {
 			timers().startPeriodicTimer("START_TEST", Msg("StartTest"), 5000);
 	context().setReceiveTimeout(1000);
 	Uid::add("counter");
+	_echo = &context().system().actorOf<Echo>("echo");
 }
 
 Receive& Sender::createReceive() {
@@ -27,7 +28,7 @@ Receive& Sender::createReceive() {
 		startTime = Sys::millis();
 		_counter = 0;
 		_testing = true;
-		_echo.tell(msgBuilder(Echo::PING)("counter",(uint32_t)0),self());
+		_echo->tell(msgBuilder(Echo::PING)("counter",(uint32_t)0),self());
 	})
 
 	.match(MsgClass("EndTest"), [this](Msg& msg) {

@@ -17,7 +17,8 @@
 #include <string>
 #include <string>
 #include <functional>
-using namespace std;
+#include <atomic>
+//using namespace std;
 // Common
 #include <Log.h>
 #include <Uid.h>
@@ -112,8 +113,9 @@ const char* cloneString(const char* s);
 
 //______________________________JUST an IDEA _______________________________ Ref
 //
+#define UID(x) std::integral_constant<uint16_t, H(x)>::value
 
-#define LBL(__str__) Ref(H(__str__),__str__)
+#define LBL(__str__) Ref(UID(__str__),__str__)
 
 class Label {
 		uid_type _uid;
@@ -308,7 +310,7 @@ class EmptyLocalActorRef {
 //
 
 class TimerScheduler {
-		list<Timer*> _timers;
+		std::list<Timer*> _timers;
 		ActorRef& _ref;
 
 	public:
@@ -327,7 +329,7 @@ class TimerScheduler {
 //_____________________________________________________________________ Receive
 //
 class Receive {
-		list<Receiver*> _receivers;
+		std::list<Receiver*> _receivers;
 
 	public:
 		static Receive NullReceive;
@@ -381,7 +383,7 @@ class ActorContext: public ActorRefFactory {
 		void receive(Receive&);
 		TimerScheduler& timers();
 		bool hasTimers();
-		static list<ActorContext*>& actorContexts();
+		static std::list<ActorContext*>& actorContexts();
 		void invoke(MessageDispatcher&, Msg&);
 		//   ActorRef actorOf(Props props);
 		//   ActorRef actorOf(Props props, const char* name);
@@ -408,7 +410,7 @@ class ActorCell: public ActorContext {
 		bool _enable;
 		TimerScheduler* _timers;
 
-		static list<ActorCell*> _actorCells;
+		static std::list<ActorCell*> _actorCells;
 
 	private:
 	public:
@@ -446,7 +448,7 @@ class ActorCell: public ActorContext {
 
 		bool hasReceiveTimedOut();
 		uint64_t expiresAt();
-		static list<ActorCell*>& actorCells();
+		static std::list<ActorCell*>& actorCells();
 
 		void sendMessage(Msg& msg);
 };
@@ -455,7 +457,7 @@ class ActorCell: public ActorContext {
 //
 class Actor {
 		ActorCell* _context;
-		static list<Actor*> _actors;
+		static std::list<Actor*> _actors;
 
 	public:
 
@@ -521,12 +523,12 @@ class Thread: public Ref {
 
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
-		list<ActorCell*> _actorCells;
+		std::list<ActorCell*> _actorCells;
 		ActorCell* _unhandledCell;
 
 		uint32_t _threadCount = 1;
 		uint32_t _throughput = 10;
-		list<Thread*> _threads;
+		std::list<Thread*> _threads;
 		QueueHandle_t _workQueue;
 	public:
 		MessageDispatcher(uint32_t threadCount = 1, uint32_t stackSize = 1024,
@@ -555,7 +557,7 @@ class MessageDispatcher {
 class Mailbox {
 		QueueHandle_t _queue;
 		ActorCell& _cell;
-		uint32_t _currentStatus;
+		std::atomic<uint32_t> _currentStatus;
 		enum {
 			Open = 0, Closed = 1, Scheduled = 2
 		};
@@ -595,7 +597,7 @@ class Receiver {
 		static bool alwaysTrue(Msg&) {
 			return true;
 		}
-		string& toString(string& s);
+		std::string& toString(std::string& s);
 };
 
 //_____________________________________________________________________ Props
@@ -627,7 +629,7 @@ class Props {
 //___________________________________________________________ ActorSystem
 class ActorSystem: public Ref {
 		Props _defaultProps;
-		list<ActorRef*> _actorRefs;
+		std::list<ActorRef*> _actorRefs;
 		MessageDispatcher _defaultDispatcher;
 
 	public:
@@ -659,7 +661,7 @@ class ActorSystem: public Ref {
 		ActorRef* create(Actor* actor, const char* name, Props& props);
 		MessageDispatcher& defaultDispatcher();
 		Mailbox& defaultMailbox();
-		list<ActorRef*>& actorRefs();
+		std::list<ActorRef*>& actorRefs();
 };
 //____________________________________________________________ Eventbus
 
@@ -676,7 +678,7 @@ template<typename Subscriber, typename Classifier> class SubscriberClassifier {
 template<typename ...> class EventBus;
 template<typename Subscriber, typename Classifier, typename Event>
 class EventBus<Event, Subscriber, Classifier> {
-		list<SubscriberClassifier<Subscriber, Classifier>*> _list;
+		std::list<SubscriberClassifier<Subscriber, Classifier>*> _list;
 
 	public:
 		void publish(Event& event) {

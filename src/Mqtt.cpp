@@ -66,7 +66,7 @@ void Mqtt::mqttDisconnect() {
 Receive& Mqtt::createReceive() {
 	return receiveBuilder()
 	.match(MsgClass("pubTimer"),[this](Msg& msg) {
-		string topic = "src/";
+		std::string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
 		if (_connected) {
