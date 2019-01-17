@@ -42,21 +42,17 @@ int main() {
 		config.save();
 
 		INFO(" starting microAkka test ");
-		static Mailbox defaultMailbox("default", 100); // nbr of messages in queue max
 		static MessageDispatcher defaultDispatcher(1,10240,tskIDLE_PRIORITY+1);
-		defaultDispatcher.attach(defaultMailbox);
-
-		static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher,
-				defaultMailbox);
+		static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher);
 
 		actorSystem.actorOf<Sender>("sender");
 		actorSystem.actorOf<System>("system");
 		actorSystem.actorOf<ConfigActor>("config");
 		actorSystem.actorOf<NeuralPid>("neuralPid");
-		ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt",
+		ActorRef& mqtt = actorSystem.actorOf<Mqtt>("mqtt",
 				"tcp://limero.ddns.net:1883");
-		actorSystem.actorOf<Bridge>("bridge", mqtt);
-		actorSystem.actorOf<Publisher>("publisher", mqtt);
+		actorSystem.actorOf<Bridge>("bridge",& mqtt);
+		actorSystem.actorOf<Publisher>("publisher",& mqtt);
 		defaultDispatcher.start();
 
 	//	defaultDispatcher.unhandled(bridge.cell());

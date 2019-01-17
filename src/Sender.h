@@ -5,9 +5,8 @@
 
 class Sender : public Actor {
 		uint64_t startTime;
-		ActorRef echo;
-		ActorRef anchorRef;
-		uint32_t _counter;
+		ActorRef& _echo;
+		uint32_t _counter=0;
 		Uid _startTest;
 		Uid _endTest;
 		bool _testing;

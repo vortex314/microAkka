@@ -6,7 +6,7 @@
 class Publisher: public Actor {
 	public:
 		Uid _propTimer;
-		ActorRef _mqtt;
+		ActorRef& _mqtt;
 		std::list<ActorRef*>::iterator _it;
 		bool _mqttConnected=false;
 	public:

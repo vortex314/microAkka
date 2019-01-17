@@ -5,9 +5,10 @@
 // volatile MQTTAsync_token deliveredtoken;
 
 Bridge::Bridge(va_list args) : _mqtt ( ActorRef::NoSender()) {
-	_mqtt = va_arg(args,ActorRef) ;
+	_mqtt = *(ActorRef*)va_arg(args,ActorRef*) ;
 	_rxd=0;
 	_txd=0;
+	_connected=false;
 };
 Bridge::~Bridge() {}
 
@@ -56,7 +57,7 @@ Receive& Bridge::createReceive() {
 			} else if ( msg.src()==0 && (src=ActorRef::lookup(msg.src()))==0)  {
 				WARN(" src invalid %u ",msg.src());
 			} else {
-				dst->mailbox().enqueue(msg);
+				dst->tell(msg);
 				_rxd++;
 				INFO(" processed message %s", msg.toString().c_str());
 			}
@@ -181,7 +182,8 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 	}
 	ActorRef* src = ActorRef::lookup(uidSrc);
 	if (src == 0) {
-		src = new ActorRef(uidSrc, &self().mailbox());
+//		src = new ActorRef(uidSrc, &self().mailbox());
+		assert(false);
 	}
 
 	for (JsonObject::iterator it = jsonObject.begin(); it != jsonObject.end() ; ++it) {
