@@ -29,48 +29,34 @@ extern "C" void vApplicationMallocFailedHook() {
 }
 
 Log logger(1024);
-
-extern void XdrTester(uint32_t max);
-
-static void main_task(void *pvParameters) {
-
-	vTaskDelay(100000);
-	//	Sys::delay(100000);
-
-}
-
 ActorMsgBus eb;
 
 int main() {
 	INFO(" MAIN task started");
 
-		Sys::init();
-		config.load();
-		config.setNameSpace("mqtt");
-		std::string url;
-		config.get("url", url, "tcp://iot.eclipse.org:1883");
-		config.save();
+	Sys::init();
+	config.load();
+	config.setNameSpace("mqtt");
+	std::string url;
+	config.get("url", url, "tcp://iot.eclipse.org:1883");
+	config.save();
 
-		INFO(" starting microAkka test ");
-		static Mailbox defaultMailbox("default", 100); // nbr of messages in queue max
-		static MessageDispatcher defaultDispatcher(1,10240,tskIDLE_PRIORITY+1);
-		defaultDispatcher.attach(defaultMailbox);
+	INFO(" starting microAkka test ");
+	static MessageDispatcher defaultDispatcher(5, 10240, tskIDLE_PRIORITY + 1);
+	static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher);
 
-		static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher,
-				defaultMailbox);
-
-		actorSystem.actorOf<Sender>("sender");
-		actorSystem.actorOf<System>("system");
-		actorSystem.actorOf<ConfigActor>("config");
-		actorSystem.actorOf<NeuralPid>("neuralPid");
-		ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt",
-				"tcp://limero.ddns.net:1883");
-		actorSystem.actorOf<Bridge>("bridge", mqtt);
-		actorSystem.actorOf<Publisher>("publisher", mqtt);
-		defaultDispatcher.start();
+	actorSystem.actorOf<Sender>("sender");
+	actorSystem.actorOf<System>("system");
+	actorSystem.actorOf<ConfigActor>("config");
+/*	actorSystem.actorOf<NeuralPid>("neuralPid");
+	ActorRef& mqtt =
+			actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
+	actorSystem.actorOf<Bridge>("bridge", mqtt);
+	actorSystem.actorOf<Publisher>("publisher", mqtt);
+	defaultDispatcher.start();*/
 
 	//	defaultDispatcher.unhandled(bridge.cell());
 
-		INFO(" MAIN task ended !! ");
-		vTaskStartScheduler();
+	INFO(" MAIN task ended !! ");
+	vTaskStartScheduler();
 }

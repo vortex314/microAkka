@@ -3,8 +3,7 @@
 
 #include <sstream>
 
-Publisher::Publisher(va_list args) :_mqtt ( ActorRef::NoSender()) {
-	_mqtt = va_arg(args,ActorRef) ;
+Publisher::Publisher(ActorRef& mqtt)  :_mqtt ( mqtt) {
 }
 
 Publisher::~Publisher() {
@@ -31,14 +30,14 @@ ActorRef* Publisher::nextRef() {
 
 Receive& Publisher::createReceive() {
 	return receiveBuilder()
-	.match(PropertiesReply(),[this](Msg& msg) {
+	.match(MsgClass::PropertiesReply(),[this](Msg& msg) {
 		msg.rewind();
 		while(msg.hasData() ) {
 			std::stringstream topic;
 
 			Tag tag(msg.peek());
 			Msg m(Mqtt::Publish);
-			Uid tag_uid(tag.uid);
+			Label tag_uid(tag.uid);
 			if ( tag.uid == UD_DST  || tag.uid==UD_SRC || tag.uid==UD_CLS || tag.uid==UD_ID  ) {
 				msg.skip();
 			} else {
@@ -78,12 +77,12 @@ Receive& Publisher::createReceive() {
 	.match(MsgClass("pollTimer"),[this](Msg& msg) {
 		if ( _mqttConnected == true ) {
 			ActorRef* ref=nextRef();
-			ref->tell(msgBuilder(Properties()).src(self().id()).dst(ref->id()));
+			ref->tell(msgBuilder(MsgClass::Properties()).src(self().id()).dst(ref->id()));
 		}
 	})
 	.match(MsgClass("pollMe"),[this](Msg& msg) {
 		if ( _mqttConnected == true ) {
-			sender().tell(msgBuilder(Properties()).src(self().id()).dst(sender().id()));
+			sender().tell(msgBuilder(MsgClass::Properties()).src(self().id()).dst(sender().id()));
 		}
 	})
 

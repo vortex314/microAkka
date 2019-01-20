@@ -1,6 +1,6 @@
 #include "NeuralPid.h"
 
-NeuralPid::NeuralPid(va_list args)  {
+NeuralPid::NeuralPid()  {
 	_topology.push_back(10);
 	_topology.push_back(10);
 	_topology.push_back(1);
@@ -28,8 +28,8 @@ Receive& NeuralPid::createReceive() {
 	return receiveBuilder()
 	       .match(("sample"),
 	[this](Msg& msg) {
-		INFO(" message received %s:%s:%s in %s", Uid::label(msg.src()),
-		     Uid::label(msg.dst()), Uid::label(msg.cls()),
+		INFO(" message received %s:%s:%s in %s", Label::label(msg.src()),
+		     Label::label(msg.dst()), Label::label(msg.cls()),
 		     context().self().path());
 		//
 	})

@@ -3,10 +3,8 @@
 #include <System.h>
 
 const MsgClass System::Exit("system/Exit");
-const MsgClass System::ConfigRequest("system/ConfigRequest");
-const MsgClass System::ConfigReply("system/ConfigReply");
 
-System::System(va_list args) {}
+System::System() {}
 System::~System() {}
 
 void System::preStart() {
@@ -20,9 +18,7 @@ void System::preStart() {
 Receive& System::createReceive() {
 	return receiveBuilder()
 	.match(Exit, [](Msg& msg) { exit(0); })
-	.match(ConfigRequest, [](Msg& msg) {  })
-	.match(ConfigReply, [](Msg& msg) {  })
-	.match(Properties(),[this](Msg& msg) {
+	.match(MsgClass::Properties(),[this](Msg& msg) {
 		INFO(" Properties requested ");
 		struct sysinfo info;
 		sysinfo(&info);

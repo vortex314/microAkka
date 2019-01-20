@@ -10,7 +10,7 @@ class NeuralPid : public Actor {
 		double _target;
 
 	public:
-		NeuralPid(va_list args);
+		NeuralPid();
 		~NeuralPid();
 		void preStart();
 		Receive& createReceive();

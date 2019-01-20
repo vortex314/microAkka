@@ -17,13 +17,13 @@ class Bridge : public Actor {
 
 		bool _connected;
 		StaticJsonBuffer<2000> _jsonBuffer;
-		string _address;
-		ActorRef _mqtt;
+		std::string _address;
+		ActorRef& _mqtt;
 		uint32_t _rxd;
 		uint32_t _txd;
 
 	public:
-		Bridge(va_list args);
+		Bridge(ActorRef& mqtt);
 		~Bridge();
 		void preStart();
 		Receive& createReceive();

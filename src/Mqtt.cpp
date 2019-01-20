@@ -5,8 +5,8 @@
 #include <Config.h>
 // volatile MQTTAsync_token deliveredtoken;
 
-Mqtt::Mqtt(va_list args) {
-	_address = va_arg(args, const char*);
+Mqtt::Mqtt(const char* address) {
+	_address = address;
 	config.setNameSpace("mqtt");
 };
 Mqtt::~Mqtt() {}
@@ -66,7 +66,7 @@ void Mqtt::mqttDisconnect() {
 Receive& Mqtt::createReceive() {
 	return receiveBuilder()
 	.match(MsgClass("pubTimer"),[this](Msg& msg) {
-		string topic = "src/";
+		std::string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
 		if (_connected) {

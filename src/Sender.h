@@ -5,15 +5,14 @@
 
 class Sender : public Actor {
 		uint64_t startTime;
-		ActorRef echo;
-		ActorRef anchorRef;
-		uint32_t _counter;
-		Uid _startTest;
-		Uid _endTest;
+		ActorRef* _echo;
+		uint32_t _counter=0;
+		Label _startTest;
+		Label _endTest;
 		bool _testing;
 
 	public:
-		Sender(va_list args);
+		Sender();
 		~Sender();
 
 		void preStart();
