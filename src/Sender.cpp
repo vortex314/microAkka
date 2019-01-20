@@ -1,8 +1,8 @@
 #include <Echo.h>
 #include <Sender.h>
 
-Sender::Sender(va_list args)
-		: startTime(0), _echo(0),_counter(0) {
+Sender::Sender()
+		: startTime(0), _echo(0),_counter(0),_startTest(""),_endTest("") {
 	_testing = false;
 }
 
@@ -13,7 +13,7 @@ void Sender::preStart() {
 	_startTest =
 			timers().startPeriodicTimer("START_TEST", Msg("StartTest"), 5000);
 	context().setReceiveTimeout(1000);
-	Uid::add("counter");
+	Label("counter");
 	_echo = &context().system().actorOf<Echo>("echo");
 }
 

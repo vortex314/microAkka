@@ -32,7 +32,7 @@ class Mqtt : public Actor {
 		static MsgClass Subscribe;
 		static MsgClass Publish;
 
-		Mqtt(va_list args);
+		Mqtt(const char* address);
 		~Mqtt();
 		void preStart();
 		Receive& createReceive();

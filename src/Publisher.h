@@ -5,7 +5,7 @@
 
 class Publisher: public Actor {
 	public:
-		Uid _propTimer;
+		Label _propTimer;
 		ActorRef& _mqtt;
 		std::list<ActorRef*>::iterator _it;
 		bool _mqttConnected=false;
@@ -14,7 +14,7 @@ class Publisher: public Actor {
 		static const MsgClass ConfigRequest;
 		static const MsgClass PollMe;
 
-		Publisher(va_list args);
+		Publisher(ActorRef& mqtt);
 		~Publisher();
 
 		Receive& createReceive();

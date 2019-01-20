@@ -8,10 +8,8 @@ class System : public Actor {
 		Uid _propTimer;
 	public:
 		static const MsgClass Exit;
-		static const MsgClass ConfigRequest;
-		static const MsgClass ConfigReply;
 
-		System(va_list args);
+		System();
 		~System();
 
 		Receive& createReceive();

@@ -3,7 +3,7 @@
 const MsgClass Echo::PING("ping");
 const MsgClass Echo::PONG("pingReply");
 
-Echo::Echo(va_list args) {
+Echo::Echo() {
 }
 Echo::~Echo() {
 }

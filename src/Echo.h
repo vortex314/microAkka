@@ -9,7 +9,7 @@ class Echo : public Actor {
 		static const MsgClass PING;
 		static const MsgClass PONG;
 
-		Echo(va_list args);
+		Echo();
 		~Echo();
 
 		void preStart();

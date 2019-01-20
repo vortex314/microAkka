@@ -5,8 +5,8 @@
 #include <Config.h>
 // volatile MQTTAsync_token deliveredtoken;
 
-Mqtt::Mqtt(va_list args) {
-	_address = va_arg(args, const char*);
+Mqtt::Mqtt(const char* address) {
+	_address = address;
 	config.setNameSpace("mqtt");
 };
 Mqtt::~Mqtt() {}

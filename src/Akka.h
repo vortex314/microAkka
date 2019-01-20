@@ -21,7 +21,7 @@
 //using namespace std;
 // Common
 #include <Log.h>
-#include <Uid.h>
+//#include <Label.h>
 #include <Xdr.h>
 // FreeRTOS
 #include <FreeRTOS.h>
@@ -55,10 +55,10 @@ const uid_type UD_TIMER = H(AKKA_TIMER);
  // Description : Akka alike framework in C++ for embedded systems : low RAM
  //
  *
- * Uid  => ActorRef => ActorCell => ActorContext => AbstractActor
+ * Label  => ActorRef => ActorCell => ActorContext => AbstractActor
  *                                  => Mailbox
- * Uid  => Abs
- * Uid  => MsgClass
+ * Label  => Abs
+ * Label  => MsgClass
  * mailbox N => 1 thread(Dispatcher) 1 => N Receive 1 => 1 Actor
  * 1 ActorRef => 1 mailbox
  *
@@ -118,45 +118,69 @@ const char* cloneString(const char* s);
 #define LBL(__str__) Ref(UID(__str__),__str__)
 
 class Label {
-		uid_type _uid;
-		static std::unordered_map<uid_type, const char*> _labels;
+		typedef struct {
+				uid_type _uid;
+				const char* _label;
+		} LabelStruct;
+		LabelStruct* _pl=0; // single element to use in varargs, on stack
+		static std::unordered_map<uid_type, LabelStruct*>* _labels;
 
 	public:
-		Label(uid_type uid, const char* label) {
-			_uid = uid;
-			if (_labels.find(uid) == _labels.end()) {
-				char* l = new char[strlen(label) + 1];
-				strcpy(l, label);
-				_labels.emplace(_uid, l);
+		Label(uid_type uid, const char* label)  {
+			if (labels()->find(uid) == labels()->end()) {
+				_pl = new LabelStruct;
+				_pl->_label  = new char[strlen(label) + 1];
+				strcpy((char*)_pl->_label, label);
+				_pl->_uid = uid;
+				labels()->emplace(uid,_pl);
+			} else {
+				_pl = labels()->find(uid)->second;
 			}
 		}
 		Label(const char* label);
 		Label(uid_type id);
+		Label();
 		static const char* label(uid_type);
+		static std::unordered_map<uint16_t, LabelStruct*>* labels();
 		uid_type id();
 		const char * label();
 		bool operator==(Label& that);
 };
 
 class Ref: public Label {
-		void* _object;
-		Label _cls;
-		static std::unordered_map<uid_type, Ref*> _refs;
+		typedef struct {
+				Label _label;
+				void* _object;
+				Label _cls;
+		} RefStruct;
+		RefStruct* _pr;
+		static std::unordered_map<uid_type, RefStruct*> _refs;
 	public:
-		Ref(Label label, void* object, Label cls)
-				: Label(label), _object(object), _cls(cls) {
-			uid_type uid = id();
-			if (_refs.find(uid) == _refs.end()) {
-				_refs.emplace(uid, this);
-			}
+		Ref(Label label, void* object, Label cls) {
+			if (_refs.find(label.id()) == _refs.end()) {
+							_pr = new RefStruct({label,object,cls});
+/*							_pr->_label=label;
+							_pr->_cls=cls;
+							_pr->_object=object;*/
+							_refs.emplace(label.id(),_pr);
+						}
 		}
+		Ref(RefStruct* pr):_pr(pr){}
+		const char* label();
+		uid_type id();
+		Label cls();
+		void *object();
+
 		~Ref(); // the object destruction should lead to Ref lookup destruction
-		static void* object(uid_type);
+		static Ref findRef(uid_type);
+		static Ref NotFound;
+		bool operator==(Ref& );
+
 };
 
 //_____________________________________________________________ MsgClass
 //
-class MsgClass: public Uid {
+class MsgClass: public Label {
 	public:
 		static MsgClass ReceiveTimeout();
 //		static  MsgClass TimerExpired();
@@ -165,13 +189,13 @@ class MsgClass: public Uid {
 		static MsgClass Properties();
 		static MsgClass PropertiesReply();
 		MsgClass()
-				: Uid("NONE") {
+				: Label("NONE") {
 		}
 		MsgClass(uid_type id)
-				: Uid(id) {
+				: Label(id) {
 		}
 		MsgClass(const char* name)
-				: Uid(name) {
+				: Label(name) {
 		}
 		bool operator==(MsgClass b) {
 			return id() == b.id();
@@ -188,10 +212,10 @@ class Msg: public Xdr {
 		~Msg();
 		Msg(MsgClass cls);
 		Msg(uint32_t);
-		Msg(Uid cls, Uid src);
+		Msg(Label  cls, Label src);
 		Msg& reply(Msg& req);
 		Msg& clear();
-		template<typename T> Msg& operator()(Uid key, T v) {
+		template<typename T> Msg& operator()(Label key, T v) {
 			add((uid_type) key.id(), v);
 			return *this;
 		}
@@ -210,6 +234,7 @@ class Msg: public Xdr {
 		uint32_t id();
 
 		Msg& operator=(const Msg&);
+		std::string toString();
 };
 
 typedef bool (*MessageMatch)(Msg& msg);
@@ -219,21 +244,21 @@ typedef std::function<bool(Msg&)> MessageMatcher;
 //_________________________________________________________________ Timer
 //
 
-class Timer: public Uid {
+class Timer: public Label {
 		Msg* _msg;
 		TimerHandle_t _timer;
 		bool _autoReload;
 		TimerScheduler& _timerScheduler;
 
 	public:
-		Timer(Uid key, bool autoReload, uint32_t interval, const Msg& msg,
+		Timer(Label key, bool autoReload, uint32_t interval, const Msg& msg,
 				TimerScheduler&);
 		~Timer();
 		static void callBack(TimerHandle_t);
 		void start();
 		void stop();
 		bool operator==(Timer&);
-		Uid key();
+		Label key();
 
 		void interval(uint32_t);
 		Msg& msg();
@@ -294,7 +319,7 @@ class LocalActorRef: public ActorRef {
 class RemoteActorRef: public LocalActorRef {
 
 	public:
-		RemoteActorRef(Uid);
+		RemoteActorRef(Label);
 		bool isLocal() {
 			return false;
 		}
@@ -316,13 +341,13 @@ class TimerScheduler {
 	public:
 		void timerCallback(Timer&);
 		TimerScheduler(ActorRef&);
-		Timer* find(Uid key);
+		Timer* find(Label key);
 		Timer* findNextTimeout();
-		Uid startPeriodicTimer(Uid key, const Msg&, uint32_t msec);
-		Uid startSingleTimer(Uid key, const Msg&, uint32_t msec);
-		void cancel(Uid key);
+		Label startPeriodicTimer(Label key, const Msg&, uint32_t msec);
+		Label startSingleTimer(Label key, const Msg&, uint32_t msec);
+		void cancel(Label key);
 		void cancelAll();
-		bool isTimerActive(Uid key);
+		bool isTimerActive(Label key);
 		ActorRef& ref();
 };
 
@@ -495,7 +520,7 @@ class Actor {
 
 class ActorSelection: public ActorRef {
 	public:
-		ActorSelection(Uid id);
+		ActorSelection(Label id);
 };
 
 //__________________________________________________________ Thread
@@ -548,7 +573,7 @@ class MessageDispatcher {
 		Mailbox& mailbox();
 
 		void dispatch(ActorCell&, Msg&);
-		void registerForExecution(Mailbox&);
+		void registerForExecution(Mailbox*);
 		QueueHandle_t workQueue();
 
 };
@@ -558,10 +583,11 @@ class Mailbox {
 		QueueHandle_t _queue;
 		ActorCell& _cell;
 		std::atomic<uint32_t> _currentStatus;
-		enum {
-			Open = 0, Closed = 1, Scheduled = 2
-		};
-		static const uint32_t schouldScheduleMask = 3;
+
+		static const uint32_t Open=0;
+		static const uint32_t Closed=1;
+		static const uint32_t Scheduled=2;
+		static const uint32_t shouldScheduleMask = 3;
 		static const uint32_t shouldNotProcessMask = ~2;
 		static const uint32_t suspendMask = ~3;
 		static const uint32_t suspendUnit = 4;
@@ -574,10 +600,9 @@ class Mailbox {
 		bool shouldProcessMessage();
 		bool updateStatus(uint32_t oldStatus,uint32_t newStatus);
 		bool hasMessages();
-		bool canBeScheduledForExecution();
+		bool canBeScheduledForExecution(bool hasMessageHint);
 		bool setAsScheduled();
 		bool setAsIdle();
-
 };
 
 //__________________________________________________________ Receiver
@@ -634,15 +659,11 @@ class ActorSystem: public Ref {
 
 	public:
 		ActorSystem(Label, MessageDispatcher& defaultDispatcher);
-		Uid uniqueId(const char* name);
+		Label uniqueId(const char* name);
 		ActorRef& actorFor(const char* address);
 
-		template<class T> ActorRef& actorOf(const char* name, ...) {
-			va_list args;
-			va_start(args, name);
-			T* actor = new T(args);
-			va_end(args);
-
+		template<class T,typename ... Args> ActorRef& actorOf(const char* name, Args&& ... args) {
+			T* actor = new T(args...);
 			return *create(actor, name, _defaultProps);
 		}
 
@@ -716,7 +737,7 @@ class MessageClassifier {
 			_src = msg.src();
 			_cls = msg.cls();
 		}
-		MessageClassifier(ActorRef& uidSrc, Uid uidCls) {
+		MessageClassifier(ActorRef& uidSrc, Label uidCls) {
 			_src = uidSrc.id();
 			_cls = uidCls.id();
 		}

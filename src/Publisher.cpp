@@ -3,8 +3,7 @@
 
 #include <sstream>
 
-Publisher::Publisher(va_list args) :_mqtt ( ActorRef::NoSender()) {
-	_mqtt = va_arg(args,ActorRef) ;
+Publisher::Publisher(ActorRef& mqtt)  :_mqtt ( mqtt) {
 }
 
 Publisher::~Publisher() {
@@ -38,7 +37,7 @@ Receive& Publisher::createReceive() {
 
 			Tag tag(msg.peek());
 			Msg m(Mqtt::Publish);
-			Uid tag_uid(tag.uid);
+			Label tag_uid(tag.uid);
 			if ( tag.uid == UD_DST  || tag.uid==UD_SRC || tag.uid==UD_CLS || tag.uid==UD_ID  ) {
 				msg.skip();
 			} else {

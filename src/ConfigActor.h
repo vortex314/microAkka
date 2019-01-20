@@ -6,8 +6,8 @@
 class ConfigActor : public Actor {
 		uint64_t startTime;
 		uint32_t _counter;
-		Uid _startTest;
-		Uid _endTest;
+		Label _startTest;
+		Label _endTest;
 		bool _testing;
 
 	public:
@@ -15,7 +15,7 @@ class ConfigActor : public Actor {
 		static MsgClass Clear;
 		static MsgClass Get;
 
-		ConfigActor(va_list args);
+		ConfigActor();
 		~ConfigActor();
 
 		void preStart();

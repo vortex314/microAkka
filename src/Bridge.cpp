@@ -4,8 +4,7 @@
 #include <unistd.h>
 // volatile MQTTAsync_token deliveredtoken;
 
-Bridge::Bridge(va_list args) : _mqtt ( ActorRef::NoSender()) {
-	_mqtt = *(ActorRef*)va_arg(args,ActorRef*) ;
+Bridge::Bridge(ActorRef& mqtt) : _mqtt ( mqtt) {
 	_rxd=0;
 	_txd=0;
 	_connected=false;
@@ -82,10 +81,10 @@ Receive& Bridge::createReceive() {
 
 bool Bridge::messageToJson(std::string& topic,std::string& message, Msg& msg) {
 	topic= "dst/";
-	topic += Uid::label(msg.dst());
+	topic += Label::label(msg.dst());
 	topic +="/";
 	uid_type uid = msg.cls();
-	topic += Uid(uid).label();
+	topic += Label(uid).label();
 
 	Tag tag(0);
 	msg.rewind();
@@ -95,11 +94,11 @@ bool Bridge::messageToJson(std::string& topic,std::string& message, Msg& msg) {
 	std::string str;
 	while (msg.hasData()) {
 		tag.ui32 = msg.peek();
-//		Uid tagUid=Uid(tag.uid);
+//		Label tagLabel=Label(tag.uid);
 		switch (tag.type) {
 			case Xdr::BYTES: {
 					msg.getNext(tag.uid,str);
-					jsonObject.set(Uid::label(tag.uid),str.c_str());
+					jsonObject.set(Label::label(tag.uid),str.c_str());
 					break;
 				}
 			case Xdr::UINT: {
@@ -107,22 +106,22 @@ bool Bridge::messageToJson(std::string& topic,std::string& message, Msg& msg) {
 					msg.getNext(tag.uid,u64);
 					if ( tag.uid==UD_DST || tag.uid==UD_SRC || tag.uid==UD_CLS ) {
 						if ( tag.uid==UD_SRC )
-							jsonObject.set(Uid::label(tag.uid),Uid::label(u64));
+							jsonObject.set(Label::label(tag.uid),Label::label(u64));
 					} else {
-						jsonObject.set(Uid::label(tag.uid),u64);
+						jsonObject.set(Label::label(tag.uid),u64);
 					}
 					break;
 				}
 			case Xdr::INT: {
 					int64_t i64;
 					msg.getNext(tag.uid,i64);
-					jsonObject.set(Uid::label(tag.uid),i64);
+					jsonObject.set(Label::label(tag.uid),i64);
 					break;
 				}
 			case Xdr::FLOAT: {
 					double d;
 					msg.getNext(tag.uid,d);
-					jsonObject.set(Uid::label(tag.uid),d);
+					jsonObject.set(Label::label(tag.uid),d);
 					break;
 				}
 			default:
@@ -168,16 +167,16 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 	INFO(" local actor : %s ",topic.substr(offsets[0]+1,offsets[2]-offsets[0]-1).c_str());
 	INFO(" local msg class : %s ",topic.substr(offsets[2]+1).c_str());
 
-	uid_type uidDst = Uid::add(topic.substr(offsets[0]+1,offsets[2]-offsets[0]-1).c_str());
-	uid_type uidCls = Uid::add(topic.substr(offsets[2]+1).c_str());
+	uid_type uidDst = Label(topic.substr(offsets[0]+1,offsets[2]-offsets[0]-1).c_str()).id();
+	uid_type uidCls = Label(topic.substr(offsets[2]+1).c_str()).id();
 	msg.dst(uidDst);
 	msg.cls(uidCls);
-	uid_type uidSrc = Uid::add(jsonObject.get<const char*>(AKKA_SRC));
+	uid_type uidSrc = Label(jsonObject.get<const char*>(AKKA_SRC)).id();
 	msg.src(uidSrc);
 
 	ActorRef* dst = ActorRef::lookup(uidDst);
 	if (dst == 0) {
-		WARN(" local Actor : %s not found ", Uid::label(uidDst));
+		WARN(" local Actor : %s not found ", Label::label(uidDst));
 		return false;
 	}
 	ActorRef* src = ActorRef::lookup(uidSrc);

@@ -23,7 +23,7 @@ class Bridge : public Actor {
 		uint32_t _txd;
 
 	public:
-		Bridge(va_list args);
+		Bridge(ActorRef& mqtt);
 		~Bridge();
 		void preStart();
 		Receive& createReceive();

@@ -1,6 +1,6 @@
 #include "ConfigActor.h"
 
-ConfigActor::ConfigActor(va_list args) : startTime(0),  _counter(0) {}
+ConfigActor::ConfigActor() : startTime(0),  _counter(0) {}
 ConfigActor::~ConfigActor() {}
 MsgClass ConfigActor::Set("set");
 MsgClass ConfigActor::Get("get");
