@@ -180,9 +180,8 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 		return false;
 	}
 	ActorRef* src = ActorRef::lookup(uidSrc);
-	if (src == 0) {
-//		src = new ActorRef(uidSrc, &self().mailbox());
-		assert(false);
+	if (src == 0) { //TODO -> bridge mailbox, no cell, tell & forward diff
+		src = new RemoteActorRef(Label(uidSrc),self());
 	}
 
 	for (JsonObject::iterator it = jsonObject.begin(); it != jsonObject.end() ; ++it) {

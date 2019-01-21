@@ -122,17 +122,17 @@ class Label {
 				uid_type _uid;
 				const char* _label;
 		} LabelStruct;
-		LabelStruct* _pl=0; // single element to use in varargs, on stack
+		LabelStruct* _pl = 0; // single element to use in varargs, on stack
 		static std::unordered_map<uid_type, LabelStruct*>* _labels;
 
 	public:
-		Label(uid_type uid, const char* label)  {
+		Label(uid_type uid, const char* label) {
 			if (labels()->find(uid) == labels()->end()) {
 				_pl = new LabelStruct;
-				_pl->_label  = new char[strlen(label) + 1];
-				strcpy((char*)_pl->_label, label);
+				_pl->_label = new char[strlen(label) + 1];
+				strcpy((char*) _pl->_label, label);
 				_pl->_uid = uid;
-				labels()->emplace(uid,_pl);
+				labels()->emplace(uid, _pl);
 			} else {
 				_pl = labels()->find(uid)->second;
 			}
@@ -158,14 +158,16 @@ class Ref: public Label {
 	public:
 		Ref(Label label, void* object, Label cls) {
 			if (_refs.find(label.id()) == _refs.end()) {
-							_pr = new RefStruct({label,object,cls});
-/*							_pr->_label=label;
-							_pr->_cls=cls;
-							_pr->_object=object;*/
-							_refs.emplace(label.id(),_pr);
-						}
+				_pr = new RefStruct( { label, object, cls });
+				/*							_pr->_label=label;
+				 _pr->_cls=cls;
+				 _pr->_object=object;*/
+				_refs.emplace(label.id(), _pr);
+			}
 		}
-		Ref(RefStruct* pr):_pr(pr){}
+		Ref(RefStruct* pr)
+				: _pr(pr) {
+		}
 		const char* label();
 		uid_type id();
 		Label cls();
@@ -174,7 +176,7 @@ class Ref: public Label {
 		~Ref(); // the object destruction should lead to Ref lookup destruction
 		static Ref findRef(uid_type);
 		static Ref NotFound;
-		bool operator==(Ref& );
+		bool operator==(Ref&);
 
 };
 
@@ -212,7 +214,7 @@ class Msg: public Xdr {
 		~Msg();
 		Msg(MsgClass cls);
 		Msg(uint32_t);
-		Msg(Label  cls, Label src);
+		Msg(Label cls, Label src);
 		Msg& reply(Msg& req);
 		Msg& clear();
 		template<typename T> Msg& operator()(Label key, T v) {
@@ -257,6 +259,7 @@ class Timer: public Label {
 		static void callBack(TimerHandle_t);
 		void start();
 		void stop();
+		void reset();
 		bool operator==(Timer&);
 		Label key();
 
@@ -295,7 +298,7 @@ class LocalActorRef: public ActorRef {
 
 		static ActorRef& NoSender();
 		LocalActorRef(Label, ActorSystem&, Props&, MessageDispatcher&);
-	~LocalActorRef();
+		~LocalActorRef();
 
 		Mailbox& mailbox();
 		void mailbox(Mailbox& mailbox);
@@ -316,10 +319,19 @@ class LocalActorRef: public ActorRef {
 //____________________________________________________ RemoteActorRef
 //
 
-class RemoteActorRef: public LocalActorRef {
+class RemoteActorRef: public ActorRef {
+		ActorRef& _bridge;
 
 	public:
-		RemoteActorRef(Label);
+		RemoteActorRef(Label, ActorRef&);
+		void tell(Msg& msg) {
+			_bridge.tell(msg);
+		}
+		void tell(Msg& msg, ActorRef& sender){
+			_bridge.tell(msg,sender);
+		}
+		void forward(Msg& message, ActorContext& context) {};
+		bool operator==(ActorRef& src){ return id()==src.id();}
 		bool isLocal() {
 			return false;
 		}
@@ -425,13 +437,15 @@ class ActorCell: public ActorContext {
 		Actor*_actor;
 
 		Thread* _currentThread;
-		SemaphoreHandle_t _semaphore;
+//		SemaphoreHandle_t _semaphore;
 
 		Receive* _receive;
 		Receive* _prevReceive;
 
 		uint32_t _inactivityPeriod;
 		uint64_t _lastReceive;
+//		Timer _receiveTimeoutTimer;
+
 		bool _enable;
 		TimerScheduler* _timers;
 
@@ -449,11 +463,14 @@ class ActorCell: public ActorContext {
 		void actor(Actor* actor);
 		Actor* actor();
 
+		uint32_t receiveTimeout();
+		uint64_t lastReceive();
+		void setReceiveTimeout(uint32_t msec);
+
 //		MessageDispatcher& dispatcher();
 		Thread& currentThread();
 		void currentThread(Thread*);
-		uint32_t receiveTimeout();
-		void setReceiveTimeout(uint32_t msec);
+
 		void become(Receive& receive, bool discardOld);
 		void unbecome();
 		void invoke(Msg&);
@@ -584,9 +601,9 @@ class Mailbox {
 		ActorCell& _cell;
 		std::atomic<uint32_t> _currentStatus;
 
-		static const uint32_t Open=0;
-		static const uint32_t Closed=1;
-		static const uint32_t Scheduled=2;
+		static const uint32_t Open = 0;
+		static const uint32_t Closed = 1;
+		static const uint32_t Scheduled = 2;
 		static const uint32_t shouldScheduleMask = 3;
 		static const uint32_t shouldNotProcessMask = ~2;
 		static const uint32_t suspendMask = ~3;
@@ -598,7 +615,7 @@ class Mailbox {
 		const char* name();
 		void processMailbox(Thread* thread);
 		bool shouldProcessMessage();
-		bool updateStatus(uint32_t oldStatus,uint32_t newStatus);
+		bool updateStatus(uint32_t oldStatus, uint32_t newStatus);
 		bool hasMessages();
 		bool canBeScheduledForExecution(bool hasMessageHint);
 		bool setAsScheduled();
@@ -662,7 +679,8 @@ class ActorSystem: public Ref {
 		Label uniqueId(const char* name);
 		ActorRef& actorFor(const char* address);
 
-		template<class T,typename ... Args> ActorRef& actorOf(const char* name, Args&& ... args) {
+		template<class T, typename ... Args> ActorRef& actorOf(const char* name,
+				Args&& ... args) {
 			T* actor = new T(args...);
 			return *create(actor, name, _defaultProps);
 		}

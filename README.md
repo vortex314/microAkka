@@ -51,9 +51,14 @@ The MQTT topic and message are based on some conventions to ease integration.
 - Arduino : see [akkaArduino](https://github.com/vortex314/akkaArduino)  (  ESP8266 )
 
 ### History
+#### v0.4 Akka Scala scheduling aligned
+- implement same logic for scheduling actor/mailbox through dispatcher. using a workqueue that is queueing mailboxes
+fo execution, if they were not scheduled yet.
+ 
 #### v0.3 Multi thread
 - added multi-thread to dispatcher on same mailbox. Creates a semaphore for controlling access to actorcell and actor. 
 - Per thread copy of receiving and sending message. Enables building messages in actor based on common Msg object 
+
 #### v0.2 FreeRTOS
 aligned all code on Linux, ESP8266 and ESP32 to use FreeRTOS API : timers, queues,semaphores. Shoudl enable other microcontrollers where the RTOS has been ported.
 MQTT and System actor is a per platform implementation
@@ -83,9 +88,8 @@ __________________________________________________ main
 int main() {
 
 Sys::init();
-Mailbox defaultMailbox("default", 100); // nbr of messages in queue max
-MessageDispatcher defaultDispatcher;
-ActorSystem actorSystem(Sys::hostname(), defaultDispatcher, defaultMailbox);
+static MessageDispatcher defaultDispatcher(5, 10240, tskIDLE_PRIORITY + 1);
+static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher);
 
 ActorRef sender = actorSystem.actorOf<Sender>("sender"); // will also start echo actor
 ActorRef system = actorSystem.actorOf<System>("System");
@@ -93,12 +97,10 @@ ActorRef nnPid = actorSystem.actorOf<NeuralPid>("neuralPid");
 ActorRef mqtt = actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
 ActorRef bridge = actorSystem.actorOf<Bridge>("bridge",mqtt);
 
-defaultDispatcher.attach(defaultMailbox);
 defaultDispatcher.unhandled(bridge.cell());
-defaultDispatcher.execute();
 __________________________________________________ Echo.cpp
 
-Echo::Echo(va_list args)  {}
+Echo::Echo()  {}
 Echo::~Echo() {}
 
 Receive& Echo::createReceive() {
