@@ -11,6 +11,19 @@ void System::preStart() {
 //	_propTimer = timers().startPeriodicTimer("propTimer", TimerExpired(), 5000);
 }
 
+Receive& System::createReceive() {
+	return receiveBuilder()
+	.match(Exit, [](Msg& msg) { exit(0); })
+	.match(MsgClass::Properties(),[this](Msg& msg) {
+		INFO(" Properties requested ");
+		sender().tell(replyBuilder(msg)
+		              ("build",__DATE__ " " __TIME__)
+		              ("cpu","x86_64")
+		              ("hostname",Sys::hostname()),self());
+	})
+	.build();
+}
+
 #ifdef __linux__
 #include <sys/sysinfo.h>
 

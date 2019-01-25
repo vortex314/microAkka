@@ -6,7 +6,7 @@
 #include <Sender.h>
 #include <System.h>
 #include <Publisher.h>
-#include <malloc.h>
+//#include <malloc.h>
 #include <ConfigActor.h>
 
 //______________________________________________________________

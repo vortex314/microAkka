@@ -1,0 +1,127 @@
+#ifndef FREE_RTOS_POSIX_H
+#define FREE_RTOS_POSIX_H
+#include <pthread.h>
+#include <thread>
+#include <queue>
+#include <errno.h>
+#include <err.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <QueueTemplate.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <vector>
+#include <chrono>
+#include <memory>
+#include <algorithm>
+
+#define MS_TO_TICKS(msec) (msec/10)
+#define TICKS_TO_MSEC(ticks) ( ticks*10)
+
+
+
+typedef int32_t BaseType_t;
+typedef uint32_t UBaseType_t;
+typedef void* (*TaskFunction_t)(void*);
+typedef uint32_t configSTACK_DEPTH_TYPE;
+
+typedef uint32_t TickType_t;
+#define configTICK_RATE_HZ 100
+#define pdMS_TO_TICKS( xTimeInMs ) ( ( TickType_t ) ( ( ( TickType_t ) ( xTimeInMs ) * ( TickType_t ) configTICK_RATE_HZ ) / ( TickType_t ) 1000 ) )
+
+
+#define pdFALSE			( ( BaseType_t ) 0 )
+#define pdTRUE			( ( BaseType_t ) 1 )
+
+#define pdPASS			( pdTRUE )
+#define pdFAIL			( pdFALSE )
+#define errQUEUE_EMPTY	( ( BaseType_t ) 0 )
+#define errQUEUE_FULL	( ( BaseType_t ) 0 )
+
+#define configASSERT(xxxx) assert(xxxx)
+
+
+#define PRIVILEGED_FUNCTION
+//
+//_______________________ TASK
+//
+
+#define tskIDLE_PRIORITY			( ( UBaseType_t ) 0U )
+typedef void* TaskHandle_t;
+
+BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, const char * const pcName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+const configSTACK_DEPTH_TYPE usStackDepth, void * const pvParameters,
+		UBaseType_t uxPriority, TaskHandle_t * const pxCreatedTask)
+				PRIVILEGED_FUNCTION;
+void vTaskDelete(TaskHandle_t xTaskToDelete) PRIVILEGED_FUNCTION;
+void vTaskDelay(const TickType_t xTicksToDelay) PRIVILEGED_FUNCTION;
+void vTaskDelayUntil(TickType_t * const pxPreviousWakeTime,
+		const TickType_t xTimeIncrement) PRIVILEGED_FUNCTION;
+BaseType_t xTaskAbortDelay(TaskHandle_t xTask) PRIVILEGED_FUNCTION;
+void vTaskStartScheduler(void) PRIVILEGED_FUNCTION;
+
+//
+//_______________________ QUEUE
+//
+typedef void* QueueHandle_t;
+typedef void * QueueSetMemberHandle_t;
+
+/* For internal use only. */
+#define	queueSEND_TO_BACK		( ( BaseType_t ) 0 )
+#define	queueSEND_TO_FRONT		( ( BaseType_t ) 1 )
+#define queueOVERWRITE			( ( BaseType_t ) 2 )
+
+/* For internal use only.  These definitions *must* match those in queue.c. */
+#define queueQUEUE_TYPE_BASE				( ( uint8_t ) 0U )
+#define queueQUEUE_TYPE_SET					( ( uint8_t ) 0U )
+#define queueQUEUE_TYPE_MUTEX 				( ( uint8_t ) 1U )
+#define queueQUEUE_TYPE_COUNTING_SEMAPHORE	( ( uint8_t ) 2U )
+#define queueQUEUE_TYPE_BINARY_SEMAPHORE	( ( uint8_t ) 3U )
+#define queueQUEUE_TYPE_RECURSIVE_MUTEX		( ( uint8_t ) 4U )
+
+#define xQueueCreate( uxQueueLength, uxItemSize ) xQueueGenericCreate( ( uxQueueLength ), ( uxItemSize ), ( queueQUEUE_TYPE_BASE ) )
+#define xQueueSend( xQueue, pvItemToQueue, xTicksToWait ) xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), ( xTicksToWait ), queueSEND_TO_BACK )
+#define xQueueSendToFrontFromISR( xQueue, pvItemToQueue, pxHigherPriorityTaskWoken ) xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ), ( pxHigherPriorityTaskWoken ), queueSEND_TO_FRONT )
+#define xQueueSendToBackFromISR( xQueue, pvItemToQueue, pxHigherPriorityTaskWoken ) xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ), ( pxHigherPriorityTaskWoken ), queueSEND_TO_BACK )
+
+QueueHandle_t xQueueGenericCreate( const UBaseType_t uxQueueLength, const UBaseType_t uxItemSize, const uint8_t ucQueueType ) PRIVILEGED_FUNCTION;
+
+BaseType_t xQueueGenericSendFromISR(QueueHandle_t xQueue,
+		const void * const pvItemToQueue,
+		BaseType_t * const pxHigherPriorityTaskWoken,
+		const BaseType_t xCopyPosition) PRIVILEGED_FUNCTION;
+BaseType_t xQueueGiveFromISR(QueueHandle_t xQueue,
+		BaseType_t * const pxHigherPriorityTaskWoken) PRIVILEGED_FUNCTION;
+BaseType_t xQueueGenericSend(QueueHandle_t xQueue,
+		const void * const pvItemToQueue, TickType_t xTicksToWait,
+		const BaseType_t xCopyPosition) PRIVILEGED_FUNCTION;
+BaseType_t xQueueReceive( QueueHandle_t xQueue, void * const pvBuffer, TickType_t xTicksToWait ) PRIVILEGED_FUNCTION;
+
+void vQueueWaitForMessageRestricted(QueueHandle_t xQueue,
+		TickType_t xTicksToWait, const BaseType_t xWaitIndefinitely)
+				PRIVILEGED_FUNCTION;
+BaseType_t xQueueGenericReset(QueueHandle_t xQueue, BaseType_t xNewQueue)
+		PRIVILEGED_FUNCTION;
+void vQueueSetQueueNumber(QueueHandle_t xQueue, UBaseType_t uxQueueNumber)
+		PRIVILEGED_FUNCTION;
+UBaseType_t uxQueueGetQueueNumber(QueueHandle_t xQueue) PRIVILEGED_FUNCTION;
+uint8_t ucQueueGetQueueType(QueueHandle_t xQueue) PRIVILEGED_FUNCTION;
+UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+
+//
+//______________________ TIMER
+//
+typedef void* TimerHandle_t;
+typedef void (*TimerCallbackFunction_t)(void*);
+
+TimerHandle_t xTimerCreate(const char * const pcTimerName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+const TickType_t xTimerPeriodInTicks, const UBaseType_t uxAutoReload,
+		void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction)
+				PRIVILEGED_FUNCTION;
+#endif
