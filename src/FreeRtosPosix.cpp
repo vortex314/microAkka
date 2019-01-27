@@ -172,10 +172,13 @@ class PosixTimer {
 			_callback = func;
 			_callbackArg = arg;
 			struct sigevent sigEvent;
+			memset((void *)&sigEvent, 0, sizeof(sigEvent));
+
 			sigEvent.sigev_notify = SIGEV_THREAD;
 			sigEvent.sigev_notify_function = (void (*)(__sigval_t))func;//
 			sigEvent.sigev_notify_attributes = NULL;//
 			sigEvent.sigev_value.sival_ptr = arg;
+			sigEvent.sigev_signo = SIGALRM;
 			int rc = timer_create(CLOCK_REALTIME, &sigEvent, &_posixHandle);
 			assert(rc == 0);
 		}
@@ -184,7 +187,7 @@ class PosixTimer {
 /*			tNew.it_value.tv_nsec = (xTicksToWait % 1000) * 1000000;
 			tNew.it_value.tv_sec = (xTicksToWait / 1000);*/
 			tNew.it_value.tv_nsec = 0;
-			tNew.it_value.tv_sec = 0;
+			tNew.it_value.tv_sec = _interval / 1000;
 			tNew.it_interval.tv_nsec = (_interval % 1000) * 1000000;
 			tNew.it_interval.tv_sec = _interval / 1000;
 			int flags = 0;
