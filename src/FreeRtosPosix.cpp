@@ -31,6 +31,8 @@ void TimerCall(TimerDetail* ptd) {
 	std::cout << (uint64_t) ptd << std::endl;
 }
 
+
+
 template<class T>
 class TimerThread {
 	public:
@@ -39,17 +41,20 @@ class TimerThread {
 		struct TimerInfo {
 				clock_t::time_point m_TimePoint;
 				T m_User;
+				bool m_Active;
+				TimerCallbackFunction_t _callback;
+				void * _callbackArg;
+				std::string _name;
+				bool _autoReload;
 
 				template<class TArg1>
 				TimerInfo(clock_t::time_point tp, TArg1 && arg1)
-						: m_TimePoint(tp), m_User(std::forward<TArg1>(arg1)) {
+						: m_TimePoint(tp),
+						  m_User(std::forward<TArg1>(arg1)) {
+						m_Active=false;
 				}
 
-				template<class TArg1, class TArg2>
-				TimerInfo(clock_t::time_point tp, TArg1 && arg1, TArg2 && arg2)
-						: m_TimePoint(tp), m_User(std::forward<TArg1>(arg1), std::forward<
-								TArg2>(arg2)) {
-				}
+
 		};
 
 		std::unique_ptr<std::thread> m_Thread;
@@ -196,7 +201,8 @@ class PosixTimer {
 			return rc;
 		}
 };
-
+//______________________________________________________________ xTimer
+//
 BaseType_t xTimerCreateTimerTask(void) PRIVILEGED_FUNCTION {
 	timers = new TimerThread<TimerDetail*>();
 	return pdPASS;
@@ -216,11 +222,14 @@ BaseType_t xTimerGenericCommand(TimerHandle_t xTimer,
 	}
 	return 0;
 }
-
+//_____________________________________________________________
+//
 void *pvTimerGetTimerID(TimerHandle_t xTimer) {
 	PosixTimer* pt = (PosixTimer*)xTimer;
 	return pt->_callbackArg;
 }
+//_____________________________________________________________
+//
 TimerHandle_t xTimerCreate(const char * const pcTimerName,
 		const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload,
 		void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction) {
