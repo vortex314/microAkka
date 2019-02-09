@@ -7,6 +7,8 @@
 //============================================================================
 #include "Akka.h"
 
+
+
 //_____________________________________________ STATIC
 
 typedef void (*MsgHandler)(void);
@@ -363,8 +365,7 @@ typedef std::function<void(Msg&)> MessageHandler;
 //
 
 Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
-		: _cell(cell) {
-	_queue = xQueueCreate(queueSize, sizeof(Msg*));
+		: NativeQueue(queueSize,sizeof(void*)) ,_cell(cell){
 	_currentStatus = Open;
 }
 
@@ -372,10 +373,10 @@ int Mailbox::enqueue(Msg& msg) {
 //	INFO("enqueue : %s ",msg.toString().c_str());
 	Msg* px = new Msg(msg.size());
 	*px = msg;
-	configASSERT(msg.src() != 0);
-	configASSERT(msg.dst() != 0);
-	BaseType_t rc = xQueueSend(_queue, &px, 10);
-	if (rc != pdTRUE) {
+	myASSERT(msg.src() != 0);
+	myASSERT(msg.dst() != 0);
+	int rc =  send(&px,10);
+	if (rc != 0) {
 		WARN("queue full %s", Label::label(_cell.self().id()));
 		delete px;
 		return ENOENT;
@@ -385,17 +386,13 @@ int Mailbox::enqueue(Msg& msg) {
 
 int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	Msg* px;
-	if (xQueueReceive(_queue, &px, pdMS_TO_TICKS(time)) != pdTRUE) {
-		return ENOENT;
-	}
+	int rc = recv(&px,time);
+	if ( rc ) return ENOENT;
 	(Msg&) msg = *px;
 	delete px;
 	return 0;
 }
 
-bool Mailbox::hasMessages() {
-	return uxQueueMessagesWaiting(_queue);
-}
 // for now supposing mailbox always open
 bool Mailbox::canBeScheduledForExecution(bool hasMessagesHint) {
 	return hasMessagesHint || hasMessages();
@@ -532,42 +529,26 @@ std::string& Receiver::toString(std::string& s) {
 }
 //_____________________________________________ Timer
 
-void Timer::callBack(TimerHandle_t handle) {
-	Timer* timer = (Timer*) pvTimerGetTimerID(handle);
+void Timer::callBack(void* arg) {
+	Timer* me = (Timer*) arg;
 //	INFO(" timer call back %s ",timer->label());
-	timer->_timerScheduler.timerCallback(*timer);
+	me->_timerScheduler.timerCallback(*me);
 }
 
 Timer::Timer(Label key, bool autoReload, uint32_t interval, const Msg& m,
 		TimerScheduler& scheduler)
-		: Label(key), _timerScheduler(scheduler) {
+		: Label(key),NativeTimer(key.label(),autoReload,interval,this,callBack), _timerScheduler(scheduler) {
 	INFO("[%X] timer created %s : %u ", this, label(), interval);
 	_msg = new Msg();
 	*_msg = m;
 	_msg->dst(scheduler.ref().id());
 	_msg->src(scheduler.ref().id());
 	_autoReload = autoReload;
-	configASSERT((_timer = xTimerCreate(label(),pdMS_TO_TICKS(interval),autoReload,this,callBack))!=NULL);
 	start();
-}
-
-void Timer::start() {
-//	INFO("[%X] timer start",this);
-	configASSERT(xTimerStart(_timer,0) == pdPASS);
-}
-
-void Timer::stop() {
-//	INFO("[%X] timer stop",this);
-	configASSERT(xTimerStop(_timer,0)==pdPASS);
-}
-
-void Timer::reset() {
-	configASSERT(xTimerReset(_timer,0)==pdPASS);
 }
 
 Timer::~Timer() {
 	INFO("[%X] timer dtor", this);
-	xTimerDelete(_timer, 0);
 	delete _msg;
 }
 
@@ -582,13 +563,7 @@ void Timer::msg(const Msg& msg) {
 	_msg->src(_timerScheduler.ref().id());
 }
 
-void Timer::interval(uint32_t interv) {
-	INFO("[%X] timer interval(%u)", this, interv);
-	configASSERT(xTimerChangePeriod(_timer,pdMS_TO_TICKS(interv),10)==pdPASS);
-//	configASSERT(xTimerDelete(_timer,10)==pdPASS);
-//	configASSERT((_timer = xTimerCreate(label(),pdMS_TO_TICKS(interv),_autoReload,this,callBack))!=NULL);
-//	start();
-}
+
 
 Label Timer::key() {
 	return id();
@@ -826,17 +801,8 @@ std::list<ActorCell*>& ActorCell::actorCells() {
 //________________________________________________ Thread
 
 Thread::Thread(MessageDispatcher* dispatcher, const char* name,
-		uint32_t stackSize, uint32_t priority)
-		: Ref(name, this, "Thread"), _dispatcher(dispatcher) {
-	_stackSize = stackSize;
-	_priority = priority;
-	_task = 0;
-}
-
-void Thread::start(ThreadCode code) {
-	BaseType_t rc = xTaskCreate(code, label(), _stackSize, this,
-	tskIDLE_PRIORITY + 2, &_task);
-	assert(rc==pdPASS);
+		uint32_t stackSize, uint32_t priority,TaskFunction f)
+		: Ref(name, this, "Thread"),NativeThread(name,stackSize,priority,this,f), _dispatcher(dispatcher) {
 
 }
 
@@ -858,13 +824,12 @@ Msg& Thread::currentMessage() {
 //
 
 MessageDispatcher::MessageDispatcher(uint32_t threadCount, uint32_t stackSize,
-		uint32_t priority) {
-	_workQueue = xQueueCreate(20, sizeof(Mailbox*));
+		uint32_t priority) : _workQueue(20,sizeof(Mailbox*)){
 	_threadCount = threadCount;
 	for (uint32_t i = 0; i < threadCount; i++) {
 		std::string name;
 		string_format(name, "thread-%u", i);
-		_threads.push_back(new Thread(this, name.c_str(), stackSize, priority));
+		_threads.push_back(new Thread(this, name.c_str(), stackSize, priority,));
 	}
 	_unhandledCell = 0;
 
@@ -888,7 +853,7 @@ void MessageDispatcher::unhandled(ActorCell* cell) {
 
 void MessageDispatcher::start() {
 	for (Thread* thread : _threads) {
-		thread->start(MessageDispatcher::handleMailbox);
+		thread->start();
 	}
 }
 
@@ -901,7 +866,7 @@ void MessageDispatcher::dispatch(ActorCell& cell, Msg& msg) {
 void MessageDispatcher::registerForExecution(Mailbox* mbox) {
 	if (mbox->canBeScheduledForExecution(true)) { //TODO
 		if (mbox->setAsScheduled()) {
-			xQueueSend(_workQueue, &mbox, 0);
+			_workQueue.send(&mbox,0); // don't wait
 		}
 	}
 }
@@ -912,19 +877,17 @@ void MessageDispatcher::handleMailbox(void* thr) {
 
 	Thread* thread = (Thread*) thr;
 	MessageDispatcher& dispatcher = thread->dispatcher();
-	QueueHandle_t workQueue = dispatcher.workQueue();
+	NativeQueue workQueue = dispatcher.workQueue();
 	INFO("Thread : % s [%X]  ", thread->label(), pxCurrentTCB);
 	while (true) {
 		Mailbox* mbox;
-		configASSERT(workQueue != 0);
-		while (xQueueReceive(workQueue, &mbox, UINT32_MAX) != pdTRUE)
-			;
-		configASSERT(mbox != 0);
+		while ( workQueue.recv(&mbox,UINT32_MAX)!=0);
+		myASSERT(mbox != 0);
 
 		mbox->processMailbox(thread);
 	}
 }
 
-QueueHandle_t MessageDispatcher::workQueue() {
+NativeQueue& MessageDispatcher::workQueue() {
 	return _workQueue;
 }

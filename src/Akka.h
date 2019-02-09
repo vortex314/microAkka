@@ -20,9 +20,11 @@
 #include <atomic>
 //using namespace std;
 // Common
-#include <Log.h>
 //#include <Label.h>
 #include <Xdr.h>
+
+#define myASSERT(xxx) if (!(xxx) ) {WARN(" assertion " # xxx " failed.");};
+
 // FreeRTOS
 
 #include <FreeRTOS.h>
@@ -31,7 +33,100 @@
 #include <task.h>
 #include <timers.h>
 
-//#include <FreeRtosPosix.h>
+
+class NativeQueue {
+		QueueHandle_t _queue;
+	public:
+		NativeQueue(uint32_t queueSize,uint32_t itemSize) {
+			_queue = xQueueCreate(queueSize, itemSize);
+		}
+		int send(void* item,uint32_t msecWait){
+			BaseType_t rc = xQueueSend(_queue, item, pdMS_TO_TICKS(msecWait) );
+			if ( rc == pdTRUE ) return 0;
+			return rc;
+		}
+		int recv(void* item,uint32_t msecWait) {
+			if (xQueueReceive(_queue, item, pdMS_TO_TICKS(msecWait)) != pdTRUE) {
+					return ENOENT;
+				}
+			return 0;
+		}
+		bool hasMessages(){
+			return uxQueueMessagesWaiting(_queue);
+		}
+};
+
+typedef void (*TimerCallback)(void*);
+
+
+class NativeTimer {
+		TimerHandle_t _timer;
+		TimerCallback _callbackFunction;
+		void* _callbackArg;
+		bool _autoReload;
+		uint32_t _interval;
+	public:
+		static void freeRTOSCallback(TimerHandle_t handle){
+			NativeTimer* me = (NativeTimer*) pvTimerGetTimerID(handle);
+			me->_callbackFunction(me->_callbackArg);
+		}
+
+		NativeTimer(const char* name,bool autoReload , uint32_t interval,void* callbackArg,TimerCallback callbackFunction) :
+			_callbackFunction(callbackFunction),
+			_callbackArg(callbackArg),
+			_autoReload(autoReload),
+			_interval(interval) {
+			configASSERT((_timer = xTimerCreate(name,pdMS_TO_TICKS(interval),autoReload,this,freeRTOSCallback))!=NULL);
+		}
+
+		~NativeTimer(){
+		}
+
+		void start(){
+			configASSERT(xTimerStart(_timer,0) == pdPASS);
+		}
+
+		void stop() {
+			configASSERT(xTimerStop(_timer,0)==pdPASS);
+		}
+
+		void reset() {
+			configASSERT(xTimerReset(_timer,0)==pdPASS);
+		}
+
+		void interval(uint32_t v){
+			INFO("[%X] timer interval(%u)", this, v);
+			configASSERT(xTimerChangePeriod(_timer,pdMS_TO_TICKS(v),10)==pdPASS);
+		}
+
+
+};
+
+typedef void(*TaskFunction)(void*);
+
+class NativeThread {
+		const char* _name;
+		uint32_t _stackSize = 1024;
+		uint32_t _priority = tskIDLE_PRIORITY + 1;
+		TaskFunction _taskFunction;
+		void* _taskArg;
+		TaskHandle_t _task;
+	public:
+		 NativeThread(const char* name,uint32_t stackSize,uint32_t priority,TaskFunction taskFunction){
+			 _name=name;
+			_stackSize=stackSize;
+			_priority=priority;
+			_taskFunction = taskFunction;
+			_task=0;
+		}
+		void start(){
+			BaseType_t rc = xTaskCreate(_taskFunction,_name, _stackSize, _taskArg,_priority, &_task);
+				myASSERT(rc==pdPASS);
+		}
+		void wait();
+};
+
+
 
 #ifdef PROD
 #undef assert
@@ -87,6 +182,7 @@ const uid_type UD_TIMER = H(AKKA_TIMER);
 
 typedef void (*MsgHandler)(void);
 typedef void (*ThreadCode)(void*);
+
 
 class Receiver;
 class Mailbox;
@@ -249,9 +345,8 @@ typedef std::function<bool(Msg&)> MessageMatcher;
 //_________________________________________________________________ Timer
 //
 
-class Timer: public Label {
+class Timer: public Label,public NativeTimer {
 		Msg* _msg;
-		TimerHandle_t _timer;
 		bool _autoReload;
 		TimerScheduler& _timerScheduler;
 
@@ -259,14 +354,10 @@ class Timer: public Label {
 		Timer(Label key, bool autoReload, uint32_t interval, const Msg& msg,
 				TimerScheduler&);
 		~Timer();
-		static void callBack(TimerHandle_t);
-		void start();
-		void stop();
-		void reset();
+		static void callBack(void* );
+
 		bool operator==(Timer&);
 		Label key();
-
-		void interval(uint32_t);
 		Msg& msg();
 		void msg(const Msg&);
 };
@@ -547,34 +638,30 @@ class ActorSelection: public ActorRef {
 //
 // per thread data
 //
-class Thread: public Ref {
-		uint32_t _stackSize = 1024;
-		uint32_t _priority = tskIDLE_PRIORITY + 1;
+class Thread: public Ref,public NativeThread {
 		Msg _txd;
 		Msg _rxd;
-		TaskHandle_t _task;
 		MessageDispatcher* _dispatcher;
 	public:
 		Thread(MessageDispatcher* dispatcher, const char* name,
-				uint32_t stackSize = 1024,
-				uint32_t priority = tskIDLE_PRIORITY + 1);
+				uint32_t stackSize ,
+				uint32_t priority ,void* threadArg,TaskFunction f);
 		void currentMessage(Msg* msg);
 		Msg& currentMessage();
 		Msg& txd();
 		Msg& rxd();
-		void start(ThreadCode);
 		MessageDispatcher& dispatcher();
 };
 
 //__________________________________________________________ MessageDispatcher
-class MessageDispatcher {
+class MessageDispatcher  {
 		std::list<ActorCell*> _actorCells;
 		ActorCell* _unhandledCell;
 
 		uint32_t _threadCount = 1;
 		uint32_t _throughput = 10;
 		std::list<Thread*> _threads;
-		QueueHandle_t _workQueue;
+		NativeQueue _workQueue;
 	public:
 		MessageDispatcher(uint32_t threadCount = 1, uint32_t stackSize = 1024,
 				uint32_t priority = tskIDLE_PRIORITY + 1);
@@ -594,13 +681,12 @@ class MessageDispatcher {
 
 		void dispatch(ActorCell&, Msg&);
 		void registerForExecution(Mailbox*);
-		QueueHandle_t workQueue();
+		NativeQueue& workQueue();
 
 };
 
 //__________________________________________________________ Mailbox
-class Mailbox {
-		QueueHandle_t _queue;
+class Mailbox : public NativeQueue {
 		ActorCell& _cell;
 		std::atomic<uint32_t> _currentStatus;
 
@@ -619,7 +705,6 @@ class Mailbox {
 		void processMailbox(Thread* thread);
 		bool shouldProcessMessage();
 		bool updateStatus(uint32_t oldStatus, uint32_t newStatus);
-		bool hasMessages();
 		bool canBeScheduledForExecution(bool hasMessageHint);
 		bool setAsScheduled();
 		bool setAsIdle();
