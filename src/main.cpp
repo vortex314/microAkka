@@ -58,5 +58,6 @@ int main() {
 	//	defaultDispatcher.unhandled(bridge.cell());
 
 	INFO(" MAIN task ended !! ");
-	vTaskStartScheduler();
+	sleep(1000000);
+//	vTaskStartScheduler();
 }

@@ -239,6 +239,10 @@ Actor::Actor()
 		: _context() {
 }
 
+void Actor::context(ActorCell* context) {
+			_context = context;
+		}
+
 Actor::~Actor() {
 }
 
@@ -375,7 +379,7 @@ int Mailbox::enqueue(Msg& msg) {
 	*px = msg;
 	myASSERT(msg.src() != 0);
 	myASSERT(msg.dst() != 0);
-	int rc =  send(&px,10);
+	int rc =  send(px,10);
 	if (rc != 0) {
 		WARN("queue full %s", Label::label(_cell.self().id()));
 		delete px;
@@ -386,9 +390,10 @@ int Mailbox::enqueue(Msg& msg) {
 
 int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	Msg* px;
-	int rc = recv(&px,time);
+	int rc = recv((void**)&px,time);
 	if ( rc ) return ENOENT;
 	(Msg&) msg = *px;
+//	INFO("dequeue : %s ",msg.toString().c_str());
 	delete px;
 	return 0;
 }
@@ -801,8 +806,9 @@ std::list<ActorCell*>& ActorCell::actorCells() {
 //________________________________________________ Thread
 
 Thread::Thread(MessageDispatcher* dispatcher, const char* name,
-		uint32_t stackSize, uint32_t priority,TaskFunction f)
-		: Ref(name, this, "Thread"),NativeThread(name,stackSize,priority,this,f), _dispatcher(dispatcher) {
+		uint32_t stackSize, uint32_t priority,void* threadArg,TaskFunction f)
+		: Ref(name, this, "Thread"),
+		  NativeThread(name,stackSize,priority,this,f), _dispatcher(dispatcher) {
 
 }
 
@@ -829,7 +835,7 @@ MessageDispatcher::MessageDispatcher(uint32_t threadCount, uint32_t stackSize,
 	for (uint32_t i = 0; i < threadCount; i++) {
 		std::string name;
 		string_format(name, "thread-%u", i);
-		_threads.push_back(new Thread(this, name.c_str(), stackSize, priority,));
+		_threads.push_back(new Thread(this, name.c_str(), stackSize, priority,0,MessageDispatcher::handleMailbox));
 	}
 	_unhandledCell = 0;
 
@@ -866,7 +872,7 @@ void MessageDispatcher::dispatch(ActorCell& cell, Msg& msg) {
 void MessageDispatcher::registerForExecution(Mailbox* mbox) {
 	if (mbox->canBeScheduledForExecution(true)) { //TODO
 		if (mbox->setAsScheduled()) {
-			_workQueue.send(&mbox,0); // don't wait
+			_workQueue.send(mbox,0); // don't wait
 		}
 	}
 }
@@ -877,11 +883,11 @@ void MessageDispatcher::handleMailbox(void* thr) {
 
 	Thread* thread = (Thread*) thr;
 	MessageDispatcher& dispatcher = thread->dispatcher();
-	NativeQueue workQueue = dispatcher.workQueue();
-	INFO("Thread : % s [%X]  ", thread->label(), pxCurrentTCB);
+	NativeQueue& workQueue = dispatcher.workQueue();
+//	INFO("Thread : % s [%X]  ", thread->label(), pxCurrentTCB);
 	while (true) {
 		Mailbox* mbox;
-		while ( workQueue.recv(&mbox,UINT32_MAX)!=0);
+		while ( workQueue.recv((void**)&mbox,UINT32_MAX)!=0);
 		myASSERT(mbox != 0);
 
 		mbox->processMailbox(thread);
