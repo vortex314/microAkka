@@ -8,8 +8,18 @@
 #ifndef SRC_NATIVE_H_
 #define SRC_NATIVE_H_
 
+#include <stdint.h>
+
 #define myASSERT(xxx) if (!(xxx) ) {WARN(" assertion " # xxx " failed.");};
 
+class AbstractNativeQueue {
+public:
+	//AbstractNativeQueue(uint32_t queueSize, uint32_t itemSize)=0;
+	virtual ~AbstractNativeQueue(){};
+	virtual int recv(void** item, uint32_t to)=0;
+	virtual int send(void* item, uint32_t to)=0;
+	virtual bool hasMessages()=0;
+};
 
 #if defined( __freeRTOS__ ) || defined( ESP_OPEN_RTOS ) || defined(ESP32_IDF)
 
@@ -19,9 +29,9 @@
 #include <task.h>
 #include <timers.h>
 
-class NativeQueue {
+class NativeQueue : public AbstractNativeQueue {
 	QueueHandle_t _queue;
-	public:
+public:
 	NativeQueue(uint32_t queueSize,uint32_t itemSize);
 	int send(void* item,uint32_t msecWait);
 	int recv(void** item,uint32_t msecWait);
@@ -36,7 +46,7 @@ class NativeTimer {
 	void* _callbackArg;
 	bool _autoReload;
 	uint32_t _interval;
-	public:
+public:
 	static void freeRTOSCallback(TimerHandle_t handle);
 	NativeTimer(const char* name,bool autoReload , uint32_t interval,void* callbackArg,TimerCallback callbackFunction);
 
@@ -56,15 +66,15 @@ class NativeThread {
 	TaskFunction _taskFunction;
 	void* _taskArg;
 	TaskHandle_t _task;
-	public:
-	NativeThread(const char* name,uint32_t stackSize,uint32_t priority,void* taskArg,TaskFunction taskFunction) ;
+public:
+	NativeThread(const char* name,uint32_t stackSize,uint32_t priority,void* taskArg,TaskFunction taskFunction);
 	void start();
 	void wait();
 };
 
 #endif
 
-#ifdef __linux__
+#if defined( __linux__ ) || defined(__APPLE__)
 
 #include <stdint.h>
 #include <unistd.h>
@@ -74,7 +84,7 @@ class NativeThread {
 #include <sys/msg.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <signal.h>
+//#include <signal.h>
 #include <time.h>
 #include <condition_variable>
 #include <vector>
@@ -86,75 +96,64 @@ class NativeThread {
 #include <mutex>
 #include <condition_variable>
 
-class NativeQueue {
-	private:
-		std::queue<void*> queue_;
-		std::mutex mutex_;
-		std::condition_variable cond_;
-	public:
-		NativeQueue(uint32_t queueSize,uint32_t itemSize) {
 
-		}
-		~NativeQueue(){
 
-		}
+class NativeQueue :public AbstractNativeQueue {
+private:
+	std::queue<void*> queue_;
+	std::mutex mutex_;
+	std::condition_variable cond_;
+public:
+	NativeQueue(uint32_t queueSize, uint32_t itemSize) {
 
-		int recv(void** item,uint32_t to) {
-			std::unique_lock<std::mutex> mlock(mutex_);
-			while (queue_.empty()) {
-				cond_.wait(mlock);
-			}
-			*item = queue_.front();
-			queue_.pop();
-			return 0;
-		}
+	}
+	~NativeQueue() {
 
-		int send(void* item,uint32_t to) {
-			std::unique_lock<std::mutex> mlock(mutex_);
-			queue_.push(item);
-			mlock.unlock();
-			cond_.notify_one();
-			return 0;
+	}
+
+	int recv(void** item, uint32_t to) {
+		std::unique_lock<std::mutex> mlock(mutex_);
+		while (queue_.empty()) {
+			cond_.wait(mlock);
 		}
-		bool hasMessages(){
-			return queue_.size()!=0;
-		}
+		*item = queue_.front();
+		queue_.pop();
+		return 0;
+	}
+
+	int send(void* item, uint32_t to) {
+		std::unique_lock<std::mutex> mlock(mutex_);
+		queue_.push(item);
+		mlock.unlock();
+		cond_.notify_one();
+		return 0;
+	}
+	bool hasMessages() {
+		return queue_.size() != 0;
+	}
 //  Queue()=default;
-  NativeQueue(const NativeQueue& other)=delete;
+	NativeQueue(const NativeQueue& other) = delete;
 //  Queue& operator=(const Queue&) = delete; // disable assignment
 
 };
 
-/*
-
- class NativeQueue {
- int _queue;
- const uint32_t _queueSize;
- const uint32_t _itemSize;
- static key_t _keyCounter;
- public:
- NativeQueue(uint32_t queueSize, uint32_t itemSize);
- int send(void* item, uint32_t msecWait);
- int recv(void** item, uint32_t msecWait);
- bool hasMessages();
- };*/
 
 typedef void (*TaskFunction)(void*);
 typedef void*(*PthreadFunction)(void*);
 #define tskIDLE_PRIORITY 0
 
 class NativeThread {
-		std::string _name;
-		uint32_t _stackSize = 1024;
-		uint32_t _priority = tskIDLE_PRIORITY + 1;
-		TaskFunction _taskFunction;
-		void* _taskArg;
-		pthread_t _thread;
-	public:
-		NativeThread(const char* name, uint32_t stackSize, uint32_t priority,
-				void* taskArg, TaskFunction taskFunction);
-		void start();
-		void wait();
+	std::string _name;
+	uint32_t _stackSize = 1024;
+	uint32_t _priority = tskIDLE_PRIORITY + 1;
+	TaskFunction _taskFunction;
+	void* _taskArg;
+	pthread_t _thread;
+public:
+	NativeThread(const char* name, uint32_t stackSize, uint32_t priority,
+			void* taskArg, TaskFunction taskFunction);
+	void start();
+	void wait();
 };
 
 //#include <sort>
@@ -165,47 +164,48 @@ typedef std::function<void(void)> Timeout;
 typedef std::chrono::high_resolution_clock Clock;
 
 class NativeTimer {
-		timer_t _timer;
-		TimerCallback _callbackFunction;
-		void* _callbackArg;
-		bool _autoReload;
-		uint32_t _interval;
-		uint32_t _id;
-		static uint32_t _idCounter;
+//	timer_t _timer;
+	TimerCallback _callbackFunction;
+	void* _callbackArg;
+	bool _autoReload;
+	uint32_t _interval;
+	uint32_t _id;
+	static uint32_t _idCounter;
 
-	public:
-		std::chrono::high_resolution_clock::time_point _timePoint;
+public:
+	std::chrono::high_resolution_clock::time_point _timePoint;
 
-		NativeTimer(const char* name, bool autoReload, uint32_t interval,
-				void* callbackArg, TimerCallback callbackFunction);
+	NativeTimer(const char* name, bool autoReload, uint32_t interval,
+			void* callbackArg, TimerCallback callbackFunction);
 
-		~NativeTimer();
-		void start();
-		void stop();
-		void reset();
-		void interval(uint32_t v);
-		uint32_t interval();
+	~NativeTimer();
+	void start();
+	void stop();
+	void reset();
+	void interval(uint32_t v);
+	uint32_t interval();
+	bool autoReload();
 
-		void invoke();
+	void invoke();
 
 };
 //___________________________________________________________________________
 //
 class NativeTimerThread: public NativeThread {
 //		std::unique_ptr<std::thread> m_Thread;
-		std::vector<NativeTimer*> m_Timers;
-		std::mutex m_Mutex;
-		std::condition_variable m_Condition;
-		bool m_Stop;
-		bool m_Sort;
+	std::vector<NativeTimer*> m_Timers;
+	std::mutex m_Mutex;
+	std::condition_variable m_Condition;
+	bool m_Stop;
+	bool m_Sort;
 
-	public:
+public:
 
-		void run();
-		static void runStatic(void* th);
-		NativeTimerThread();
-		~NativeTimerThread();
-		void addTimer(NativeTimer* timer);
+	void run();
+	static void runStatic(void* th);
+	NativeTimerThread();
+	~NativeTimerThread();
+	void addTimer(NativeTimer* timer);
 };
 
 #endif

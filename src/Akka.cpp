@@ -374,7 +374,7 @@ Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
 }
 
 int Mailbox::enqueue(Msg& msg) {
-//	INFO("enqueue : %s ",msg.toString().c_str());
+	INFO("enqueue : %s ",msg.toString().c_str());
 	Msg* px = new Msg(msg.size());
 	*px = msg;
 	myASSERT(msg.src() != 0);
@@ -393,7 +393,7 @@ int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	int rc = recv((void**)&px,time);
 	if ( rc ) return ENOENT;
 	(Msg&) msg = *px;
-//	INFO("dequeue : %s ",msg.toString().c_str());
+	INFO("dequeue : %s ",msg.toString().c_str());
 	delete px;
 	return 0;
 }
@@ -872,6 +872,7 @@ void MessageDispatcher::dispatch(ActorCell& cell, Msg& msg) {
 void MessageDispatcher::registerForExecution(Mailbox* mbox) {
 	if (mbox->canBeScheduledForExecution(true)) { //TODO
 		if (mbox->setAsScheduled()) {
+			INFO(" send work for mailbox : %lX ",mbox);
 			_workQueue.send(mbox,0); // don't wait
 		}
 	}
@@ -888,8 +889,8 @@ void MessageDispatcher::handleMailbox(void* thr) {
 	while (true) {
 		Mailbox* mbox;
 		while ( workQueue.recv((void**)&mbox,UINT32_MAX)!=0);
+		INFO(" recv work for mailbox : %lX ",mbox);
 		myASSERT(mbox != 0);
-
 		mbox->processMailbox(thread);
 	}
 }

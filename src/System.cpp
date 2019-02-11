@@ -10,7 +10,7 @@ System::~System() {}
 void System::preStart() {
 //	_propTimer = timers().startPeriodicTimer("propTimer", TimerExpired(), 5000);
 }
-#ifdef __MAC__
+#ifdef __APPLE__
 Receive& System::createReceive() {
 	return receiveBuilder()
 	.match(Exit, [](Msg& msg) { exit(0); })

@@ -42,7 +42,7 @@ int main() {
 	config.save();
 
 	INFO(" starting microAkka test ");
-	static MessageDispatcher defaultDispatcher(1, 10240, tskIDLE_PRIORITY + 1);
+	static MessageDispatcher defaultDispatcher(2, 10240, tskIDLE_PRIORITY + 1);
 	static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher);
 
 	actorSystem.actorOf<Sender>("sender");

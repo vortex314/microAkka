@@ -82,7 +82,7 @@ void NativeThread::wait() {
 
 #endif
 
-#ifdef __linux__
+#if defined( __linux__ ) || defined( __APPLE__ )
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -95,51 +95,6 @@ void NativeThread::wait() {
 
 uint32_t NativeTimer::_idCounter = 0;
 
-/*
- key_t NativeQueue::_keyCounter = 65536;
-
- NativeQueue::NativeQueue(uint32_t queueSize, uint32_t itemSize)
- : _queueSize(queueSize), _itemSize(itemSize) {
-
- myASSERT((_queue = msgget(_keyCounter++, 0666 | IPC_CREAT))!=-1);
- if (msgctl(_queue, IPC_RMID, NULL) != 0) {
- WARN(" msgctl(%d) failed : %d :  %s ", _queue, errno, strerror(errno)); // rm queue from prev run
- }
- myASSERT((_queue = msgget(_keyCounter, 0666 | IPC_CREAT))!=-1);
- }
-
- #define PTR_LENGTH sizeof(void*)
-
- int NativeQueue::send(void* item, uint32_t msecWait) {
- struct {
- long type;
- void* ptr;
- } buffer;
- buffer.type = 1;
- buffer.ptr = item;
- INFO(" send ptr : %lX ", buffer.ptr);
- INFO(" msgsnd(%X,%lX) ", _queue, item);
- myASSERT((msgsnd(_queue, &buffer, PTR_LENGTH, IPC_NOWAIT) != -1));
- return 0;
- }
- int NativeQueue::recv(void** item, uint32_t msecWait) {
- struct {
- long type;
- void* ptr;
- } buffer;
-
- myASSERT(msgrcv(_queue, &buffer, PTR_LENGTH, 1, 0) != -1);
- INFO(" recv ptr : %lX ", buffer.ptr);
- *item = buffer.ptr;
- INFO(" msgrcv(%X,%lX) ", _queue, *item);
- return 0;
- }
- bool NativeQueue::hasMessages() {
- struct msqid_ds queueInfo;
- myASSERT(msgctl(_queue,IPC_STAT,&queueInfo)!=-1);
- return queueInfo.msg_qnum != 0;
- }
- */
 NativeThread::NativeThread(const char* name, uint32_t stackSize,
 		uint32_t priority, void* taskArg, TaskFunction taskFunction) {
 	_name = name;
@@ -149,9 +104,12 @@ NativeThread::NativeThread(const char* name, uint32_t stackSize,
 	_taskArg = taskArg;
 	_thread = 0;
 }
+
 void NativeThread::start() {
-	myASSERT(pthread_create(&_thread,NULL,(PthreadFunction)_taskFunction,_taskArg)==0);
+	myASSERT(
+			pthread_create(&_thread,NULL,(PthreadFunction)_taskFunction,_taskArg)==0);
 }
+
 void NativeThread::wait() {
 	myASSERT(pthread_join(_thread,NULL)==0);
 }
@@ -162,9 +120,10 @@ void NativeThread::wait() {
 NativeTimerThread timerThread;
 
 NativeTimer::NativeTimer(const char* name, bool autoReload, uint32_t interval,
-		void* callbackArg, TimerCallback callbackFunction)
-		: _callbackFunction(callbackFunction), _callbackArg(callbackArg), _autoReload(autoReload), _interval(interval) {
-	_timer = 0;
+		void* callbackArg, TimerCallback callbackFunction) :
+		_callbackFunction(callbackFunction), _callbackArg(callbackArg), _autoReload(
+				autoReload), _interval(interval) {
+//	_timer = 0;
 	_id = _idCounter++;
 }
 
@@ -210,10 +169,11 @@ void NativeTimerThread::run() {
 		if (m_Sort) {
 			//Sort could be done at insert
 			//but probabily this thread has time to do
-			std::sort(m_Timers.begin(), m_Timers.end(), [](const NativeTimer * ti1, const NativeTimer * ti2)
-			{
-				return ti1->_timePoint > ti2->_timePoint;
-			});
+			std::sort(m_Timers.begin(), m_Timers.end(),
+					[](const NativeTimer * ti1, const NativeTimer * ti2)
+					{
+						return ti1->_timePoint > ti2->_timePoint;
+					});
 			m_Sort = false;
 		}
 
@@ -244,8 +204,9 @@ void NativeTimerThread::runStatic(void* th) {
 	NativeTimerThread* me = (NativeTimerThread*) th;
 	me->run();
 }
-NativeTimerThread::NativeTimerThread()
-		: NativeThread("timerThread", 1024, 5, this, runStatic), m_Stop(false), m_Sort(false) {
+NativeTimerThread::NativeTimerThread() :
+		NativeThread("timerThread", 1024, 5, this, runStatic), m_Stop(false), m_Sort(
+				false) {
 	start();
 
 }
