@@ -153,7 +153,7 @@ bool Bridge::jsonToMessage(Msg& msg,std::string& topic,std::string& message) {
 	uint32_t offsets[3]= {0,0,0};
 	uint32_t prevOffset=0;
 	for(uint32_t i=0; i<3; i++) {
-		uint32_t offset = topic.find('/',prevOffset);
+		uint64_t offset = topic.find('/',prevOffset); // uint64_t to support 64 bit architecture ;-)
 		if ( offset == std::string::npos ) break;
 		offsets[i]= offset;
 		prevOffset=offset+1;

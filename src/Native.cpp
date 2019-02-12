@@ -93,6 +93,42 @@ void NativeThread::wait() {
 #include <errno.h>
 #include <Native.h>
 
+//_______________________________________________________________________________
+//
+
+NativeQueue::NativeQueue(uint32_t queueSize, uint32_t itemSize) {
+
+}
+NativeQueue::~NativeQueue() {
+
+}
+
+int NativeQueue::recv(void** item, uint32_t to) {
+	std::unique_lock<std::mutex> mlock(mutex_);
+	std::chrono::milliseconds waitTime(to);
+	if (queue_.empty()) {
+		cond_.wait_for(mlock, waitTime);
+		if (queue_.empty())
+			return ENOENT;
+	}
+	*item = queue_.front();
+	queue_.pop();
+	return 0;
+}
+
+int NativeQueue::send(void* item, uint32_t to) {
+	std::unique_lock<std::mutex> mlock(mutex_);
+	queue_.push(item);
+	mlock.unlock();
+	cond_.notify_one();
+	return 0;
+}
+bool NativeQueue::hasMessages() {
+	return queue_.size() != 0;
+}
+//________________________________________________________________________________
+//
+
 uint32_t NativeTimer::_idCounter = 0;
 
 NativeThread::NativeThread(const char* name, uint32_t stackSize,
@@ -136,6 +172,7 @@ void NativeTimer::start() {
 }
 
 void NativeTimer::stop() {
+	timerThread.removeTimer(this);
 }
 
 void NativeTimer::reset() {
@@ -148,6 +185,10 @@ void NativeTimer::interval(uint32_t v) {
 
 uint32_t NativeTimer::interval() {
 	return _interval;
+}
+
+bool NativeTimer::autoReload() {
+	return _autoReload;
 }
 
 void NativeTimer::invoke() {
@@ -190,12 +231,32 @@ void NativeTimerThread::run() {
 			auto now = Clock::now();
 
 			if (expire <= now) {
+				INFO(" invoke timer ");
 				m_Timers.back()->invoke();
+				auto t = m_Timers.back();
 				m_Timers.pop_back();
+				if (t->autoReload()) {
+					t->_timePoint = Clock::now()
+							+ std::chrono::milliseconds(t->interval());
+					m_Timers.emplace_back(t);
+					m_Sort = true;
+				} else {
+					delete t;
+				}
 			}
 		} else {
+			INFO(" invoke timer ");
 			m_Timers.back()->invoke();
+			auto t = m_Timers.back();
 			m_Timers.pop_back();
+			if (t->autoReload()) {
+				t->_timePoint = Clock::now()
+						+ std::chrono::milliseconds(t->interval());
+				m_Timers.emplace_back(t);
+				m_Sort = true;
+			} else {
+				delete t;
+			}
 		}
 	}
 }
@@ -221,6 +282,19 @@ void NativeTimerThread::addTimer(NativeTimer* timer) {
 		timer->_timePoint = Clock::now()
 				+ std::chrono::milliseconds(timer->interval());
 		timerThread.m_Timers.emplace_back(timer);
+		timerThread.m_Sort = true;
+	}
+	// wake up
+	timerThread.m_Condition.notify_one();
+}
+
+void NativeTimerThread::removeTimer(NativeTimer* timer) {
+	{
+		std::unique_lock<std::mutex> lock(timerThread.m_Mutex);
+		for (auto t = m_Timers.begin(); t != m_Timers.end(); t++) {
+			if (*t == timer)
+				m_Timers.erase(t);
+		}
 		timerThread.m_Sort = true;
 	}
 	// wake up

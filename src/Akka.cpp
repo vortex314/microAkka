@@ -390,8 +390,12 @@ int Mailbox::enqueue(Msg& msg) {
 
 int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	Msg* px;
+	INFO(" wait dequeue ..");
 	int rc = recv((void**)&px,time);
-	if ( rc ) return ENOENT;
+	if ( rc ) {
+		INFO("dequeue failed : %d ",rc);
+		return ENOENT;
+	}
 	(Msg&) msg = *px;
 	INFO("dequeue : %s ",msg.toString().c_str());
 	delete px;
@@ -443,6 +447,7 @@ bool Mailbox::updateStatus(uint32_t oldStatus, uint32_t newStatus) {
 
 void Mailbox::processMailbox(Thread* thread) {
 	if (shouldProcessMessage()) {
+		INFO(" wait message from mailbox");
 		while (dequeue(thread->rxd(), 0) == 0) {
 			_cell.currentThread(thread);
 			_cell.invoke(thread->rxd());

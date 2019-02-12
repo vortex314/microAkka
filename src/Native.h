@@ -14,11 +14,18 @@
 
 class AbstractNativeQueue {
 public:
-	//AbstractNativeQueue(uint32_t queueSize, uint32_t itemSize)=0;
 	virtual ~AbstractNativeQueue(){};
 	virtual int recv(void** item, uint32_t to)=0;
 	virtual int send(void* item, uint32_t to)=0;
 	virtual bool hasMessages()=0;
+};
+typedef void (*TaskFunction)(void*);
+
+class AbstractNativeThread {
+public:
+	virtual ~AbstractNativeThread(){};
+	virtual void start()=0;
+	virtual void wait()=0;
 };
 
 #if defined( __freeRTOS__ ) || defined( ESP_OPEN_RTOS ) || defined(ESP32_IDF)
@@ -104,33 +111,11 @@ private:
 	std::mutex mutex_;
 	std::condition_variable cond_;
 public:
-	NativeQueue(uint32_t queueSize, uint32_t itemSize) {
-
-	}
-	~NativeQueue() {
-
-	}
-
-	int recv(void** item, uint32_t to) {
-		std::unique_lock<std::mutex> mlock(mutex_);
-		while (queue_.empty()) {
-			cond_.wait(mlock);
-		}
-		*item = queue_.front();
-		queue_.pop();
-		return 0;
-	}
-
-	int send(void* item, uint32_t to) {
-		std::unique_lock<std::mutex> mlock(mutex_);
-		queue_.push(item);
-		mlock.unlock();
-		cond_.notify_one();
-		return 0;
-	}
-	bool hasMessages() {
-		return queue_.size() != 0;
-	}
+	NativeQueue(uint32_t queueSize, uint32_t itemSize) ;
+	~NativeQueue() ;
+	int recv(void** item, uint32_t to);
+	int send(void* item, uint32_t to);
+	bool hasMessages();
 //  Queue()=default;
 	NativeQueue(const NativeQueue& other) = delete;
 //  Queue& operator=(const Queue&) = delete; // disable assignment
@@ -138,11 +123,10 @@ public:
 };
 
 
-typedef void (*TaskFunction)(void*);
 typedef void*(*PthreadFunction)(void*);
 #define tskIDLE_PRIORITY 0
 
-class NativeThread {
+class NativeThread : public AbstractNativeThread{
 	std::string _name;
 	uint32_t _stackSize = 1024;
 	uint32_t _priority = tskIDLE_PRIORITY + 1;
@@ -206,6 +190,8 @@ public:
 	NativeTimerThread();
 	~NativeTimerThread();
 	void addTimer(NativeTimer* timer);
+	void removeTimer(NativeTimer* timer);
+
 };
 
 #endif
