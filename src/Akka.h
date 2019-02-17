@@ -580,7 +580,7 @@ class MessageDispatcher {
 		Mailbox& mailbox();
 
 		void dispatch(ActorCell&, Msg&);
-		void registerForExecution(Mailbox*);
+		void registerForExecution(Mailbox*,bool hasMessageHint);
 		NativeQueue& workQueue();
 
 };

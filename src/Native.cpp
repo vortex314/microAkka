@@ -144,6 +144,7 @@ NativeThread::NativeThread(const char* name, uint32_t stackSize,
 void NativeThread::start() {
 	myASSERT(
 			pthread_create(&_thread,NULL,(PthreadFunction)_taskFunction,_taskArg)==0);
+	pthread_setname_np(_thread,_name.c_str());
 }
 
 void NativeThread::wait() {
@@ -231,7 +232,7 @@ void NativeTimerThread::run() {
 			auto now = Clock::now();
 
 			if (expire <= now) {
-				INFO(" invoke timer ");
+//				INFO(" invoke timer ");
 				m_Timers.back()->invoke();
 				auto t = m_Timers.back();
 				m_Timers.pop_back();
@@ -241,11 +242,11 @@ void NativeTimerThread::run() {
 					m_Timers.emplace_back(t);
 					m_Sort = true;
 				} else {
-					delete t;
+//					delete t;
 				}
 			}
 		} else {
-			INFO(" invoke timer ");
+//			INFO(" invoke timer ");
 			m_Timers.back()->invoke();
 			auto t = m_Timers.back();
 			m_Timers.pop_back();
@@ -255,7 +256,7 @@ void NativeTimerThread::run() {
 				m_Timers.emplace_back(t);
 				m_Sort = true;
 			} else {
-				delete t;
+//				delete t;
 			}
 		}
 	}

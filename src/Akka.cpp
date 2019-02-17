@@ -7,8 +7,6 @@
 //============================================================================
 #include "Akka.h"
 
-
-
 //_____________________________________________ STATIC
 
 typedef void (*MsgHandler)(void);
@@ -240,8 +238,8 @@ Actor::Actor()
 }
 
 void Actor::context(ActorCell* context) {
-			_context = context;
-		}
+	_context = context;
+}
 
 Actor::~Actor() {
 }
@@ -369,19 +367,19 @@ typedef std::function<void(Msg&)> MessageHandler;
 //
 
 Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
-		: NativeQueue(queueSize,sizeof(void*)) ,_cell(cell){
+		: NativeQueue(queueSize, sizeof(void*)), _cell(cell) {
 	_currentStatus = Open;
 }
 
 int Mailbox::enqueue(Msg& msg) {
-	INFO("enqueue : %s ",msg.toString().c_str());
+	DEBUG("'%s' enqueue : %s ", name(), msg.toString().c_str());
 	Msg* px = new Msg(msg.size());
 	*px = msg;
 	myASSERT(msg.src() != 0);
 	myASSERT(msg.dst() != 0);
-	int rc =  send(px,10);
+	int rc = send(px, 10);
 	if (rc != 0) {
-		WARN("queue full %s", Label::label(_cell.self().id()));
+		WARN("[%X] enqueue failed %s", this, Label::label(_cell.self().id()));
 		delete px;
 		return ENOENT;
 	}
@@ -390,21 +388,24 @@ int Mailbox::enqueue(Msg& msg) {
 
 int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	Msg* px;
-	INFO(" wait dequeue ..");
-	int rc = recv((void**)&px,time);
-	if ( rc ) {
-		INFO("dequeue failed : %d ",rc);
+//	DEBUG("'%s' dequeue wait ..  ",name());
+	int rc = recv((void**) &px, time);
+	if (rc) {
+//		DEBUG("'%s' dequeue failed : %d",name(),rc);
 		return ENOENT;
 	}
 	(Msg&) msg = *px;
-	INFO("dequeue : %s ",msg.toString().c_str());
+	DEBUG("'%s' dequeue : %s ", name(), msg.toString().c_str());
 	delete px;
 	return 0;
 }
 
 // for now supposing mailbox always open
 bool Mailbox::canBeScheduledForExecution(bool hasMessagesHint) {
-	return hasMessagesHint || hasMessages();
+	if ((_currentStatus == Scheduled) || (_currentStatus == Open))
+		return hasMessagesHint || hasMessages();
+	if (_currentStatus == Closed) return false;
+	return false;
 }
 // check suspend counter, not used here in fact
 bool Mailbox::shouldProcessMessage() {
@@ -412,6 +413,7 @@ bool Mailbox::shouldProcessMessage() {
 }
 //TODO if already scheduled==true return false, else set scheduled, indicates winning thread
 bool Mailbox::setAsScheduled() {
+	DEBUG("'%s' setAsScheduled", name());
 	while (true) {
 		uint32_t s = _currentStatus;
 		if ((s & shouldScheduleMask) != Open) return false;
@@ -420,6 +422,7 @@ bool Mailbox::setAsScheduled() {
 }
 // set scheduled false
 bool Mailbox::setAsIdle() {
+	DEBUG("'%s' setAsIdle", name());
 	while (true) {
 		uint32_t s = _currentStatus;
 		if (updateStatus(s, s & ~Scheduled)) return true;
@@ -447,14 +450,21 @@ bool Mailbox::updateStatus(uint32_t oldStatus, uint32_t newStatus) {
 
 void Mailbox::processMailbox(Thread* thread) {
 	if (shouldProcessMessage()) {
-		INFO(" wait message from mailbox");
+		uint32_t counter = 0;
 		while (dequeue(thread->rxd(), 0) == 0) {
 			_cell.currentThread(thread);
 			_cell.invoke(thread->rxd());
+			counter++;
+			if (counter == 10) break;
 		}
+		DEBUG("'%s' processed %d messages ", _cell.path(), counter);
 		_cell.resetReceiveTimeout();
 		setAsIdle();
 	}
+}
+
+const char* Mailbox::name() {
+	return _cell.path();
 }
 
 //_______________________________________________________ ActorSystem
@@ -547,7 +557,7 @@ void Timer::callBack(void* arg) {
 
 Timer::Timer(Label key, bool autoReload, uint32_t interval, const Msg& m,
 		TimerScheduler& scheduler)
-		: Label(key),NativeTimer(key.label(),autoReload,interval,this,callBack), _timerScheduler(scheduler) {
+		: Label(key), NativeTimer(key.label(), autoReload, interval, this, callBack), _timerScheduler(scheduler) {
 	INFO("[%X] timer created %s : %u ", this, label(), interval);
 	_msg = new Msg();
 	*_msg = m;
@@ -572,8 +582,6 @@ void Timer::msg(const Msg& msg) {
 	_msg->dst(_timerScheduler.ref().id());
 	_msg->src(_timerScheduler.ref().id());
 }
-
-
 
 Label Timer::key() {
 	return id();
@@ -811,9 +819,8 @@ std::list<ActorCell*>& ActorCell::actorCells() {
 //________________________________________________ Thread
 
 Thread::Thread(MessageDispatcher* dispatcher, const char* name,
-		uint32_t stackSize, uint32_t priority,void* threadArg,TaskFunction f)
-		: Ref(name, this, "Thread"),
-		  NativeThread(name,stackSize,priority,this,f), _dispatcher(dispatcher) {
+		uint32_t stackSize, uint32_t priority, void* threadArg, TaskFunction f)
+		: Ref(name, this, "Thread"), NativeThread(name, stackSize, priority, this, f), _dispatcher(dispatcher) {
 
 }
 
@@ -835,12 +842,13 @@ Msg& Thread::currentMessage() {
 //
 
 MessageDispatcher::MessageDispatcher(uint32_t threadCount, uint32_t stackSize,
-		uint32_t priority) : _workQueue(20,sizeof(Mailbox*)){
+		uint32_t priority)
+		: _workQueue(20, sizeof(Mailbox*)) {
 	_threadCount = threadCount;
 	for (uint32_t i = 0; i < threadCount; i++) {
 		std::string name;
 		string_format(name, "thread-%u", i);
-		_threads.push_back(new Thread(this, name.c_str(), stackSize, priority,0,MessageDispatcher::handleMailbox));
+		_threads.push_back(new Thread(this, name.c_str(), stackSize, priority, 0, MessageDispatcher::handleMailbox));
 	}
 	_unhandledCell = 0;
 
@@ -870,15 +878,18 @@ void MessageDispatcher::start() {
 
 void MessageDispatcher::dispatch(ActorCell& cell, Msg& msg) {
 	cell.mailbox().enqueue(msg);
-	registerForExecution(&cell.mailbox());
+	registerForExecution(&cell.mailbox(), true);
 }
 //_________ decide if mailbox should be wakened
 //
-void MessageDispatcher::registerForExecution(Mailbox* mbox) {
-	if (mbox->canBeScheduledForExecution(true)) { //TODO
+void MessageDispatcher::registerForExecution(Mailbox* mbox,
+		bool hasMessageHint) {
+	if (mbox->canBeScheduledForExecution(hasMessageHint)) { //TODO
 		if (mbox->setAsScheduled()) {
-			INFO(" send work for mailbox : %lX ",mbox);
-			_workQueue.send(mbox,0); // don't wait
+			DEBUG("'%s' scheduled", mbox->name());
+			_workQueue.send(mbox, 100); // don't wait
+		} else {
+			DEBUG("'%s' already Scheduled ", mbox->name());
 		}
 	}
 }
@@ -893,8 +904,9 @@ void MessageDispatcher::handleMailbox(void* thr) {
 //	INFO("Thread : % s [%X]  ", thread->label(), pxCurrentTCB);
 	while (true) {
 		Mailbox* mbox;
-		while ( workQueue.recv((void**)&mbox,UINT32_MAX)!=0);
-		INFO(" recv work for mailbox : %lX ",mbox);
+		while (workQueue.recv((void**) &mbox, UINT32_MAX) != 0)
+			;
+		DEBUG("'%s' mailbox recvd work.", mbox->name());
 		myASSERT(mbox != 0);
 		mbox->processMailbox(thread);
 	}
