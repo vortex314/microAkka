@@ -460,6 +460,7 @@ void Mailbox::processMailbox(Thread* thread) {
 		DEBUG("'%s' processed %d messages ", _cell.path(), counter);
 		_cell.resetReceiveTimeout();
 		setAsIdle();
+		thread->dispatcher().registerForExecution(this,false);
 	}
 }
 
