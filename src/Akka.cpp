@@ -76,8 +76,9 @@ uid_type Ref::id() {
 }
 
 Ref Ref::findRef(uid_type id) {
-	if (_refs.find(id) == _refs.end()) return 0;
-	return Ref(_refs.find(id)->second);
+	auto r = _refs.find(id);
+	if ( r == _refs.end()) return 0;
+	return r->second;
 }
 
 Label Ref::cls() {
@@ -444,7 +445,13 @@ bool Mailbox::updateStatus(uint32_t oldStatus, uint32_t newStatus) {
 	taskEXIT_CRITICAL();
 	return b;
 #else
-	return std::atomic_compare_exchange_strong<uint32_t>(&_currentStatus, &oldStatus, newStatus);
+	uint32_t expected = oldStatus;
+	bool b =
+			std::atomic_compare_exchange_strong<uint32_t>(&_currentStatus, &oldStatus, newStatus);
+	if (!b) {
+		DEBUG(" value different %u <> %u", expected, oldStatus);
+	}
+	return b;
 #endif
 }
 
@@ -460,7 +467,7 @@ void Mailbox::processMailbox(Thread* thread) {
 		DEBUG("'%s' processed %d messages ", _cell.path(), counter);
 		_cell.resetReceiveTimeout();
 		setAsIdle();
-		thread->dispatcher().registerForExecution(this,false);
+		thread->dispatcher().registerForExecution(this, false);
 	}
 }
 

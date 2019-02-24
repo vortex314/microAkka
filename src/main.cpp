@@ -28,11 +28,46 @@ extern "C" void vApplicationMallocFailedHook() {
 	exit(-1);
 }
 
+#define MAX_COUNT 1000000
+void test() {
+	uint64_t startTime=Sys::millis();
+	NativeQueue nq(10,sizeof(void*));
+	for(uint32_t count=0;count <MAX_COUNT;count++) {
+		Msg msg("msg");
+		msg("start",startTime);
+		msg("$src","SRC");
+		msg("$dst","DST");
+		Msg* snd =  new Msg(msg.size());
+		*snd=msg;
+
+		nq.send(snd,10);
+		nq.send(snd,10);
+
+		Msg msg2;
+		Msg* rcv;
+		nq.recv((void**)&rcv,10);
+		nq.recv((void**)&rcv,10);
+
+		msg2 = *rcv;
+		delete rcv;
+		std::string arg;
+		uint64_t t;
+		msg2.get("start",t);
+		msg2.get("$src",arg);
+		assert(arg=="SRC");
+		assert(t==startTime);
+	}
+	uint64_t endTime = Sys::millis();
+	uint64_t delta = endTime-startTime;
+	INFO(" delta %lu msec => %.0f msg/sec ",delta,(MAX_COUNT*1000.0)/delta );
+}
+
 Log logger(1024);
 ActorMsgBus eb;
 
 int main() {
 	INFO(" MAIN task started");
+	test();
 
 	Sys::init();
 	logger.setLogLevel('I');
@@ -58,7 +93,7 @@ int main() {
 
 	//	defaultDispatcher.unhandled(bridge.cell());
 
+	sleep(20);
 	INFO(" MAIN task ended !! ");
-	sleep(1000000);
 //	vTaskStartScheduler();
 }
