@@ -3,13 +3,15 @@
 
 #include <Akka.h>
 #include <Config.h>
+#include <Mqtt.h>
 
 class System : public Actor {
 		Uid _propTimer;
+		ActorRef& _mqtt;
 	public:
 		static const MsgClass Exit;
 
-		System();
+		System(ActorRef& mqtt);
 		~System();
 
 		Receive& createReceive();

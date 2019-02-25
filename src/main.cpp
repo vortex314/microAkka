@@ -33,7 +33,7 @@ void test() {
 	uint64_t startTime=Sys::millis();
 	NativeQueue nq(10,sizeof(void*));
 	for(uint32_t count=0;count <MAX_COUNT;count++) {
-		Msg msg("msg");
+		Msg msg(UID("msg"));
 		msg("start",startTime);
 		msg("$src","SRC");
 		msg("$dst","DST");
@@ -67,7 +67,7 @@ ActorMsgBus eb;
 
 int main() {
 	INFO(" MAIN task started");
-	test();
+//	test();
 
 	Sys::init();
 	logger.setLogLevel('I');
@@ -78,22 +78,27 @@ int main() {
 	config.save();
 
 	INFO(" starting microAkka test ");
-	static MessageDispatcher defaultDispatcher(1, 10240, tskIDLE_PRIORITY + 1);
+	static MessageDispatcher defaultDispatcher(2, 10240, tskIDLE_PRIORITY + 1);
 	static ActorSystem actorSystem(Sys::hostname(), defaultDispatcher);
 
 	actorSystem.actorOf<Sender>("sender");
-	actorSystem.actorOf<System>("system");
+
 //	actorSystem.actorOf<ConfigActor>("config");
 //	actorSystem.actorOf<NeuralPid>("neuralPid");
-/*	ActorRef& mqtt =
+	ActorRef& mqtt =
 			actorSystem.actorOf<Mqtt>("mqtt", "tcp://iot.eclipse.org:1883");
+	actorSystem.actorOf<System>("system",mqtt);
 	actorSystem.actorOf<Bridge>("bridge", mqtt);
-	actorSystem.actorOf<Publisher>("publisher", mqtt);*/
+	actorSystem.actorOf<Publisher>("publisher", mqtt);
 //	defaultDispatcher.start();
 
 	//	defaultDispatcher.unhandled(bridge.cell());
 
-	sleep(20);
+	Msg hello("hello");
+
+	eb.publish(hello);
+
+	sleep(60);
 	INFO(" MAIN task ended !! ");
 //	vTaskStartScheduler();
 }

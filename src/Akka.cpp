@@ -447,7 +447,7 @@ bool Mailbox::updateStatus(uint32_t oldStatus, uint32_t newStatus) {
 #else
 	uint32_t expected = oldStatus;
 	bool b =
-			std::atomic_compare_exchange_strong<uint32_t>(&_currentStatus, &oldStatus, newStatus);
+			std::atomic_compare_exchange_weak<uint32_t>(&_currentStatus, &oldStatus, newStatus);
 	if (!b) {
 		DEBUG(" value different %u <> %u", expected, oldStatus);
 	}
