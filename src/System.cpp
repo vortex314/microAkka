@@ -4,7 +4,8 @@
 
 const MsgClass System::Exit("system/Exit");
 
-System::System(ActorRef& mqtt) :_mqtt(mqtt) {
+System::System(ActorRef& mqtt)
+		: _mqtt(mqtt) {
 }
 System::~System() {
 }
@@ -34,11 +35,11 @@ Receive& System::createReceive() {
 
 Receive& System::createReceive() {
 	return receiveBuilder() //
-			.match(Mqtt::Connected, [this](Msg& msg) {INFO(" MQTT CONNECTED ");})
+			.match(Mqtt::Connected, [this](Msg& msg) {INFO(" MQTT CONNECTED ");}) //
 
-	.match(Mqtt::Disconnected, [this](Msg& msg) {INFO(" MQTT DISCONNECTED ");})
+			.match(Mqtt::Disconnected, [this](Msg& msg) {INFO(" MQTT DISCONNECTED ");}) //
 
-	.match(Exit, [](Msg& msg) {exit(0);}).match(MsgClass::Properties(), [this](Msg& msg) {
+			.match(Exit, [](Msg& msg) {exit(0);}).match(MsgClass::Properties(), [this](Msg& msg) {
 		INFO(" Properties requested ");
 		struct sysinfo info;
 		sysinfo(&info);

@@ -368,12 +368,12 @@ typedef std::function<void(Msg&)> MessageHandler;
 //
 
 Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
-		: NativeQueue(queueSize, sizeof(void*)), _cell(cell) {
+		: NativeQueue(queueSize), _cell(cell) {
 	_currentStatus = Open;
 }
 
 int Mailbox::enqueue(Msg& msg) {
-	DEBUG("'%s' enqueue : %s ", name(), msg.toString().c_str());
+	INFO("'%s' enqueue : %s ", name(), msg.toString().c_str());
 	Msg* px = new Msg(msg.size());
 	*px = msg;
 	myASSERT(msg.src() != 0);
@@ -390,7 +390,7 @@ int Mailbox::enqueue(Msg& msg) {
 int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	Msg* px;
 //	DEBUG("'%s' dequeue wait ..  ",name());
-	int rc = recv((void**) &px, time);
+	int rc = recv( &px, time);
 	if (rc) {
 //		DEBUG("'%s' dequeue failed : %d",name(),rc);
 		return ENOENT;
@@ -851,7 +851,7 @@ Msg& Thread::currentMessage() {
 
 MessageDispatcher::MessageDispatcher(uint32_t threadCount, uint32_t stackSize,
 		uint32_t priority)
-		: _workQueue(20, sizeof(Mailbox*)) {
+		: _workQueue(20) {
 	_threadCount = threadCount;
 	for (uint32_t i = 0; i < threadCount; i++) {
 		std::string name;
@@ -908,11 +908,11 @@ void MessageDispatcher::handleMailbox(void* thr) {
 
 	Thread* thread = (Thread*) thr;
 	MessageDispatcher& dispatcher = thread->dispatcher();
-	NativeQueue& workQueue = dispatcher.workQueue();
+	NativeQueue<Mailbox*>& workQueue = dispatcher.workQueue();
 //	INFO("Thread : % s [%X]  ", thread->label(), pxCurrentTCB);
 	while (true) {
 		Mailbox* mbox;
-		while (workQueue.recv((void**) &mbox, UINT32_MAX) != 0)
+		while (workQueue.recv(&mbox, UINT32_MAX) != 0)
 			;
 		DEBUG("'%s' mailbox recvd work.", mbox->name());
 		myASSERT(mbox != 0);
@@ -920,6 +920,6 @@ void MessageDispatcher::handleMailbox(void* thr) {
 	}
 }
 
-NativeQueue& MessageDispatcher::workQueue() {
+NativeQueue<Mailbox*>& MessageDispatcher::workQueue() {
 	return _workQueue;
 }

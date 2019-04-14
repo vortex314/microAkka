@@ -12,11 +12,12 @@
 
 #define myASSERT(xxx) if (!(xxx) ) {WARN(" assertion " # xxx " failed.");};
 
+template <typename T>
 class AbstractNativeQueue {
 public:
 	virtual ~AbstractNativeQueue(){};
-	virtual int recv(void** item, uint32_t to)=0;
-	virtual int send(void* item, uint32_t to)=0;
+	virtual int recv(T* item, uint32_t to)=0;
+	virtual int send(T item, uint32_t to)=0;
 	virtual bool hasMessages()=0;
 };
 typedef void (*TaskFunction)(void*);
@@ -36,12 +37,13 @@ public:
 #include <task.h>
 #include <timers.h>
 
-class NativeQueue : public AbstractNativeQueue {
+template <typename T>
+class NativeQueue : public AbstractNativeQueue<T> {
 	QueueHandle_t _queue;
 public:
-	NativeQueue(uint32_t queueSize,uint32_t itemSize);
-	int send(void* item,uint32_t msecWait);
-	int recv(void** item,uint32_t msecWait);
+	NativeQueue(uint32_t queueSize);
+	int send(T item,uint32_t msecWait);
+	int recv(T* item,uint32_t msecWait);
 	bool hasMessages();
 };
 
@@ -104,23 +106,50 @@ public:
 #include <condition_variable>
 
 
-
-class NativeQueue :public AbstractNativeQueue {
+template <typename T>
+class NativeQueue :public AbstractNativeQueue<T> {
 private:
-	std::queue<void*> queue_;
+	std::queue<T> queue_;
 	std::mutex mutex_;
 	std::condition_variable cond_;
 public:
-	NativeQueue(uint32_t queueSize, uint32_t itemSize) ;
-	~NativeQueue() ;
-	int recv(void** item, uint32_t to);
-	int send(void* item, uint32_t to);
+	NativeQueue(uint32_t queueSize) {};
+	~NativeQueue() {} ;
+	int recv(T* item, uint32_t to);
+	int send(T item, uint32_t to);
 	bool hasMessages();
 //  Queue()=default;
-	NativeQueue(const NativeQueue& other) = delete;
+	NativeQueue<T>(const NativeQueue<T>& other) = delete;
 //  Queue& operator=(const Queue&) = delete; // disable assignment
 
 };
+
+
+template <typename T>
+int NativeQueue<T>::recv(T* item, uint32_t to) {
+	std::unique_lock<std::mutex> mlock(mutex_);
+	std::chrono::milliseconds waitTime(to);
+	if (queue_.empty()) {
+		cond_.wait_for(mlock, waitTime);
+		if (queue_.empty())
+			return ENOENT;
+	}
+	*item = queue_.front();
+	queue_.pop();
+	return 0;
+}
+template <typename T>
+int NativeQueue<T>::send(T item, uint32_t to) {
+	std::unique_lock<std::mutex> mlock(mutex_);
+	queue_.push(item);
+	mlock.unlock();
+	cond_.notify_one();
+	return 0;
+}
+template <typename T>
+bool NativeQueue<T>::hasMessages() {
+	return queue_.size() != 0;
+}
 
 
 typedef void*(*PthreadFunction)(void*);

@@ -112,7 +112,7 @@ const char* cloneString(const char* s);
 //
 #define UID(x) std::integral_constant<uint16_t, H(x)>::value
 
-#define LBL(__str__) Ref(UID(__str__),__str__)
+#define LBL(__str__) Label(UID(__str__),__str__)
 
 class Label {
 		typedef struct {
@@ -561,7 +561,7 @@ class MessageDispatcher {
 		uint32_t _threadCount = 1;
 		uint32_t _throughput = 10;
 		std::list<Thread*> _threads;
-		NativeQueue _workQueue;
+		NativeQueue<Mailbox*> _workQueue;
 	public:
 		MessageDispatcher(uint32_t threadCount = 1, uint32_t stackSize = 1024,
 				uint32_t priority = tskIDLE_PRIORITY + 1);
@@ -581,12 +581,12 @@ class MessageDispatcher {
 
 		void dispatch(ActorCell&, Msg&);
 		void registerForExecution(Mailbox*,bool hasMessageHint);
-		NativeQueue& workQueue();
+		NativeQueue<Mailbox*>& workQueue();
 
 };
 
 //__________________________________________________________ Mailbox
-class Mailbox: public NativeQueue {
+class Mailbox: public NativeQueue<Msg*> {
 		ActorCell& _cell;
 		std::atomic<uint32_t> _currentStatus;
 
@@ -758,7 +758,7 @@ class ActorMsgBus: public EventBus<Msg, ActorRef&, MessageClassifier> {
 	public:
 		void push(Msg& msg, ActorRef& ref) {
 			msg.dst(ref.id());
-//			INFO(" event : %s on mailbox : %X ",msg.toString().c_str(),&ref.mailbox());
+			INFO(" event : %s on mailbox : %s ",msg.toString().c_str(),ref.label());
 			ref.tell(msg);
 		}
 		MessageClassifier classify(Msg& msg) {

@@ -28,38 +28,38 @@ extern "C" void vApplicationMallocFailedHook() {
 	exit(-1);
 }
 
+
 #define MAX_COUNT 1000000
 void test() {
-	uint64_t startTime=Sys::millis();
-	NativeQueue nq(10,sizeof(void*));
-	for(uint32_t count=0;count <MAX_COUNT;count++) {
-		Msg msg(UID("msg"));
-		msg("start",startTime);
-		msg("$src","SRC");
-		msg("$dst","DST");
-		Msg* snd =  new Msg(msg.size());
-		*snd=msg;
+	uint64_t startTime = Sys::millis();
+	NativeQueue<Msg*> nq(10);
+	Msg msg(UID("msg"));
 
-		nq.send(snd,10);
-		nq.send(snd,10);
+	for (uint32_t count = 0; count < MAX_COUNT; count++) {
+		msg.clear();
+//		std::shared_ptr<Msg> sp(&msg);
+		msg(LBL("start"), startTime);
+		msg(LBL("$src"), "SRC");
+		msg(LBL("$dst"), "DST");
+		Msg* snd = new Msg(msg.size());
+		*snd = msg;
+		nq.send(snd, 10);
 
-		Msg msg2;
 		Msg* rcv;
-		nq.recv((void**)&rcv,10);
-		nq.recv((void**)&rcv,10);
+		nq.recv(&rcv, 10);
 
-		msg2 = *rcv;
-		delete rcv;
+
 		std::string arg;
 		uint64_t t;
-		msg2.get("start",t);
-		msg2.get("$src",arg);
-		assert(arg=="SRC");
-		assert(t==startTime);
+		rcv->get(UID("start"), t);
+		rcv->get(UID("$src"), arg);
+		assert(arg == "SRC");
+		assert(t == startTime);
+		delete rcv;
 	}
 	uint64_t endTime = Sys::millis();
-	uint64_t delta = endTime-startTime;
-	INFO(" delta %lu msec => %.0f msg/sec ",delta,(MAX_COUNT*1000.0)/delta );
+	uint64_t delta = endTime - startTime;
+	INFO(" delta %lu msec => %.0f msg/sec ", delta, (MAX_COUNT*1000.0)/delta);
 }
 
 Log logger(1024);
@@ -68,6 +68,7 @@ ActorMsgBus eb;
 int main() {
 	INFO(" MAIN task started");
 //	test();
+//	exit(1);
 
 	Sys::init();
 	logger.setLogLevel('I');
@@ -86,19 +87,19 @@ int main() {
 //	actorSystem.actorOf<ConfigActor>("config");
 //	actorSystem.actorOf<NeuralPid>("neuralPid");
 	ActorRef& mqtt =
-			actorSystem.actorOf<Mqtt>("mqtt", "tcp://iot.eclipse.org:1883");
-	actorSystem.actorOf<System>("system",mqtt);
+			actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
+	actorSystem.actorOf<System>("system", mqtt);
 	actorSystem.actorOf<Bridge>("bridge", mqtt);
 	actorSystem.actorOf<Publisher>("publisher", mqtt);
 //	defaultDispatcher.start();
 
-	//	defaultDispatcher.unhandled(bridge.cell());
+//	defaultDispatcher.unhandled(bridge.cell());
 
 	Msg hello("hello");
 
 	eb.publish(hello);
 
-	sleep(60);
+	sleep(60000);
 	INFO(" MAIN task ended !! ");
 //	vTaskStartScheduler();
 }

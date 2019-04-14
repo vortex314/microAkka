@@ -8,22 +8,28 @@
 #include <task.h>
 #include <timers.h>
 
-NativeQueue::NativeQueue(uint32_t queueSize,uint32_t itemSize) {
-	_queue = xQueueCreate(queueSize, itemSize);
+template <typename T>
+NativeQueue<T>::NativeQueue(uint32_t queueSize) {
+	_queue = xQueueCreate(queueSize,sizeof(T));
 }
-int NativeQueue::send(void* item,uint32_t msecWait) {
+
+template <typename T>
+int NativeQueue<T>::send(T item,uint32_t msecWait) {
 	BaseType_t rc = xQueueSend(_queue, item, pdMS_TO_TICKS(msecWait) );
 	if ( rc == pdTRUE ) return 0;
 	return rc;
 }
-int NativeQueue::recv(void** item,uint32_t msecWait) {
+
+template <typename T>
+int NativeQueue<T>::recv(T* item,uint32_t msecWait) {
 	if (xQueueReceive(_queue, item, pdMS_TO_TICKS(msecWait)) != pdTRUE) {
 		return ENOENT;
 	}
 	return 0;
 }
 
-bool NativeQueue::hasMessages() {
+template <typename T>
+bool NativeQueue<T>::hasMessages() {
 	return uxQueueMessagesWaiting(_queue);
 }
 
@@ -96,36 +102,6 @@ void NativeThread::wait() {
 //_______________________________________________________________________________
 //
 
-NativeQueue::NativeQueue(uint32_t queueSize, uint32_t itemSize) {
-
-}
-NativeQueue::~NativeQueue() {
-
-}
-
-int NativeQueue::recv(void** item, uint32_t to) {
-	std::unique_lock<std::mutex> mlock(mutex_);
-	std::chrono::milliseconds waitTime(to);
-	if (queue_.empty()) {
-		cond_.wait_for(mlock, waitTime);
-		if (queue_.empty())
-			return ENOENT;
-	}
-	*item = queue_.front();
-	queue_.pop();
-	return 0;
-}
-
-int NativeQueue::send(void* item, uint32_t to) {
-	std::unique_lock<std::mutex> mlock(mutex_);
-	queue_.push(item);
-	mlock.unlock();
-	cond_.notify_one();
-	return 0;
-}
-bool NativeQueue::hasMessages() {
-	return queue_.size() != 0;
-}
 //________________________________________________________________________________
 //
 
