@@ -38,7 +38,7 @@ Receive& Sender::createReceive() {
 				delta,_counter, _counter * 1000.0 / delta);
 	})
 
-	.match(MsgClass::ReceiveTimeout(), [this](Msg& msg) {
+	.match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
 		INFO(" enjoying a timeout ! ");
 	})
 

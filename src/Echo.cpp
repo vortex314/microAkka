@@ -18,7 +18,7 @@ Receive& Echo::createReceive() {
 		assert(msg.get("counter", counter)==0);
 //		INFO("counter:%d",counter);
 		sender().tell(msgBuilder(PONG)("counter",counter+1),self());
-	}).match(MsgClass::ReceiveTimeout(), [this](Msg& msg) {
+	}).match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
 		INFO(" no messages received recently ! ");
 	}).build();
 }

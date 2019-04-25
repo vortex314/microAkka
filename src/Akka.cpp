@@ -373,7 +373,7 @@ Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
 }
 
 int Mailbox::enqueue(Msg& msg) {
-	INFO("'%s' enqueue : %s ", name(), msg.toString().c_str());
+	DEBUG("'%s' enqueue : %s ", name(), msg.toString().c_str());
 	Msg* px = new Msg(msg.size());
 	*px = msg;
 	myASSERT(msg.src() != 0);

@@ -120,7 +120,9 @@ NativeThread::NativeThread(const char* name, uint32_t stackSize,
 void NativeThread::start() {
 	myASSERT(
 			pthread_create(&_thread,NULL,(PthreadFunction)_taskFunction,_taskArg)==0);
+#ifndef __APPLE__
 	pthread_setname_np(_thread,_name.c_str());
+#endif
 }
 
 void NativeThread::wait() {
