@@ -412,7 +412,7 @@ bool Mailbox::canBeScheduledForExecution(bool hasMessagesHint) {
 bool Mailbox::shouldProcessMessage() {
 	return (_currentStatus & shouldNotProcessMask) == 0;
 }
-//TODO if already scheduled==true return false, else set scheduled, indicates winning thread
+//if already scheduled==true return false, else set scheduled, indicates winning thread
 bool Mailbox::setAsScheduled() {
 	DEBUG("'%s' setAsScheduled", name());
 	while (true) {
@@ -487,13 +487,6 @@ ActorSystem::ActorSystem(Label label, MessageDispatcher& defaultDispatcher)
 	_defaultDispatcher.start();
 }
 
-/*ActorRef& ActorSystem::actorFor(const char* address) {
- // TODO check local or remote
- ActorRef* ref = ActorRef::lookup(Label::add(address));
- if (ref == 0)
- ref = new ActorRef(address, &_defaultProps.mailbox());
- return *ref;
- }*/
 
 ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props) {
 	std::string path = label();
@@ -902,14 +895,12 @@ void MessageDispatcher::registerForExecution(Mailbox* mbox,
 	}
 }
 
-extern void* pxCurrentTCB;
 
 void MessageDispatcher::handleMailbox(void* thr) {
 
 	Thread* thread = (Thread*) thr;
 	MessageDispatcher& dispatcher = thread->dispatcher();
 	NativeQueue<Mailbox*>& workQueue = dispatcher.workQueue();
-//	INFO("Thread : % s [%X]  ", thread->label(), pxCurrentTCB);
 	while (true) {
 		Mailbox* mbox;
 		while (workQueue.recv(&mbox, UINT32_MAX) != 0)
