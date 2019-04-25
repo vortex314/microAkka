@@ -3,7 +3,7 @@
 
 C++ Actor Framework for Embedded Systems - [Akka](https://akka.io/) alike
 
-<img src="doc/ESP8266.jpg" height="100"><img src="doc/ESP32.png" height="100">
+<img src="doc/ESP8266.jpg" height="100"><img src="doc/microAkka.png" height="100">
 
 ## Target
 
