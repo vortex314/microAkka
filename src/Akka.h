@@ -112,7 +112,7 @@ const char* cloneString(const char* s);
 //
 #define UID(x) std::integral_constant<uint16_t, H(x)>::value
 
-#define LBL(__str__) Label(UID(__str__),__str__)
+#define LABEL(__str__) Label(UID(__str__),__str__)
 
 class Label {
 		typedef struct {

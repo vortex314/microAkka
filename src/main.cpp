@@ -38,9 +38,9 @@ void test() {
 	for (uint32_t count = 0; count < MAX_COUNT; count++) {
 		msg.clear();
 //		std::shared_ptr<Msg> sp(&msg);
-		msg(LBL("start"), startTime);
-		msg(LBL("$src"), "SRC");
-		msg(LBL("$dst"), "DST");
+		msg(LABEL("start"), startTime);
+		msg(LABEL("$src"), "SRC");
+		msg(LABEL("$dst"), "DST");
 		Msg* snd = new Msg(msg.size());
 		*snd = msg;
 		nq.send(snd, 10);
