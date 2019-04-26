@@ -7,6 +7,7 @@
 //============================================================================
 #include "Akka.h"
 
+MsgClass SignalFromIsr(LABEL("SignalFromIsr"));
 //_____________________________________________ STATIC
 
 typedef void (*MsgHandler)(void);
@@ -28,15 +29,15 @@ std::unordered_map<uid_type, Label::LabelStruct*>* Label::labels() {
 }
 
 Label::Label(const char* label)
-		: Label(H(label), label) {
+	: Label(H(label), label) {
 }
 
 Label::Label(uid_type id)
-		: Label(id, "unknown") {
+	: Label(id, "unknown") {
 }
 
 Label::Label()
-		: Label(H("unknown")) {
+	: Label(H("unknown")) {
 
 }
 
@@ -53,7 +54,7 @@ const char* Label::label() {
 
 const char* Label::label(uid_type uid) {
 	std::unordered_map<uid_type, LabelStruct*>::const_iterator p = labels()
-			->find(uid);
+	        ->find(uid);
 	if (p == labels()->end()) return "NO LABEL";
 	return (p->second->_label);
 }
@@ -98,7 +99,7 @@ bool Ref::operator==(Ref& that) {
 //_________________________________________________ Msg
 
 Msg::Msg()
-		: Xdr(12) {
+	: Xdr(12) {
 //	INFO("ctor %X : [%d]",this,capacity());
 	add(UD_CLS, (uid_type) 0);
 	add(UD_SRC, (uid_type) 0);
@@ -106,7 +107,7 @@ Msg::Msg()
 }
 
 Msg::Msg(uint32_t size)
-		: Xdr(size) {
+	: Xdr(size) {
 //	INFO("ctor %X : [%d]",this,capacity());
 	add(UD_CLS, (uid_type) 0);
 	add(UD_SRC, (uid_type) 0);
@@ -114,7 +115,7 @@ Msg::Msg(uint32_t size)
 }
 
 Msg::Msg(MsgClass cls)
-		: Xdr(12) {
+	: Xdr(12) {
 //	INFO("ctor %X : [%d]",this,capacity());
 
 	add(UD_CLS, cls.id());
@@ -122,7 +123,7 @@ Msg::Msg(MsgClass cls)
 	add(UD_DST, (uid_type) 0);
 }
 Msg::Msg(Label cls, Label src)
-		: Xdr(12) {
+	: Xdr(12) {
 //	INFO("ctor %X : [%d]",this,capacity());
 	add(UD_CLS, cls.id());
 	add(UD_SRC, src.id());
@@ -235,7 +236,7 @@ MsgClass MsgClass::PropertiesReply() {
 std::list<Actor*> Actor::_actors;
 
 Actor::Actor()
-		: _context() {
+	: _context() {
 }
 
 void Actor::context(ActorCell* context) {
@@ -271,7 +272,7 @@ TimerScheduler& Actor::timers() {
 
 void Actor::unhandled(Msg& msg) {
 	WARN(" unhandled : '%s'=>'%s'=>'%s'", Label::label(msg.src()), Label::label(msg
-			.cls()), Label::label(msg.dst()));
+	        .cls()), Label::label(msg.dst()));
 }
 
 ActorRef& Actor::sender() {
@@ -288,7 +289,7 @@ ActorRef& ActorRef::NoSender() {
 }
 
 ActorRef::ActorRef(Label label)
-		: Ref(label, this, "ActorRef") {
+	: Ref(label, this, "ActorRef") {
 	INFO(" created ActorRef '%s' = %d", label.label(), label.id());
 }
 
@@ -311,13 +312,12 @@ const char* ActorRef::path() {
 
 //_______________________________________________ LocalActorRef
 LocalActorRef::LocalActorRef(Label label, ActorSystem& system, Props& props,
-		MessageDispatcher& dispatcher)
-		: ActorRef(label), _cell(*new ActorCell(system, *this, dispatcher, props)) {
-
+                             MessageDispatcher& dispatcher)
+	: ActorRef(label), _cell(*new ActorCell(system, *this, dispatcher, props)) {
 }
 
 LocalActorRef::~LocalActorRef() {
-
+	delete &_cell;
 }
 
 ActorRef* ActorRef::lookup(uid_type uid) {
@@ -340,6 +340,14 @@ void LocalActorRef::tell(Msg& msg) {
 	_cell.sendMessage(msg);
 }
 
+Msg isrMsg(SignalFromIsr);
+void LocalActorRef::signalFromIsr(uint32_t signal) {
+//	static Msg msg(SignalFromIsr);
+	isrMsg.id(signal);
+	isrMsg.dst(this->id());
+	_cell.sendMessageFromIsr(isrMsg);
+}
+
 void LocalActorRef::forward(Msg& msg, ActorContext& context) {
 
 }
@@ -356,7 +364,7 @@ ActorCell& LocalActorRef::cell() {
 //
 
 RemoteActorRef::RemoteActorRef(Label label, ActorRef& bridge)
-		: ActorRef(label), _bridge(bridge) {
+	: ActorRef(label), _bridge(bridge) {
 
 }
 
@@ -368,7 +376,7 @@ typedef std::function<void(Msg&)> MessageHandler;
 //
 
 Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
-		: NativeQueue(queueSize), _cell(cell) {
+	: NativeQueue(queueSize), _cell(cell) {
 	_currentStatus = Open;
 }
 
@@ -387,17 +395,30 @@ int Mailbox::enqueue(Msg& msg) {
 	return 0;
 }
 
+int Mailbox::enqueueFromIsr(Msg& msg) {
+//	DEBUG("'%s' enqueue : %s ", name(), msg.toString().c_str());
+
+	int rc = sendFromIsr(&msg);
+	if (rc != 0) {
+		WARN("[%X] enqueue failed %s", this, Label::label(_cell.self().id()));
+		return ENOENT;
+	}
+	return 0;
+}
+
+
+
 int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	Msg* px;
 //	DEBUG("'%s' dequeue wait ..  ",name());
-	int rc = recv( &px, time);
-	if (rc) {
+	int rce = recv( &px, time);
+	if (rce) {
 //		DEBUG("'%s' dequeue failed : %d",name(),rc);
 		return ENOENT;
 	}
 	(Msg&) msg = *px;
 	DEBUG("'%s' dequeue : %s ", name(), msg.toString().c_str());
-	delete px;
+	if ( msg.cls() != SignalFromIsr.id() ) delete px;
 	return 0;
 }
 
@@ -447,7 +468,7 @@ bool Mailbox::updateStatus(uint32_t oldStatus, uint32_t newStatus) {
 #else
 	uint32_t expected = oldStatus;
 	bool b =
-			std::atomic_compare_exchange_weak<uint32_t>(&_currentStatus, &oldStatus, newStatus);
+	    std::atomic_compare_exchange_weak<uint32_t>(&_currentStatus, &oldStatus, newStatus);
 	if (!b) {
 		DEBUG(" value different %u <> %u", expected, oldStatus);
 	}
@@ -478,7 +499,7 @@ const char* Mailbox::name() {
 //_______________________________________________________ ActorSystem
 //
 ActorSystem::ActorSystem(Label label, MessageDispatcher& defaultDispatcher)
-		: Ref(label, this, "ActorSystem"), _defaultDispatcher(defaultDispatcher) {
+	: Ref(label, this, "ActorSystem"), _defaultDispatcher(defaultDispatcher) {
 	Label(AKKA_DST);
 	Label(AKKA_SRC);
 	Label(AKKA_CLS);
@@ -501,13 +522,11 @@ ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props) {
 
 	localActorRef = new LocalActorRef(label, *this, props, _defaultDispatcher);
 	ActorCell& actorCell = localActorRef->cell();
-
 	actorCell.actor(actor);
 	actor->context(&actorCell);
-
 	actor->preStart();
 	actorCell.become(actor->createReceive(), true);
-	INFO(" new actor '%s'[%u] created", localActorRef->path(), localActorRef->id());
+	INFO("[%u] actor '%s'created", localActorRef->id(), localActorRef->path());
 	_actorRefs.push_back(localActorRef);
 //	props.dispatcher().attach(actorCell);
 	return localActorRef;
@@ -527,12 +546,12 @@ Receive Receive::NullReceive;
 //___________________________________________________________ Receiver
 //
 Receiver::Receiver(MsgClass msgClass, MessageMatcher matcher,
-		MessageHandler handler)
-		: _msgClass(msgClass), _matcher(matcher), _handler(handler) {
+                   MessageHandler handler)
+	: _msgClass(msgClass), _matcher(matcher), _handler(handler) {
 }
 
 Receiver::Receiver(MsgClass msgClass, MessageHandler handler)
-		: _msgClass(msgClass), _matcher(alwaysTrue), _handler(handler) {
+	: _msgClass(msgClass), _matcher(alwaysTrue), _handler(handler) {
 }
 
 inline void Receiver::onMessage(Msg& msg) {
@@ -557,8 +576,8 @@ void Timer::callBack(void* arg) {
 }
 
 Timer::Timer(Label key, bool autoReload, uint32_t interval, const Msg& m,
-		TimerScheduler& scheduler)
-		: Label(key), NativeTimer(key.label(), autoReload, interval, this, callBack), _timerScheduler(scheduler) {
+             TimerScheduler& scheduler)
+	: Label(key), NativeTimer(key.label(), autoReload, interval, this, callBack), _timerScheduler(scheduler) {
 	INFO("[%X] timer created %s : %u ", this, label(), interval);
 	_msg = new Msg();
 	*_msg = m;
@@ -604,7 +623,7 @@ void TimerScheduler::timerCallback(Timer& timer) {
 }
 
 TimerScheduler::TimerScheduler(ActorRef& ref)
-		: _ref(ref) {
+	: _ref(ref) {
 }
 
 Timer* TimerScheduler::find(Label key) {
@@ -615,7 +634,7 @@ Timer* TimerScheduler::find(Label key) {
 }
 
 Label TimerScheduler::startPeriodicTimer(Label key, const Msg& msg,
-		uint32_t msec) {
+        uint32_t msec) {
 	Timer* timer = find(key.id());
 
 	if (timer == 0) {
@@ -628,7 +647,7 @@ Label TimerScheduler::startPeriodicTimer(Label key, const Msg& msg,
 }
 
 Label TimerScheduler::startSingleTimer(Label key, const Msg& msg,
-		uint32_t msec) {
+                                       uint32_t msec) {
 	Timer* timer = find(key.id());
 
 	if (timer == 0) {
@@ -645,7 +664,7 @@ void TimerScheduler::cancel(Label key) {
 	if (timer)
 		timer->stop();
 	else
-	WARN(" timer.cancel()  key not found : %s ", key.label());
+		WARN(" timer.cancel()  key not found : %s ", key.label());
 }
 
 void TimerScheduler::cancelAll() {
@@ -694,8 +713,8 @@ Receive& Receive::receive(ActorCell& cell, Msg& msg) {
 std::list<ActorCell*> ActorCell::_actorCells;
 
 ActorCell::ActorCell(ActorSystem& system, ActorRef& ref,
-		MessageDispatcher& dispatcher, Props& props)
-		: _mailbox(*new Mailbox(*this, 10)), _dispatcher(dispatcher), _system(system), _self(ref)
+                     MessageDispatcher& dispatcher, Props& props)
+	: _mailbox(*new Mailbox(*this, 20)), _dispatcher(dispatcher), _system(system), _self(ref)
 //, _receiveTimeoutTimer(ref, true, UINT32_MAX- 1, Msg(MsgClass::ReceiveTimeout()), timers())
 {
 	_enable = true;
@@ -749,6 +768,11 @@ void ActorCell::invoke(Msg& msg) {
 
 void ActorCell::sendMessage(Msg& msg) {
 	_dispatcher.dispatch(*this, msg);
+}
+
+
+void ActorCell::sendMessageFromIsr(Msg& msg) {
+	_dispatcher.dispatchFromIsr(*this, msg);
 }
 
 void ActorCell::unhandled(Msg& envelope) {
@@ -820,8 +844,8 @@ std::list<ActorCell*>& ActorCell::actorCells() {
 //________________________________________________ Thread
 
 Thread::Thread(MessageDispatcher* dispatcher, const char* name,
-		uint32_t stackSize, uint32_t priority, void* threadArg, TaskFunction f)
-		: Ref(name, this, "Thread"), NativeThread(name, stackSize, priority, this, f), _dispatcher(dispatcher) {
+               uint32_t stackSize, uint32_t priority, void* threadArg, TaskFunction f)
+	: Ref(name, this, "Thread"), NativeThread(name, stackSize, priority, this, f), _dispatcher(dispatcher) {
 
 }
 
@@ -843,8 +867,8 @@ Msg& Thread::currentMessage() {
 //
 
 MessageDispatcher::MessageDispatcher(uint32_t threadCount, uint32_t stackSize,
-		uint32_t priority)
-		: _workQueue(20) {
+                                     uint32_t priority)
+	: _workQueue(20) {
 	_threadCount = threadCount;
 	for (uint32_t i = 0; i < threadCount; i++) {
 		std::string name;
@@ -877,6 +901,11 @@ void MessageDispatcher::start() {
 	}
 }
 
+void MessageDispatcher::dispatchFromIsr(ActorCell& cell, Msg& msg) {
+	cell.mailbox().enqueueFromIsr(msg);
+	registerForExecution(&cell.mailbox(), true);
+}
+
 void MessageDispatcher::dispatch(ActorCell& cell, Msg& msg) {
 	cell.mailbox().enqueue(msg);
 	registerForExecution(&cell.mailbox(), true);
@@ -884,7 +913,7 @@ void MessageDispatcher::dispatch(ActorCell& cell, Msg& msg) {
 //_________ decide if mailbox should be wakened
 //
 void MessageDispatcher::registerForExecution(Mailbox* mbox,
-		bool hasMessageHint) {
+        bool hasMessageHint) {
 	if (mbox->canBeScheduledForExecution(hasMessageHint)) { //TODO
 		if (mbox->setAsScheduled()) {
 			DEBUG("'%s' scheduled", mbox->name());
@@ -905,6 +934,7 @@ void MessageDispatcher::handleMailbox(void* thr) {
 		Mailbox* mbox;
 		while (workQueue.recv(&mbox, UINT32_MAX) != 0)
 			;
+		DEBUG(" mbox : 0x%X",mbox);
 		DEBUG("'%s' mailbox recvd work.", mbox->name());
 		myASSERT(mbox != 0);
 		mbox->processMailbox(thread);

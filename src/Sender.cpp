@@ -2,7 +2,7 @@
 #include <Sender.h>
 
 Sender::Sender()
-		: startTime(0), _echo(0),_counter(0),_startTest(""),_endTest("") {
+		: startTime(0), _echo(0), _counter(0), _startTest(""), _endTest("") {
 	_testing = false;
 }
 
@@ -40,6 +40,12 @@ Receive& Sender::createReceive() {
 
 	.match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
 		INFO(" enjoying a timeout ! ");
+	})
+
+	.match(MsgClass::Properties(), [this](Msg& msg) {
+		sender().tell(replyBuilder(msg)
+				("counter",_counter)
+				,self());
 	})
 
 	.build();

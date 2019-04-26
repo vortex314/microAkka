@@ -18,6 +18,7 @@ public:
 	virtual ~AbstractNativeQueue(){};
 	virtual int recv(T* item, uint32_t to)=0;
 	virtual int send(T item, uint32_t to)=0;
+	virtual int sendFromIsr(T item)=0;
 	virtual bool hasMessages()=0;
 };
 typedef void (*TaskFunction)(void*);
@@ -44,6 +45,7 @@ public:
 	NativeQueue(uint32_t queueSize);
 	int send(T item,uint32_t msecWait);
 	int recv(T* item,uint32_t msecWait);
+	int sendFromIsr(T item);
 	bool hasMessages();
 };
 
@@ -117,6 +119,8 @@ public:
 	~NativeQueue() {} ;
 	int recv(T* item, uint32_t to);
 	int send(T item, uint32_t to);
+	int sendFromIsr(T item);
+
 	bool hasMessages();
 //  Queue()=default;
 	NativeQueue<T>(const NativeQueue<T>& other) = delete;
@@ -145,6 +149,10 @@ int NativeQueue<T>::send(T item, uint32_t to) {
 	mlock.unlock();
 	cond_.notify_one();
 	return 0;
+}
+template <typename T>
+int NativeQueue<T>::sendFromIsr(T item) {
+	return 0; // NOT IMPLEMENTED ON LINUX
 }
 template <typename T>
 bool NativeQueue<T>::hasMessages() {

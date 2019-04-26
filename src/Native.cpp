@@ -15,10 +15,19 @@ NativeQueue<T>::NativeQueue(uint32_t queueSize) {
 
 template <typename T>
 int NativeQueue<T>::send(T item,uint32_t msecWait) {
-	BaseType_t rc = xQueueSend(_queue, item, pdMS_TO_TICKS(msecWait) );
+	BaseType_t rc = xQueueSend(_queue, &item, pdMS_TO_TICKS(msecWait) );
 	if ( rc == pdTRUE ) return 0;
 	return rc;
 }
+
+template <typename T>
+int NativeQueue<T>::sendFromIsr(T item) {
+	BaseType_t higherPriorityTaskWoken;
+	BaseType_t rc = xQueueSendToFrontFromISR(_queue, &item, &higherPriorityTaskWoken );
+	if ( rc == pdTRUE ) return 0;
+	return rc;
+}
+
 
 template <typename T>
 int NativeQueue<T>::recv(T* item,uint32_t msecWait) {
@@ -52,15 +61,15 @@ NativeTimer::~NativeTimer() {
 }
 
 void NativeTimer::start() {
-	configASSERT(xTimerStart(_timer,0) == pdPASS);
+	configASSERT(xTimerStart(_timer,2) == pdPASS);
 }
 
 void NativeTimer::stop() {
-	configASSERT(xTimerStop(_timer,0)==pdPASS);
+	configASSERT(xTimerStop(_timer,2)==pdPASS);
 }
 
 void NativeTimer::reset() {
-	configASSERT(xTimerReset(_timer,0)==pdPASS);
+	configASSERT(xTimerReset(_timer,2)==pdPASS);
 }
 
 void NativeTimer::interval(uint32_t v) {

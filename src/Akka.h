@@ -103,6 +103,8 @@ class MsgClass;
 class TimerScheduler;
 //_____________________________________________________________________ static
 extern ActorMsgBus eb;
+extern MsgClass SignalFromIsr;
+
 
 const char* cloneString(const char* s);
 
@@ -182,6 +184,7 @@ class Ref: public Label {
 class MsgClass: public Label {
 	public:
 		static MsgClass ReceiveTimeout();
+		static MsgClass SignalFromIsr();
 //		static  MsgClass TimerExpired();
 		static MsgClass PoisonPill();
 		static MsgClass AnyClass();
@@ -191,7 +194,6 @@ class MsgClass: public Label {
 				: Label("NONE") {
 		}
 		MsgClass(Label label):Label(label){
-
 		}
 		MsgClass(uid_type id)
 				: Label(id) {
@@ -280,6 +282,7 @@ class ActorRef: public Ref {
 		virtual void tell(Msg& msg, ActorRef& sender)=0;
 		virtual void forward(Msg& message, ActorContext& context)=0;
 		virtual bool isLocal() = 0;
+		virtual void signalFromIsr(uint32_t signal)=0;
 
 };
 
@@ -306,6 +309,7 @@ class LocalActorRef: public ActorRef {
 		bool isLocal() {
 			return true;
 		}
+		void signalFromIsr(uint32_t signal);
 		void cell(ActorCell& cell);
 		ActorCell& cell();
 
@@ -334,6 +338,7 @@ class RemoteActorRef: public ActorRef {
 		bool isLocal() {
 			return false;
 		}
+		void signalFromIsr(uint32_t signal){};
 };
 
 //___________________________________________________ EmptyLocalActorRef
@@ -492,6 +497,7 @@ class ActorCell: public ActorContext {
 		static std::list<ActorCell*>& actorCells();
 
 		void sendMessage(Msg& msg);
+		void sendMessageFromIsr(Msg& msg);
 };
 
 //_________________________________________________________ Actor
@@ -574,8 +580,8 @@ class MessageDispatcher {
 		void detach(ActorCell&);
 		static void handleMailbox(void* thr);
 		void start();
-		void resume(ActorCell&);
-		void suspend(ActorCell&);
+/*		void resume(ActorCell&);
+		void suspend(ActorCell&);*/
 		void handle(Msg&);
 		void unhandled(ActorCell*);
 		void nextWakeup(uint64_t t);
@@ -583,9 +589,9 @@ class MessageDispatcher {
 		Mailbox& mailbox();
 
 		void dispatch(ActorCell&, Msg&);
+		void dispatchFromIsr(ActorCell& ,Msg&);
 		void registerForExecution(Mailbox*,bool hasMessageHint);
 		NativeQueue<Mailbox*>& workQueue();
-
 };
 
 //__________________________________________________________ Mailbox
@@ -604,6 +610,7 @@ class Mailbox: public NativeQueue<Msg*> {
 		Mailbox(ActorCell&, uint32_t queueSize);
 		int dequeue(Msg&, uint32_t);
 		int enqueue(Msg&);
+		int enqueueFromIsr(Msg&);
 		const char* name();
 		void processMailbox(Thread* thread);
 		bool shouldProcessMessage();
@@ -648,7 +655,7 @@ class Props {
 		static Props& create() {
 			return *new Props();
 		}
-		;
+
 		Props& withDispatcher(MessageDispatcher& dispatcher) {
 			_dispatcher = &dispatcher;
 			return *this;
@@ -761,7 +768,7 @@ class ActorMsgBus: public EventBus<Msg, ActorRef&, MessageClassifier> {
 	public:
 		void push(Msg& msg, ActorRef& ref) {
 			msg.dst(ref.id());
-			INFO(" event : %s on mailbox : %s ",msg.toString().c_str(),ref.label());
+//			INFO(" event : %s on mailbox : %s ",msg.toString().c_str(),ref.label());
 			ref.tell(msg);
 		}
 		MessageClassifier classify(Msg& msg) {
