@@ -190,6 +190,9 @@ class MsgClass: public Label {
 		MsgClass()
 				: Label("NONE") {
 		}
+		MsgClass(Label label):Label(label){
+
+		}
 		MsgClass(uid_type id)
 				: Label(id) {
 		}
