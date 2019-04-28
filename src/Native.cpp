@@ -17,7 +17,7 @@ template <typename T>
 int NativeQueue<T>::send(T item,uint32_t msecWait) {
 	BaseType_t rc = xQueueSend(_queue, &item, pdMS_TO_TICKS(msecWait) );
 	if ( rc == pdTRUE ) return 0;
-	return rc;
+	return ENOSPC;
 }
 
 template <typename T>
@@ -25,20 +25,19 @@ int NativeQueue<T>::sendFromIsr(T item) {
 	BaseType_t higherPriorityTaskWoken;
 	BaseType_t rc = xQueueSendToFrontFromISR(_queue, &item, &higherPriorityTaskWoken );
 	if ( rc == pdTRUE ) return 0;
-	return rc;
+	return ENOSPC;
 }
 
 
 template <typename T>
 int NativeQueue<T>::recv(T* item,uint32_t msecWait) {
-	if (xQueueReceive(_queue, item, pdMS_TO_TICKS(msecWait)) != pdTRUE) {
-		return ENOENT;
-	}
-	return 0;
+	BaseType_t rc = xQueueReceive(_queue, item, pdMS_TO_TICKS(msecWait));
+	if ( rc == pdTRUE) return 0;
+	return ENOENT;
 }
 
 template <typename T>
-bool NativeQueue<T>::hasMessages() {
+uint32_t NativeQueue<T>::messageCount() {
 	return uxQueueMessagesWaiting(_queue);
 }
 
@@ -61,7 +60,7 @@ NativeTimer::~NativeTimer() {
 }
 
 void NativeTimer::start() {
-	configASSERT(xTimerStart(_timer,2) == pdPASS);
+	configASSERT(xTimerStart(_timer,20) == pdPASS);
 }
 
 void NativeTimer::stop() {

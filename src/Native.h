@@ -9,8 +9,7 @@
 #define SRC_NATIVE_H_
 
 #include <stdint.h>
-
-#define myASSERT(xxx) if (!(xxx) ) {WARN(" assertion " # xxx " failed.");};
+#include <Log.h>
 
 template <typename T>
 class AbstractNativeQueue {
@@ -19,7 +18,7 @@ public:
 	virtual int recv(T* item, uint32_t to)=0;
 	virtual int send(T item, uint32_t to)=0;
 	virtual int sendFromIsr(T item)=0;
-	virtual bool hasMessages()=0;
+	virtual uint32_t messageCount()=0;
 };
 typedef void (*TaskFunction)(void*);
 
@@ -46,7 +45,7 @@ public:
 	int send(T item,uint32_t msecWait);
 	int recv(T* item,uint32_t msecWait);
 	int sendFromIsr(T item);
-	bool hasMessages();
+	uint32_t messageCount();
 };
 
 typedef void (*TimerCallback)(void*);
@@ -121,7 +120,7 @@ public:
 	int send(T item, uint32_t to);
 	int sendFromIsr(T item);
 
-	bool hasMessages();
+	uint32_t messageCount();
 //  Queue()=default;
 	NativeQueue<T>(const NativeQueue<T>& other) = delete;
 //  Queue& operator=(const Queue&) = delete; // disable assignment
@@ -155,8 +154,8 @@ int NativeQueue<T>::sendFromIsr(T item) {
 	return 0; // NOT IMPLEMENTED ON LINUX
 }
 template <typename T>
-bool NativeQueue<T>::hasMessages() {
-	return queue_.size() != 0;
+uint32_t NativeQueue<T>::messageCount() {
+	return queue_.size() ;
 }
 
 

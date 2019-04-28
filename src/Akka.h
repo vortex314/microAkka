@@ -24,7 +24,6 @@
 #include <Xdr.h>
 #include <Native.h>
 
-#define myASSERT(xxx) if (!(xxx) ) {WARN(" assertion " # xxx " failed.");};
 
 
 #ifdef PROD
@@ -458,7 +457,7 @@ class ActorCell: public ActorContext {
 	private:
 	public:
 		ActorCell(ActorSystem&, ActorRef&, MessageDispatcher&, Props&);
-		~ActorCell();
+		virtual ~ActorCell();
 
 		Mailbox& mailbox();
 		ActorSystem& system();
