@@ -12,8 +12,8 @@ OutDir                 := $(IntermediateDirectory)
 CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
-User                   :=Lieven
-Date                   :=25/02/19
+User                   :=lieven
+Date                   :=29/04/19
 CodeLitePath           :=/home/lieven/.codelite
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -60,9 +60,9 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(ObjectSuffix) $(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) \
-	$(IntermediateDirectory)/FreeRTOS_queue.c$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_list.c$(ObjectSuffix) $(IntermediateDirectory)/src_Hash.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_timers.c$(ObjectSuffix) $(IntermediateDirectory)/src_Native.cpp$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_tasks.c$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_event_groups.c$(ObjectSuffix) $(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) \
-	$(IntermediateDirectory)/src_Publisher.cpp$(ObjectSuffix) $(IntermediateDirectory)/Linux_port.c$(ObjectSuffix) $(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) \
+	$(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix) $(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_queue.c$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_list.c$(ObjectSuffix) $(IntermediateDirectory)/src_Hash.cpp$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_timers.c$(ObjectSuffix) $(IntermediateDirectory)/src_Native.cpp$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_tasks.c$(ObjectSuffix) $(IntermediateDirectory)/FreeRTOS_event_groups.c$(ObjectSuffix) \
+	$(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Publisher.cpp$(ObjectSuffix) $(IntermediateDirectory)/Linux_port.c$(ObjectSuffix) 
 
 
 
@@ -156,13 +156,13 @@ $(IntermediateDirectory)/src_ConfigActor.cpp$(DependSuffix): src/ConfigActor.cpp
 $(IntermediateDirectory)/src_ConfigActor.cpp$(PreprocessSuffix): src/ConfigActor.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_ConfigActor.cpp$(PreprocessSuffix) src/ConfigActor.cpp
 
-$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix): FreeRTOS/portable/MemMang/heap_3.c $(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(DependSuffix)
-	$(CC) $(SourceSwitch) "/home/lieven/workspace/microAkka/FreeRTOS/portable/MemMang/heap_3.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(DependSuffix): FreeRTOS/portable/MemMang/heap_3.c
-	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix) -MF$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(DependSuffix) -MM FreeRTOS/portable/MemMang/heap_3.c
+$(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix): src/Mqtt.cpp $(IntermediateDirectory)/src_Mqtt.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Mqtt.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/src_Mqtt.cpp$(DependSuffix): src/Mqtt.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_Mqtt.cpp$(DependSuffix) -MM src/Mqtt.cpp
 
-$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(PreprocessSuffix): FreeRTOS/portable/MemMang/heap_3.c
-	$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(PreprocessSuffix) FreeRTOS/portable/MemMang/heap_3.c
+$(IntermediateDirectory)/src_Mqtt.cpp$(PreprocessSuffix): src/Mqtt.cpp
+	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Mqtt.cpp$(PreprocessSuffix) src/Mqtt.cpp
 
 $(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(ObjectSuffix): FreeRTOS/stream_buffer.c $(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(DependSuffix)
 	$(CC) $(SourceSwitch) "/home/lieven/workspace/microAkka/FreeRTOS/stream_buffer.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(ObjectSuffix) $(IncludePath)
@@ -171,6 +171,22 @@ $(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(DependSuffix): FreeRTOS/strea
 
 $(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(PreprocessSuffix): FreeRTOS/stream_buffer.c
 	$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/FreeRTOS_stream_buffer.c$(PreprocessSuffix) FreeRTOS/stream_buffer.c
+
+$(IntermediateDirectory)/src_System.cpp$(ObjectSuffix): src/System.cpp $(IntermediateDirectory)/src_System.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/System.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/src_System.cpp$(DependSuffix): src/System.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_System.cpp$(DependSuffix) -MM src/System.cpp
+
+$(IntermediateDirectory)/src_System.cpp$(PreprocessSuffix): src/System.cpp
+	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_System.cpp$(PreprocessSuffix) src/System.cpp
+
+$(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix): FreeRTOS/croutine.c $(IntermediateDirectory)/FreeRTOS_croutine.c$(DependSuffix)
+	$(CC) $(SourceSwitch) "/home/lieven/workspace/microAkka/FreeRTOS/croutine.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/FreeRTOS_croutine.c$(DependSuffix): FreeRTOS/croutine.c
+	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix) -MF$(IntermediateDirectory)/FreeRTOS_croutine.c$(DependSuffix) -MM FreeRTOS/croutine.c
+
+$(IntermediateDirectory)/FreeRTOS_croutine.c$(PreprocessSuffix): FreeRTOS/croutine.c
+	$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/FreeRTOS_croutine.c$(PreprocessSuffix) FreeRTOS/croutine.c
 
 $(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix): src/Bridge.cpp $(IntermediateDirectory)/src_Bridge.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Bridge.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IncludePath)
@@ -204,21 +220,13 @@ $(IntermediateDirectory)/src_Hash.cpp$(DependSuffix): src/Hash.cpp
 $(IntermediateDirectory)/src_Hash.cpp$(PreprocessSuffix): src/Hash.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Hash.cpp$(PreprocessSuffix) src/Hash.cpp
 
-$(IntermediateDirectory)/src_System.cpp$(ObjectSuffix): src/System.cpp $(IntermediateDirectory)/src_System.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/System.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_System.cpp$(DependSuffix): src/System.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_System.cpp$(DependSuffix) -MM src/System.cpp
+$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix): FreeRTOS/portable/MemMang/heap_3.c $(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(DependSuffix)
+	$(CC) $(SourceSwitch) "/home/lieven/workspace/microAkka/FreeRTOS/portable/MemMang/heap_3.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(DependSuffix): FreeRTOS/portable/MemMang/heap_3.c
+	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(ObjectSuffix) -MF$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(DependSuffix) -MM FreeRTOS/portable/MemMang/heap_3.c
 
-$(IntermediateDirectory)/src_System.cpp$(PreprocessSuffix): src/System.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_System.cpp$(PreprocessSuffix) src/System.cpp
-
-$(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix): FreeRTOS/croutine.c $(IntermediateDirectory)/FreeRTOS_croutine.c$(DependSuffix)
-	$(CC) $(SourceSwitch) "/home/lieven/workspace/microAkka/FreeRTOS/croutine.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/FreeRTOS_croutine.c$(DependSuffix): FreeRTOS/croutine.c
-	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/FreeRTOS_croutine.c$(ObjectSuffix) -MF$(IntermediateDirectory)/FreeRTOS_croutine.c$(DependSuffix) -MM FreeRTOS/croutine.c
-
-$(IntermediateDirectory)/FreeRTOS_croutine.c$(PreprocessSuffix): FreeRTOS/croutine.c
-	$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/FreeRTOS_croutine.c$(PreprocessSuffix) FreeRTOS/croutine.c
+$(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(PreprocessSuffix): FreeRTOS/portable/MemMang/heap_3.c
+	$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/FreeRTOS_portable_MemMang_heap_3.c$(PreprocessSuffix) FreeRTOS/portable/MemMang/heap_3.c
 
 $(IntermediateDirectory)/FreeRTOS_timers.c$(ObjectSuffix): FreeRTOS/timers.c $(IntermediateDirectory)/FreeRTOS_timers.c$(DependSuffix)
 	$(CC) $(SourceSwitch) "/home/lieven/workspace/microAkka/FreeRTOS/timers.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/FreeRTOS_timers.c$(ObjectSuffix) $(IncludePath)
@@ -275,14 +283,6 @@ $(IntermediateDirectory)/Linux_port.c$(DependSuffix): Linux/port.c
 
 $(IntermediateDirectory)/Linux_port.c$(PreprocessSuffix): Linux/port.c
 	$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/Linux_port.c$(PreprocessSuffix) Linux/port.c
-
-$(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix): src/Mqtt.cpp $(IntermediateDirectory)/src_Mqtt.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Mqtt.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_Mqtt.cpp$(DependSuffix): src/Mqtt.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_Mqtt.cpp$(DependSuffix) -MM src/Mqtt.cpp
-
-$(IntermediateDirectory)/src_Mqtt.cpp$(PreprocessSuffix): src/Mqtt.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Mqtt.cpp$(PreprocessSuffix) src/Mqtt.cpp
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)
