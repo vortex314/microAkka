@@ -60,7 +60,7 @@ NativeTimer::~NativeTimer() {
 }
 
 void NativeTimer::start() {
-	configASSERT(xTimerStart(_timer,20) == pdPASS);
+	configASSERT(xTimerStart(_timer,2) == pdPASS);
 }
 
 void NativeTimer::stop() {
@@ -72,7 +72,6 @@ void NativeTimer::reset() {
 }
 
 void NativeTimer::interval(uint32_t v) {
-	INFO("[%X] timer interval(%u)", this, v);
 	configASSERT(xTimerChangePeriod(_timer,pdMS_TO_TICKS(v),10)==pdPASS);
 }
 

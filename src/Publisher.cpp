@@ -11,7 +11,7 @@ Publisher::~Publisher() {
 const MsgClass Publisher::PollMe("pollMe");
 
 void Publisher::preStart() {
-	timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
+	timers().startPeriodicTimer("publish", Msg("pollTimer"), 2000);
 	_it = context().system().actorRefs().begin();
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));

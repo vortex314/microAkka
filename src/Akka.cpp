@@ -379,65 +379,14 @@ Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
 		: NativeQueue(queueSize), _cell(cell) {
 	_currentStatus = Open;
 }
-class MessageTypes: public std::unordered_map<uid_type, int32_t> {
-	public:
-		int count(uid_type id) {
-			std::unordered_map<uid_type, int32_t>::const_iterator got =
-					find(id);
-			if (got == end()) {
-				insert({id,0});
-				return 0;
-			}
-			return got->second;
-		}
-
-		void inc(uid_type id) {
-			this->operator [](id)=count(id)+1;
-		}
-		void dec(uid_type id) {
-			this->operator [](id)=count(id)-1;
-		}
-		int total() {
-			int32_t sum = 0;
-			for (auto msg : *this) {
-				sum += msg.second;
-			}
-			return sum;
-		}
-		void show() {
-			for (auto msg : *this) {
-				if (msg.second != 0)
-					INFO(" Message %s : %d ", Label::label(msg.first),msg.second);
-			}
-		}
-} messages;
-
-int32_t max=10;
-int32_t allocs=0;
-int32_t queueCalls=0;
 
 int Mailbox::enqueue(Msg& msg) {
-/*	DEBUG("'%s' enqueue : %s ", name(), msg.toString().c_str());
-	if (allocs > max ) {
-		WARN("too many allocs %d", allocs);
-		messages.show();
-		max = allocs;
-	}
-	if (messageCount() > 5)
-		WARN("messages waiting : %d on mailbox '%s' total : %d allocs : %d ", messageCount(), name(), messages
-				.total(),allocs);
-	allocs++;
-	messages.inc(msg.dst());*/
-
 	Msg* px = new Msg(msg.size());
 	*px = msg;
-	myASSERT(msg.src() != 0);
-	myASSERT(msg.dst() != 0);
+	if(msg.cls() == 0) WARN(" msg.cls==0 to %s from %s ",Label::label(msg.dst()),Label::label(msg.src()));
 	int rc = send(px, 10);
 	if (rc != 0) {
 		WARN("'%s' enqueue failed to '%s'", Label::label(msg.cls()), name());
-/*		allocs--;
-		messages.dec(msg.dst());*/
 		delete px;
 		return rc;
 	}
@@ -462,8 +411,6 @@ int Mailbox::dequeue(Msg& msg, uint32_t time) {
 		return ENOENT;
 	};
 	(Msg&) msg = *px;
-/*	messages.dec(msg.dst());
-	allocs--;*/
 	if ( msg.cls() != SignalFromIsr.id() ) delete px;
 	return 0;
 }

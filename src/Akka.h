@@ -747,12 +747,21 @@ class MessageClassifier {
 		uid_type _src;
 		uid_type _cls;
 	public:
+		MessageClassifier(uid_type uidSrc, uid_type uidCls) {
+			_src = uidSrc;
+			_cls = uidCls;
+		}
 
 		MessageClassifier(Msg& msg) {
 			_src = msg.src();
 			_cls = msg.cls();
 		}
 		MessageClassifier(ActorRef& uidSrc, Label uidCls) {
+			_src = uidSrc.id();
+			_cls = uidCls.id();
+		}
+
+		MessageClassifier(Label uidSrc, Label uidCls) {
 			_src = uidSrc.id();
 			_cls = uidCls.id();
 		}
