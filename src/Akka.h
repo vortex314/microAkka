@@ -392,6 +392,7 @@ class ActorContext: public ActorRefFactory {
 		void systemInvoke(Msg& systemMessage);
 
 	public:
+		virtual ~ActorContext();
 		virtual ActorRef& self() = 0;
 		virtual uint32_t receiveTimeout() = 0;
 		virtual void setReceiveTimeout(uint32_t msec) = 0;
@@ -450,7 +451,7 @@ class ActorCell: public ActorContext {
 	private:
 	public:
 		ActorCell(ActorSystem&, ActorRef&, MessageDispatcher&, Props&);
-		~ActorCell();
+		virtual ~ActorCell();
 
 		Mailbox& mailbox();
 		ActorSystem& system();
@@ -501,7 +502,7 @@ class Actor {
 
 		static void timerCallback(ActorRef&, Timer&);
 		Actor();
-		~Actor();
+		virtual ~Actor();
 		ActorRef& self();
 		ActorRef& sender();
 		ActorContext& context();

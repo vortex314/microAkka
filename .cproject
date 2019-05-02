@@ -27,9 +27,9 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Common}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/microAkka/FreeRTOS/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/microAkka/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ArduinoJson/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/paho.mqtt.c/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/microAkka/FreeRTOS/include/private}&quot;"/>
+									<listOptionValue builtIn="false" value="/Users/lieven/workspace/ArduinoJson/src"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.dialect.std.252665405" name="Language standard" superClass="gnu.cpp.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.cpp.compiler.dialect.default" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.dialect.flags.334919310" name="Other dialect flags" superClass="gnu.cpp.compiler.option.dialect.flags" useByScannerDiscovery="true" value="-std=c++11" valueType="string"/>

@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CodeLite_Project Name="microAkka" Version="10.0.0" InternalType="Console">
-  <File Name="src/Native.h"/>
-  <File Name="src/Native.cpp"/>
-  <File Name="src/Hash.cpp"/>
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00010001N0005Debug000000000000]]>
@@ -52,6 +49,10 @@
     <File Name="Linux/port.c"/>
   </VirtualDirectory>
   <VirtualDirectory Name="src">
+    <File Name="src/Native.h"/>
+    <File Name="src/Native.cpp"/>
+    <File Name="src/Hash.cpp"/>
+    <File Name="src/portmacro.h"/>
     <File Name="src/FreeRTOSConfig.h"/>
     <File Name="src/Publisher.cpp"/>
     <File Name="src/Publisher.h"/>
@@ -111,7 +112,7 @@
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Debug" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
       <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
-        <![CDATA[]]>
+        <![CDATA[__APPLE__]]>
       </Environment>
       <Debugger IsRemote="no" RemoteHostName="" RemoteHostPort="" DebuggerPath="" IsExtended="yes">
         <DebuggerSearchPaths/>

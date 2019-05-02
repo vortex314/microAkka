@@ -16,7 +16,7 @@
 class Bridge : public Actor {
 
 		bool _connected;
-		StaticJsonBuffer<2000> _jsonBuffer;
+		StaticJsonDocument<2000> _jsonBuffer;
 		std::string _address;
 		ActorRef& _mqtt;
 		uint32_t _rxd;
@@ -24,7 +24,7 @@ class Bridge : public Actor {
 
 	public:
 		Bridge(ActorRef& mqtt);
-		~Bridge();
+		virtual ~Bridge();
 		void preStart();
 		Receive& createReceive();
 		enum { Connected=H("Connected") };

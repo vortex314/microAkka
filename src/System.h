@@ -12,7 +12,7 @@ class System : public Actor {
 		static const MsgClass Exit;
 
 		System(ActorRef& mqtt);
-		~System();
+		virtual ~System();
 
 		Receive& createReceive();
 		void preStart();
