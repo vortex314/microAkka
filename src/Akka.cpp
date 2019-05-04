@@ -49,7 +49,8 @@ uid_type Label::id() {
 	return _pl->_uid;
 }
 const char* Label::label() {
-	return _pl->_label;
+	if ( _pl->_label )  return _pl->_label;
+	return "unknown";
 }
 
 const char* Label::label(uid_type uid) {
@@ -69,6 +70,7 @@ Ref::~Ref() {
 }
 
 const char* Ref::label() {
+	myASSERT(_pr);
 	return _pr->_label.label();
 }
 

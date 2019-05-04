@@ -12,11 +12,12 @@ class Publisher: public Actor {
 	public:
 		static const MsgClass Exit;
 		static const MsgClass ConfigRequest;
-		static const MsgClass PollMe;
+		static const MsgClass Publish;
 
 		Publisher(ActorRef& mqtt);
-		~Publisher();
+		virtual ~Publisher();
 
+		void publishMsg(Msg& msg);
 		Receive& createReceive();
 		void preStart();
 

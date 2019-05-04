@@ -14,7 +14,7 @@ Receive& ConfigActor::createReceive() {
 	return receiveBuilder()
 	.match(Get, [this](Msg& msg) {
 		std::string output;
-		config.print(output);
+		config.save(output);
 		sender().tell(replyBuilder(msg)("config",output),self());
 	})
 	.match(Clear,[this](Msg& msg) {
@@ -36,6 +36,8 @@ Receive& ConfigActor::createReceive() {
 			sender().tell(replyBuilder(msg)("erc",EINVAL),self());
 		}
 	})
+
+	.match(MsgClass::Properties(), [this](Msg& msg) {sender().tell(replyBuilder(msg)("config","loaded"),self());})
 
 	.build();
 }
