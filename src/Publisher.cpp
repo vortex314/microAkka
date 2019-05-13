@@ -11,7 +11,7 @@ Publisher::~Publisher() {
 const MsgClass Publisher::Publish("pollMe");
 
 void Publisher::preStart() {
-	timers().startPeriodicTimer("publish", Msg("pollTimer"), 500);
+	timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
 	_it = context().system().actorRefs().begin();
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));
@@ -72,21 +72,32 @@ void Publisher::publishMsg(Msg& msg) {
 }
 
 Receive& Publisher::createReceive() {
-	return receiveBuilder().match(MsgClass::PropertiesReply(), [this](Msg& msg) {
-		if ( _mqttConnected == true ) {
-			publishMsg(msg);
-		}
-	}).match(MsgClass("pollTimer"), [this](Msg& msg) {
-		if ( _mqttConnected == true ) {
-			ActorRef* ref=nextRef();
-			ref->tell(msgBuilder(MsgClass::Properties()).src(self().id()).dst(ref->id()));
-		}
-	}).match(Publish, [this](Msg& msg) {
+	return receiveBuilder()
+
+	.match(MsgClass::PropertiesReply(), [this](Msg& msg) {
 		if ( _mqttConnected == true ) {
 			publishMsg(msg);
 		}
 	})
 
-	.match(Mqtt::Connected, [this](Msg& msg) {_mqttConnected=true;}).match(Mqtt::Disconnected, [this](Msg& msg) {_mqttConnected=false;})
-			.match(MsgClass::Properties(), [this](Msg& msg) {}).build();
+	.match(MsgClass("pollTimer"), [this](Msg& msg) {
+		if ( _mqttConnected == true ) {
+			ActorRef* ref=nextRef();
+			ref->tell(msgBuilder(MsgClass::Properties()).src(self().id()).dst(ref->id()));
+		}
+	})
+
+	.match(Publish, [this](Msg& msg) {
+		if ( _mqttConnected == true ) {
+			publishMsg(msg);
+		}
+	})
+
+	.match(Mqtt::Connected, [this](Msg& msg) {_mqttConnected=true;})
+
+	.match(Mqtt::Disconnected, [this](Msg& msg) {_mqttConnected=false;})
+
+	.match(MsgClass::Properties(), [this](Msg& msg) {})
+
+	.build();
 }

@@ -314,31 +314,7 @@ class LocalActorRef: public ActorRef {
 
 };
 
-//____________________________________________________ RemoteActorRef
-//
 
-class RemoteActorRef: public ActorRef {
-		ActorRef& _bridge;
-
-	public:
-		RemoteActorRef(Label, ActorRef&);
-		void tell(Msg& msg) {
-			_bridge.tell(msg);
-		}
-		void tell(Msg& msg, ActorRef& sender) {
-			_bridge.tell(msg, sender);
-		}
-		void forward(Msg& message, ActorContext& context) {
-		}
-		;
-		bool operator==(ActorRef& src) {
-			return id() == src.id();
-		}
-		bool isLocal() {
-			return false;
-		}
-		void signalFromIsr(uint32_t signal){};
-};
 
 //___________________________________________________ EmptyLocalActorRef
 class EmptyLocalActorRef {
@@ -533,6 +509,36 @@ class Actor {
 		Msg& replyBuilder(Msg&);
 
 		static Receive& receiveBuilder();
+};
+
+//____________________________________________________ RemoteActorRef
+//
+
+class RemoteActorRef: public ActorRef {
+		ActorRef& _bridge;
+
+	public:
+		RemoteActorRef(Label, ActorRef&);
+		void tell(Msg& msg) {
+			INFO(" remoting %s ",msg.toString().c_str());
+			((LocalActorRef&)_bridge).cell().sendMessage(msg);
+			_bridge.tell(msg);
+		}
+		void tell(Msg& msg, ActorRef& sender) {
+			INFO(" remoting %s ",msg.toString().c_str());
+			msg.src(sender.id());
+			((LocalActorRef&)_bridge).cell().sendMessage(msg);
+		}
+		void forward(Msg& message, ActorContext& context) {
+		}
+
+		bool operator==(ActorRef& src) {
+			return id() == src.id();
+		}
+		bool isLocal() {
+			return false;
+		}
+		void signalFromIsr(uint32_t signal){};
 };
 
 //________________________________________________________ ActorSelection

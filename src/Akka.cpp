@@ -886,6 +886,7 @@ void MessageDispatcher::detach(ActorCell& cell) {
 }
 
 void MessageDispatcher::unhandled(ActorCell* cell) {
+
 	_unhandledCell = cell;
 }
 

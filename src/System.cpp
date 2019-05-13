@@ -2,7 +2,7 @@
 
 #include <System.h>
 
-const MsgClass System::Exit("system/Exit");
+const MsgClass System::Exit("exit");
 
 System::System(ActorRef& mqtt)
 		: _mqtt(mqtt) {
@@ -34,12 +34,15 @@ Receive& System::createReceive() {
 #include <sys/sysinfo.h>
 
 Receive& System::createReceive() {
-	return receiveBuilder() //
-			.match(Mqtt::Connected, [this](Msg& msg) {INFO(" MQTT CONNECTED ");}) //
+	return receiveBuilder()
 
-			.match(Mqtt::Disconnected, [this](Msg& msg) {INFO(" MQTT DISCONNECTED ");}) //
+	.match(Mqtt::Connected, [this](Msg& msg) {INFO(" MQTT CONNECTED ");})
 
-			.match(Exit, [](Msg& msg) {exit(0);}).match(MsgClass::Properties(), [this](Msg& msg) {
+	.match(Mqtt::Disconnected, [this](Msg& msg) {INFO(" MQTT DISCONNECTED ");})
+
+	.match(Exit, [](Msg& msg) {exit(0);})
+
+	.match(MsgClass::Properties(), [this](Msg& msg) {
 		INFO(" Properties requested ");
 		struct sysinfo info;
 		sysinfo(&info);
