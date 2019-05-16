@@ -212,6 +212,7 @@ class Msg: public Xdr {
 		};
 	public:
 		Msg();
+		Msg(const Msg&);
 		~Msg();
 		Msg(MsgClass cls);
 		Msg(uint32_t);

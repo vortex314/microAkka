@@ -108,6 +108,9 @@ Msg::Msg()
 	add(UD_DST, (uid_type) 0);
 }
 
+Msg::Msg(const Msg& src):Xdr((Xdr&)src){
+}
+
 Msg::Msg(uint32_t size)
 		: Xdr(size) {
 //	INFO("ctor %X : [%d]",this,capacity());
