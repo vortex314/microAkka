@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CodeLite_Project Name="microAkka" Version="10.0.0" InternalType="Console">
-  <File Name="src/portmacro.h"/>
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00010001N0005Debug000000000000]]>
     </Plugin>
   </Plugins>
+  <File Name="src/portmacro.h"/>
   <File Name="src/Native.h"/>
   <File Name="src/Native.cpp"/>
   <File Name="src/Hash.cpp"/>
