@@ -2,7 +2,7 @@
 #include <Mqtt.h>
 
 Publisher::Publisher(ActorRef& mqtt)
-		: _mqtt(mqtt) {
+	: _mqtt(mqtt) {
 }
 
 Publisher::~Publisher() {
@@ -12,18 +12,18 @@ const MsgClass Publisher::Publish("pollMe");
 
 void Publisher::preStart() {
 	timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
-	_it = context().system().actorRefs().begin();
+	_currentActorRef = 0;
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));
 }
 
 ActorRef* Publisher::nextRef() {
-	if (_it == context().system().actorRefs().end()) {
-		_it = context().system().actorRefs().begin();
+	if ( context().system().actorRefs().size()==0) return 0;
+	if (_currentActorRef >= context().system().actorRefs().size()) {
+		_currentActorRef = 0;
 	}
-	ActorRef* pa = *_it;
-	++_it;
-//	INFO(" next ref : %s ",pa->path());
+	ActorRef* pa = context().system().actorRefs().at(_currentActorRef);
+	++_currentActorRef;
 	return pa;
 }
 
@@ -35,7 +35,7 @@ void Publisher::publishMsg(Msg& msg) {
 		Tag tag(msg.peek());
 		Label tag_uid(tag.uid);
 		if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS
-				|| tag.uid == UD_ID) {
+		        || tag.uid == UD_ID) {
 			msg.skip();
 		} else {
 			topic = "src/";
@@ -83,7 +83,7 @@ Receive& Publisher::createReceive() {
 	.match(MsgClass("pollTimer"), [this](Msg& msg) {
 		if ( _mqttConnected == true ) {
 			ActorRef* ref=nextRef();
-			ref->tell(msgBuilder(MsgClass::Properties()).src(self().id()).dst(ref->id()));
+			if ( ref ) ref->tell(msgBuilder(MsgClass::Properties()).src(self().id()).dst(ref->id()));
 		}
 	})
 

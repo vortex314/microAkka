@@ -4,7 +4,7 @@
 // volatile MQTTAsync_token deliveredtoken;
 
 Bridge::Bridge(ActorRef& mqtt)
-		: _mqtt(mqtt) {
+	: _mqtt(mqtt) {
 	_rxd = 0;
 	_txd = 0;
 	_connected = false;
@@ -23,12 +23,12 @@ void Bridge::preStart() {
 Receive& Bridge::createReceive() {
 	return receiveBuilder()
 
-	.match(MsgClass::AnyClass(), [this](Msg& msg) {
+	.match(MsgClass::AnyClass, [this](Msg& msg) {
 		if (!(msg.dst() == self().id())) {
 			std::string message;
 			std::string topic;
 			messageToJson(topic,message, msg);
-			INFO(" to MQTT : %s=%s",topic.c_str(),message.c_str());
+//			INFO(" to MQTT : %s=%s",topic.c_str(),message.c_str());
 			_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("message",message),self());
 			_txd++;
 		}
@@ -51,8 +51,8 @@ Receive& Bridge::createReceive() {
 //		INFO("envelope %s",env.toString().c_str());
 
 		if (env.get("topic",topic)==0
-				&& env.get("message",message)==0
-				&& jsonToMessage(msg,topic,message)) {
+		        && env.get("message",message)==0
+		        && jsonToMessage(msg,topic,message)) {
 
 			ActorRef* dst,*src;
 			if ( msg.dst() ==0 || (dst=ActorRef::lookup(msg.dst()))==0 ) {
@@ -62,7 +62,7 @@ Receive& Bridge::createReceive() {
 			} else {
 				dst->tell(msg);
 				_rxd++;
-				INFO(" processed message %s", msg.toString().c_str());
+//				INFO(" processed message %s", msg.toString().c_str());
 			}
 		} else {
 			WARN(" processing failed : %s ", message.c_str());
@@ -77,11 +77,13 @@ Receive& Bridge::createReceive() {
 			_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("data","true"),self());
 		}
 
-	}).match(MsgClass::Properties(), [this](Msg& msg) {
+	})
+
+	.match(MsgClass::Properties(), [this](Msg& msg) {
 		sender().tell(replyBuilder(msg)
-				("txd",_txd)
-				("rxd",_rxd)
-				,self());
+		              ("txd",_txd)
+		              ("rxd",_rxd)
+		              ,self());
 	})
 
 	.build();
@@ -105,37 +107,37 @@ bool Bridge::messageToJson(std::string& topic, std::string& message, Msg& msg) {
 //		Label tagLabel=Label(tag.uid);
 		switch (tag.type) {
 			case Xdr::BYTES: {
-				msg.getNext(tag.uid, str);
-				jsonObject[Label::label(tag.uid)] = str.c_str();
-				break;
-			}
-			case Xdr::UINT: {
-				uint64_t u64;
-				msg.getNext(tag.uid, u64);
-				if (tag.uid == UD_DST || tag.uid == UD_SRC
-						|| tag.uid == UD_CLS) {
-					if (tag.uid == UD_SRC) jsonObject[Label::label(tag.uid)] =
-							Label::label(u64);
-				} else {
-					jsonObject[Label::label(tag.uid)] = u64;
+					msg.getNext(tag.uid, str);
+					jsonObject[Label::label(tag.uid)] = (char*) str.c_str(); // cast to char * to enforce copy
+					break;
 				}
-				break;
-			}
+			case Xdr::UINT: {
+					uint64_t u64;
+					msg.getNext(tag.uid, u64);
+					if (tag.uid == UD_DST || tag.uid == UD_SRC
+					        || tag.uid == UD_CLS) {
+						if (tag.uid == UD_SRC) jsonObject[Label::label(tag.uid)] =
+							    Label::label(u64);
+					} else {
+						jsonObject[Label::label(tag.uid)] = u64;
+					}
+					break;
+				}
 			case Xdr::INT: {
-				int64_t i64;
-				msg.getNext(tag.uid, i64);
-				jsonObject[Label::label(tag.uid)] = i64;
-				break;
-			}
+					int64_t i64;
+					msg.getNext(tag.uid, i64);
+					jsonObject[Label::label(tag.uid)] = i64;
+					break;
+				}
 			case Xdr::FLOAT: {
-				double d;
-				msg.getNext(tag.uid, d);
-				jsonObject[Label::label(tag.uid)] = d;
-				break;
-			}
+					double d;
+					msg.getNext(tag.uid, d);
+					jsonObject[Label::label(tag.uid)] = d;
+					break;
+				}
 			default: {
-				msg.skip();
-			}
+					msg.skip();
+				}
 		}
 	};
 	serializeJson(jsonObject, message);
@@ -176,13 +178,13 @@ bool Bridge::jsonToMessage(Msg& msg, std::string& topic, std::string& message) {
 		return false;
 	}
 
-	INFO(" topic : %s %d,%d,%d", topic.c_str(), offsets[0], offsets[1], offsets[2]);
-	INFO(" local actor : %s ", topic.substr(offsets[0] + 1, offsets[2]
-			- offsets[0] - 1).c_str());
-	INFO(" local msg class : %s ", topic.substr(offsets[2] + 1).c_str());
+//	INFO(" topic : %s %d,%d,%d", topic.c_str(), offsets[0], offsets[1], offsets[2]);
+//	INFO(" local actor : %s ", topic.substr(offsets[0] + 1, offsets[2]
+//	                                        - offsets[0] - 1).c_str());
+//	INFO(" local msg class : %s ", topic.substr(offsets[2] + 1).c_str());
 
 	uid_type uidDst = Label(topic.substr(offsets[0] + 1, offsets[2] - offsets[0]
-			- 1).c_str()).id();
+	                                     - 1).c_str()).id();
 	uid_type uidCls = Label(topic.substr(offsets[2] + 1).c_str()).id();
 	msg.dst(uidDst);
 	msg.cls(uidCls);
@@ -214,6 +216,6 @@ bool Bridge::jsonToMessage(Msg& msg, std::string& topic, std::string& message) {
 		}
 	}
 
-	INFO("%s", msg.toString().c_str());
+//	INFO("%s", msg.toString().c_str());
 	return true;
 }

@@ -13,6 +13,7 @@
 #include <stdint.h>
 // STL
 #include <unordered_map>
+#include <vector>
 #include <list>
 #include <string>
 #include <string>
@@ -115,10 +116,12 @@ const char* cloneString(const char* s);
 
 #define LABEL(__str__) Label(UID(__str__),__str__)
 
+const char* uidToString(uid_type);
+
 class Label {
 		typedef struct {
-				uid_type _uid;
-				const char* _label;
+			uid_type _uid;
+			const char* _label;
 		} LabelStruct;
 		LabelStruct* _pl = 0; // single element to use in varargs, on stack
 		static std::unordered_map<uid_type, LabelStruct*>* _labels;
@@ -147,9 +150,9 @@ class Label {
 
 class Ref: public Label {
 		typedef struct {
-				Label _label;
-				void* _object;
-				Label _cls;
+			Label _label;
+			void* _object;
+			Label _cls;
 		} RefStruct;
 		RefStruct* _pr;
 		static std::unordered_map<uid_type, RefStruct*> _refs;
@@ -164,7 +167,7 @@ class Ref: public Label {
 			}
 		}
 		Ref(RefStruct* pr)
-				: _pr(pr) {
+			: _pr(pr) {
 		}
 		const char* label();
 		uid_type id();
@@ -186,19 +189,19 @@ class MsgClass: public Label {
 		static MsgClass SignalFromIsr();
 //		static  MsgClass TimerExpired();
 		static MsgClass PoisonPill();
-		static MsgClass AnyClass();
+		static MsgClass AnyClass;
 		static MsgClass Properties();
 		static MsgClass PropertiesReply();
 		MsgClass()
-				: Label("NONE") {
+			: Label("NONE") {
 		}
-		MsgClass(Label label):Label(label){
+		MsgClass(Label label):Label(label) {
 		}
 		MsgClass(uid_type id)
-				: Label(id) {
+			: Label(id) {
 		}
 		MsgClass(const char* name)
-				: Label(name) {
+			: Label(name) {
 		}
 		bool operator==(MsgClass b) {
 			return id() == b.id();
@@ -255,7 +258,7 @@ class Timer: public Label, public NativeTimer {
 
 	public:
 		Timer(Label key, bool autoReload, uint32_t interval, const Msg& msg,
-				TimerScheduler&);
+		      TimerScheduler&);
 		~Timer();
 		static void callBack(void*);
 
@@ -521,13 +524,15 @@ class RemoteActorRef: public ActorRef {
 	public:
 		RemoteActorRef(Label, ActorRef&);
 		void tell(Msg& msg) {
-			INFO(" remoting %s ",msg.toString().c_str());
+			msg.dst(this->id());
+//			INFO(" remoting %s ",msg.toString().c_str());
 			((LocalActorRef&)_bridge).cell().sendMessage(msg);
-			_bridge.tell(msg);
+//			_bridge.tell(msg);
 		}
-		void tell(Msg& msg, ActorRef& sender) {
-			INFO(" remoting %s ",msg.toString().c_str());
-			msg.src(sender.id());
+		void tell(Msg& msg, ActorRef& src) {
+			msg.src(src.id());
+			msg.dst(this->id());
+//			INFO(" remoting %s ",msg.toString().c_str());
 			((LocalActorRef&)_bridge).cell().sendMessage(msg);
 		}
 		void forward(Msg& message, ActorContext& context) {
@@ -539,7 +544,7 @@ class RemoteActorRef: public ActorRef {
 		bool isLocal() {
 			return false;
 		}
-		void signalFromIsr(uint32_t signal){};
+		void signalFromIsr(uint32_t signal) {};
 };
 
 //________________________________________________________ ActorSelection
@@ -559,8 +564,8 @@ class Thread: public Ref, public NativeThread {
 		MessageDispatcher* _dispatcher;
 	public:
 		Thread(MessageDispatcher* dispatcher, const char* name,
-				uint32_t stackSize, uint32_t priority, void* threadArg,
-				TaskFunction f);
+		       uint32_t stackSize, uint32_t priority, void* threadArg,
+		       TaskFunction f);
 		void currentMessage(Msg* msg);
 		Msg& currentMessage();
 		Msg& txd();
@@ -579,15 +584,15 @@ class MessageDispatcher {
 		NativeQueue<Mailbox*> _workQueue;
 	public:
 		MessageDispatcher(uint32_t threadCount = 1, uint32_t stackSize = 1024,
-				uint32_t priority = tskIDLE_PRIORITY + 1);
+		                  uint32_t priority = tskIDLE_PRIORITY + 1);
 		void attach(Mailbox&);
 		void detach(Mailbox&);
 		void attach(ActorCell&);
 		void detach(ActorCell&);
 		static void handleMailbox(void* thr);
 		void start();
-/*		void resume(ActorCell&);
-		void suspend(ActorCell&);*/
+		/*		void resume(ActorCell&);
+				void suspend(ActorCell&);*/
 		void handle(Msg&);
 		void unhandled(ActorCell*);
 		void nextWakeup(uint64_t t);
@@ -595,7 +600,7 @@ class MessageDispatcher {
 		Mailbox& mailbox();
 
 		void dispatch(ActorCell&, Msg&);
-		void dispatchFromIsr(ActorCell& ,Msg&);
+		void dispatchFromIsr(ActorCell&,Msg&);
 		void registerForExecution(Mailbox*,bool hasMessageHint);
 		NativeQueue<Mailbox*>& workQueue();
 };
@@ -636,7 +641,7 @@ class Receiver {
 
 	public:
 		Receiver(MsgClass msgClass, MessageMatcher matcher,
-				MessageHandler handler);
+		         MessageHandler handler);
 		Receiver(MsgClass msgClass, MessageHandler handler);
 		bool match(Msg& msg);
 		void onMessage(Msg& msg);
@@ -653,10 +658,10 @@ class Props {
 
 	public:
 		Props(MessageDispatcher& d)
-				: _dispatcher(&d) {
+			: _dispatcher(&d) {
 		}
 		Props()
-				: _dispatcher(0) {
+			: _dispatcher(0) {
 		}
 		static Props& create() {
 			return *new Props();
@@ -675,7 +680,7 @@ class Props {
 //___________________________________________________________ ActorSystem
 class ActorSystem: public Ref {
 		Props _defaultProps;
-		std::list<ActorRef*> _actorRefs;
+		std::vector<ActorRef*> _actorRefs;
 		MessageDispatcher& _defaultDispatcher;
 
 	public:
@@ -684,13 +689,13 @@ class ActorSystem: public Ref {
 		ActorRef& actorFor(const char* address);
 
 		template<class T, typename ... Args> ActorRef& actorOf(const char* name,
-				Args&& ... args) {
+		        Args&& ... args) {
 			T* actor = new T(args...);
 			return *create(actor, name, _defaultProps);
 		}
 
 		template<class T> ActorRef& actorOf(Props& props, const char* name,
-				...) {
+		                                    ...) {
 			va_list args;
 			va_start(args, name);
 			T* actor = new T(args);
@@ -704,7 +709,7 @@ class ActorSystem: public Ref {
 		ActorRef* create(Actor* actor, const char* name, Props& props);
 		MessageDispatcher& defaultDispatcher();
 		Mailbox& defaultMailbox();
-		std::list<ActorRef*>& actorRefs();
+		std::vector<ActorRef*>& actorRefs();
 };
 //____________________________________________________________ Eventbus
 
@@ -713,7 +718,7 @@ template<typename Subscriber, typename Classifier> class SubscriberClassifier {
 		Subscriber _subscriber;
 		Classifier _classifier;
 		SubscriberClassifier(Subscriber subscriber, Classifier classifier)
-				: _subscriber(subscriber), _classifier(classifier) {
+			: _subscriber(subscriber), _classifier(classifier) {
 		}
 };
 
@@ -775,7 +780,7 @@ class MessageClassifier {
 
 		bool operator==(MessageClassifier a) {
 			return ((a._src == 0 || _src == 0 || a._src == _src)
-					&& (a._cls == 0 || _cls == 0 || a._cls == _cls));
+			        && (a._cls == 0 || _cls == 0 || a._cls == _cls));
 		}
 };
 

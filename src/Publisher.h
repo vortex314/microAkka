@@ -7,7 +7,7 @@ class Publisher: public Actor {
 	public:
 		Label _propTimer;
 		ActorRef& _mqtt;
-		std::list<ActorRef*>::iterator _it;
+		uint32_t _currentActorRef;
 		bool _mqttConnected=false;
 	public:
 		static const MsgClass Exit;

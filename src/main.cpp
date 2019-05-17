@@ -99,7 +99,7 @@ int main() {
 
 	eb.publish(hello);
 
-	sleep(60000);
+	sleep(6000000);
 	INFO(" MAIN task ended !! ");
 //	vTaskStartScheduler();
 }
