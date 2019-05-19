@@ -32,10 +32,10 @@
 #define assert(xxxx) if ( !(xxxx) ) WARN(#xxxx)
 #endif
 
-#define AKKA_DST 	"$dst"
-#define AKKA_SRC 	"$src"
-#define AKKA_ID		"$id"
-#define AKKA_CLS	"$cls"
+#define AKKA_DST 	"$DST"
+#define AKKA_SRC 	"$SRC"
+#define AKKA_ID		"$ID"
+#define AKKA_CLS	"$CLS"
 #define AKKA_TIMER 	"$timer"
 
 const uid_type UD_DST = H(AKKA_DST);
