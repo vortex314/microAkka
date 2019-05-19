@@ -2,7 +2,7 @@
 #include <Sender.h>
 
 Sender::Sender()
-		: startTime(0), _echo(0), _counter(0), _startTest(""), _endTest("") {
+	: startTime(0), _echo(0), _counter(0), _startTest(""), _endTest("") {
 	_testing = false;
 }
 
@@ -11,7 +11,7 @@ Sender::~Sender() {
 
 void Sender::preStart() {
 	_startTest =
-			timers().startPeriodicTimer("START_TEST", Msg("StartTest"), 5000);
+	    timers().startPeriodicTimer("START_TEST", Msg("StartTest"), 5000);
 	context().setReceiveTimeout(1000);
 	Label("counter");
 	_echo = &context().system().actorOf<Echo>("echo");
@@ -35,7 +35,7 @@ Receive& Sender::createReceive() {
 		float delta = Sys::millis() - startTime;
 		_testing = false;
 		INFO("End test '%s' done in %f msec for %d msgs =>  %f msg/sec", self().path(),
-				delta,_counter, _counter * 1000.0 / delta);
+		     delta,_counter, _counter * 1000.0 / delta);
 	})
 
 	.match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
@@ -44,8 +44,8 @@ Receive& Sender::createReceive() {
 
 	.match(MsgClass::Properties(), [this](Msg& msg) {
 		sender().tell(replyBuilder(msg)
-				("counter",_counter)
-				,self());
+		              ("counter",_counter)
+		              ,self());
 	})
 
 	.build();

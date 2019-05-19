@@ -56,7 +56,7 @@ const char* Label::label() {
 const char* Label::label(uid_type uid) {
 	std::unordered_map<uid_type, LabelStruct*>::const_iterator p = labels()
 	        ->find(uid);
-	if (p == labels()->end()) return "NO LABEL";
+	if (p == labels()->end()) return "NONE";
 	return (p->second->_label);
 }
 
@@ -210,11 +210,11 @@ Msg& Msg::operator=(const Msg& src) {
 std::string Msg::toString() {
 	std::string result;
 	result += Label::label(src());
-	result += " == ";
+	result += " = ";
 	result += Label::label(cls());
-	result += "=> ";
+	result += "> ";
 	result += Label::label(dst());
-	result+= Xdr::toString();
+//	result+= Xdr::toString();
 	return result;
 }
 
@@ -766,7 +766,7 @@ void ActorCell::invoke(Msg& msg) {
 	 printf(" xSemaphoreTake()  timed out ");
 	 }*/
 	if(_receive) _receive->receive(*this, msg);
-	else WARN(" no receive defined for %s for message %s ",self().path(),msg.toString());
+	else WARN(" no receive defined for %s for message %s ",self().path(),msg.toString().c_str());
 	/*	if (xSemaphoreGive(_semaphore) != pdTRUE) {
 	 printf("xSemaphoreGive() failed");
 	 }*/

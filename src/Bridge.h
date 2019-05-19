@@ -17,7 +17,7 @@ class Bridge : public Actor
 {
 
     bool _connected;
-    StaticJsonDocument<2000> _jsonBuffer;
+    StaticJsonDocument<3000> _jsonBuffer;
     std::string _address;
     ActorRef& _mqtt;
     uint32_t _rxd;
