@@ -31,6 +31,7 @@ void Publisher::publishMsg(Msg& msg) {
 	std::string topic;
 
 	msg.rewind();
+	Msg& pub=msgBuilder(Mqtt::Publish);
 	while (msg.hasData()) {
 		Tag tag(msg.peek());
 		Label tag_uid(tag.uid);
@@ -64,11 +65,10 @@ void Publisher::publishMsg(Msg& msg) {
 			} else {
 				msg.skip();
 			}
-			_mqtt.tell(msgBuilder(Mqtt::Publish)("topic", topic)("message", message), self());
+			pub("topic", topic)("message", message);
 		}
-
 	}
-
+	_mqtt.tell(pub,self());
 }
 
 Receive& Publisher::createReceive() {

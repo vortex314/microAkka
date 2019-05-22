@@ -48,11 +48,11 @@ void NativeTimer::freeRTOSCallback(TimerHandle_t handle) {
 	me->_callbackFunction(me->_callbackArg);
 }
 
-NativeTimer::NativeTimer(const char* name,bool autoReload , uint32_t interval,void* callbackArg,TimerCallback callbackFunction) :
-_callbackFunction(callbackFunction),
-_callbackArg(callbackArg),
-_autoReload(autoReload),
-_interval(interval) {
+NativeTimer::NativeTimer(const char* name,bool autoReload, uint32_t interval,void* callbackArg,TimerCallback callbackFunction) :
+	_callbackFunction(callbackFunction),
+	_callbackArg(callbackArg),
+	_autoReload(autoReload),
+	_interval(interval) {
 	configASSERT((_timer = xTimerCreate(name,pdMS_TO_TICKS(interval),autoReload,this,freeRTOSCallback))!=NULL);
 }
 
@@ -115,7 +115,7 @@ void NativeThread::wait() {
 uint32_t NativeTimer::_idCounter = 0;
 
 NativeThread::NativeThread(const char* name, uint32_t stackSize,
-		uint32_t priority, void* taskArg, TaskFunction taskFunction) {
+                           uint32_t priority, void* taskArg, TaskFunction taskFunction) {
 	_name = name;
 	_stackSize = stackSize;
 	_priority = priority;
@@ -126,7 +126,7 @@ NativeThread::NativeThread(const char* name, uint32_t stackSize,
 
 void NativeThread::start() {
 	myASSERT(
-			pthread_create(&_thread,NULL,(PthreadFunction)_taskFunction,_taskArg)==0);
+	    pthread_create(&_thread,NULL,(PthreadFunction)_taskFunction,_taskArg)==0);
 #ifndef __APPLE__
 	pthread_setname_np(_thread,_name.c_str());
 #endif
@@ -142,9 +142,9 @@ void NativeThread::wait() {
 NativeTimerThread timerThread;
 
 NativeTimer::NativeTimer(const char* name, bool autoReload, uint32_t interval,
-		void* callbackArg, TimerCallback callbackFunction) :
-		_callbackFunction(callbackFunction), _callbackArg(callbackArg), _autoReload(
-				autoReload), _interval(interval) {
+                         void* callbackArg, TimerCallback callbackFunction) :
+	_callbackFunction(callbackFunction), _callbackArg(callbackArg), _autoReload(
+	    autoReload), _interval(interval) {
 //	_timer = 0;
 	_id = _idCounter++;
 }
@@ -158,7 +158,7 @@ void NativeTimer::start() {
 }
 
 void NativeTimer::stop() {
-	timerThread.removeTimer(this);
+//	timerThread.removeTimer(this);
 }
 
 void NativeTimer::reset() {
@@ -197,18 +197,16 @@ void NativeTimerThread::run() {
 			//Sort could be done at insert
 			//but probabily this thread has time to do
 			std::sort(m_Timers.begin(), m_Timers.end(),
-					[](const NativeTimer * ti1, const NativeTimer * ti2)
-					{
-						return ti1->_timePoint > ti2->_timePoint;
-					});
+			[](const NativeTimer * ti1, const NativeTimer * ti2) {
+				return ti1->_timePoint > ti2->_timePoint;
+			});
 			m_Sort = false;
 		}
 
 		auto now = Clock::now();
 		auto expire = m_Timers.back()->_timePoint;
 
-		if (expire > now) //can I take a nap?
-				{
+		if (expire > now) { //can I take a nap?
 			auto napTime = expire - now;
 			m_Condition.wait_for(lock, napTime);
 
@@ -223,7 +221,7 @@ void NativeTimerThread::run() {
 				m_Timers.pop_back();
 				if (t->autoReload()) {
 					t->_timePoint = Clock::now()
-							+ std::chrono::milliseconds(t->interval());
+					                + std::chrono::milliseconds(t->interval());
 					m_Timers.emplace_back(t);
 					m_Sort = true;
 				} else {
@@ -237,7 +235,7 @@ void NativeTimerThread::run() {
 			m_Timers.pop_back();
 			if (t->autoReload()) {
 				t->_timePoint = Clock::now()
-						+ std::chrono::milliseconds(t->interval());
+				                + std::chrono::milliseconds(t->interval());
 				m_Timers.emplace_back(t);
 				m_Sort = true;
 			} else {
@@ -252,8 +250,8 @@ void NativeTimerThread::runStatic(void* th) {
 	me->run();
 }
 NativeTimerThread::NativeTimerThread() :
-		NativeThread("timerThread", 1024, 5, this, runStatic), m_Stop(false), m_Sort(
-				false) {
+	NativeThread("timerThread", 1024, 5, this, runStatic), m_Stop(false), m_Sort(
+	    false) {
 	start();
 
 }
@@ -266,7 +264,7 @@ void NativeTimerThread::addTimer(NativeTimer* timer) {
 	{
 		std::unique_lock<std::mutex> lock(timerThread.m_Mutex);
 		timer->_timePoint = Clock::now()
-				+ std::chrono::milliseconds(timer->interval());
+		                    + std::chrono::milliseconds(timer->interval());
 		timerThread.m_Timers.emplace_back(timer);
 		timerThread.m_Sort = true;
 	}

@@ -719,7 +719,7 @@ std::list<ActorCell*> ActorCell::_actorCells;
 
 ActorCell::ActorCell(ActorSystem& system, ActorRef& ref,
                      MessageDispatcher& dispatcher, Props& props)
-	: _mailbox(*new Mailbox(*this, 10)), _dispatcher(dispatcher), _system(system), _self(ref)
+	: _mailbox(*new Mailbox(*this, 15)), _dispatcher(dispatcher), _system(system), _self(ref)
 //, _receiveTimeoutTimer(ref, true, UINT32_MAX- 1, Msg(MsgClass::ReceiveTimeout()), timers())
 {
 	_enable = true;
