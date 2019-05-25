@@ -53,6 +53,7 @@ class Mqtt : public Actor {
 		void mqttSubscribe(const char* topic);
 		void mqttConnect();
 		void mqttDisconnect();
+		void subscribeEventBus();
 
 		bool handleMqttMessage(const char* message);
 };

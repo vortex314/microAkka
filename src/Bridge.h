@@ -13,26 +13,26 @@
 #define QOS 0
 #define TIMEOUT 10000L
 
-class Bridge : public Actor
-{
+class Bridge : public Actor {
 
-    bool _connected;
-    StaticJsonDocument<3000> _jsonBuffer;
-    std::string _address;
-    ActorRef& _mqtt;
-    uint32_t _rxd;
-    uint32_t _txd;
+		bool _connected;
+		StaticJsonDocument<3000> _jsonBuffer;
+		std::string _address;
+		ActorRef& _mqtt;
+		uint32_t _rxd;
+		uint32_t _txd;
 
-public:
-    Bridge(ActorRef& mqtt);
-    ~Bridge();
-    void preStart();
-    Receive& createReceive();
-    enum { Connected=H("Connected") };
+	public:
+		Bridge(ActorRef& mqtt);
+		~Bridge();
+		void preStart();
+		Receive& createReceive();
+		enum { Connected=H("Connected") };
 
-    bool jsonToMessage(Msg& msg,std::string& topic,std::string& message);
-    bool messageToJson(std::string& topic,std::string& message,Msg& msg);
+		bool valueToMessage(Msg& msg,std::string& topic,std::string& message);
+		bool jsonToMessage(Msg& msg,std::string& topic,std::string& message);
+		bool messageToJson(std::string& topic,std::string& message,Msg& msg);
 
-    bool handleMqttMessage(const char* message);
+		bool handleMqttMessage(const char* message);
 };
 #endif

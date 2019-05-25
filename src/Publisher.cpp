@@ -12,17 +12,17 @@ const MsgClass Publisher::Publish("pollMe");
 
 void Publisher::preStart() {
 	timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
-	_currentActorRef = 0;
+	_currentActorRef = context().system().actorRefs().begin();
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));
 }
 
 ActorRef* Publisher::nextRef() {
 	if ( context().system().actorRefs().size()==0) return 0;
-	if (_currentActorRef >= context().system().actorRefs().size()) {
-		_currentActorRef = 0;
+	if (_currentActorRef == context().system().actorRefs().end()) {
+		_currentActorRef = context().system().actorRefs().begin();
 	}
-	ActorRef* pa = context().system().actorRefs().at(_currentActorRef);
+	ActorRef* pa = _currentActorRef->second;
 	++_currentActorRef;
 	return pa;
 }

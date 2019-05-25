@@ -51,21 +51,24 @@ Receive& Bridge::createReceive() {
 //		INFO("envelope %s",env.toString().c_str());
 
 		if (env.get("topic",topic)==0
-		        && env.get("message",message)==0
-		        && jsonToMessage(msg,topic,message)) {
+		        && env.get("message",message)==0 ) {
+			if ( topic.rfind("dst/",0)==0  && jsonToMessage(msg,topic,message)) {
 
-			ActorRef* dst,*src;
-			if ( msg.dst() ==0 || (dst=ActorRef::lookup(msg.dst()))==0 ) {
-				WARN(" dst invalid %u ",msg.dst());
-			} else if ( msg.src()==0 && (src=ActorRef::lookup(msg.src()))==0) {
-				WARN(" src invalid %u ",msg.src());
-			} else {
-				dst->tell(msg);
-				_rxd++;
+				ActorRef* dst,*src;
+				if ( msg.dst() ==0 || (dst=ActorRef::lookup(msg.dst()))==0 ) {
+					WARN(" dst invalid %u ",msg.dst());
+				} else if ( msg.src()==0 && (src=ActorRef::lookup(msg.src()))==0) {
+					WARN(" src invalid %u ",msg.src());
+				} else {
+					dst->tell(msg);
+					_rxd++;
 //				INFO(" processed message %s", msg.toString().c_str());
+				}
+			} else  if ( topic.rfind("src/",0)==0  && valueToMessage(msg,topic,message)) {
+				eb.publish(msg);
+			} else {
+				WARN(" processing failed : %s ", message.c_str());
 			}
-		} else {
-			WARN(" processing failed : %s ", message.c_str());
 		}
 	})
 
@@ -214,6 +217,54 @@ bool Bridge::jsonToMessage(Msg& msg, std::string& topic, std::string& message) {
 				msg(kv.key().c_str(), kv.value().as<double>());
 			}
 		}
+	}
+
+//	INFO("%s", msg.toString().c_str());
+	return true;
+}
+
+
+bool Bridge::valueToMessage(Msg& msg, std::string& topic, std::string& message) {
+
+	uint32_t offsets[3] = { 0, 0, 0 };
+	uint32_t prevOffset = 0;
+	for (uint32_t i = 0; i < 3; i++) {
+		uint64_t offset = topic.find('/', prevOffset); // uint64_t to support 64 bit architecture ;-)
+		if (offset == std::string::npos) break;
+		offsets[i] = offset;
+		prevOffset = offset + 1;
+	}
+	if (offsets[0] == 0 || offsets[2] == 0) {
+		WARN(" invalid topic : %s", topic.c_str());
+		return false;
+	}
+	uid_type uidSrc = Label(topic.substr(offsets[0] + 1, offsets[2] - offsets[0]
+	                                     - 1).c_str()).id();
+	uid_type uidCls = Label(topic.substr(offsets[2] + 1).c_str()).id();
+	msg.src(uidSrc);
+	msg.cls(uidCls);
+
+	_jsonBuffer.clear();
+	auto rc = deserializeJson(_jsonBuffer, message.data());
+	if ( ! (rc==DeserializationError::Ok ) ) { // just read this as a string
+		msg("data",message.c_str());
+		return true;
+	}
+	JsonVariant jsonValue = _jsonBuffer.as<JsonVariant>();
+
+	if (jsonValue.is<char*>()) {
+		msg("data", jsonValue.as<char*>());
+	} else if (jsonValue.is<unsigned long>()) {
+		msg("data", jsonValue.as<uint64_t>());
+	} else if (jsonValue.is<long>()) {
+		msg("data", jsonValue.as<int64_t>());
+	} else if (jsonValue.is<double>()) {
+		msg("data", jsonValue.as<double>());
+	} else if (jsonValue.is<bool>()) {
+		msg("data", jsonValue.as<bool>());
+	} else {
+		ERROR(" couldn't handle type : %s",message.c_str());
+		return false;
 	}
 
 //	INFO("%s", msg.toString().c_str());

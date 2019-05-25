@@ -25,8 +25,6 @@
 #include <Xdr.h>
 #include <Native.h>
 
-
-
 #ifdef PROD
 #undef assert
 #define assert(xxxx) if ( !(xxxx) ) WARN(#xxxx)
@@ -148,6 +146,7 @@ class Label {
 		bool operator==(Label& that);
 };
 
+
 class Ref: public Label {
 		typedef struct {
 			Label _label;
@@ -160,10 +159,14 @@ class Ref: public Label {
 		Ref(Label label, void* object, Label cls) {
 			if (_refs.find(label.id()) == _refs.end()) {
 				_pr = new RefStruct( { label, object, cls });
-				/*							_pr->_label=label;
-				 _pr->_cls=cls;
-				 _pr->_object=object;*/
 				_refs.emplace(label.id(), _pr);
+			} else {
+				auto r = _refs.find(label.id());
+				if ( !( r->second->_cls == cls ) ) {
+//					delete r->second;
+					_pr = new RefStruct( { label, object, cls });
+					_refs.emplace(label.id(), _pr);
+				}
 			}
 		}
 		Ref(RefStruct* pr)
@@ -175,7 +178,7 @@ class Ref: public Label {
 		void *object();
 
 		~Ref(); // the object destruction should lead to Ref lookup destruction
-		static Ref findRef(uid_type);
+		static Ref findRef(uid_type id,uid_type cls);
 		static Ref NotFound;
 		bool operator==(Ref&);
 
@@ -270,7 +273,8 @@ class Timer: public Label, public NativeTimer {
 
 //__________________________________________________________ ActorRef
 
-class ActorRef: public Ref {
+class ActorRef: public Label {
+		static std::unordered_map<uid_type,ActorRef*> _actorRefs;
 
 	public:
 		static ActorRef& NoSender();
@@ -288,6 +292,7 @@ class ActorRef: public Ref {
 		virtual void signalFromIsr(uint32_t signal)=0;
 
 };
+
 
 //______________________________________________________ LocalActorRef
 //
@@ -309,9 +314,7 @@ class LocalActorRef: public ActorRef {
 		void tell(Msg& msg, ActorRef& sender);
 		void forward(Msg& message, ActorContext& context);
 		bool operator==(ActorRef& src);
-		bool isLocal() {
-			return true;
-		}
+		bool isLocal() ;
 		void signalFromIsr(uint32_t signal);
 		void cell(ActorCell& cell);
 		ActorCell& cell();
@@ -523,28 +526,12 @@ class RemoteActorRef: public ActorRef {
 
 	public:
 		RemoteActorRef(Label, ActorRef&);
-		void tell(Msg& msg) {
-			msg.dst(this->id());
-//			INFO(" remoting %s ",msg.toString().c_str());
-			((LocalActorRef&)_bridge).cell().sendMessage(msg);
-//			_bridge.tell(msg);
-		}
-		void tell(Msg& msg, ActorRef& src) {
-			msg.src(src.id());
-			msg.dst(this->id());
-//			INFO(" remoting %s ",msg.toString().c_str());
-			((LocalActorRef&)_bridge).cell().sendMessage(msg);
-		}
-		void forward(Msg& message, ActorContext& context) {
-		}
-
-		bool operator==(ActorRef& src) {
-			return id() == src.id();
-		}
-		bool isLocal() {
-			return false;
-		}
-		void signalFromIsr(uint32_t signal) {};
+		void tell(Msg& msg);
+		void tell(Msg& msg, ActorRef& src);
+		void forward(Msg& message, ActorContext& context);
+		bool operator==(ActorRef& src);
+		bool isLocal();
+		void signalFromIsr(uint32_t signal);
 };
 
 //________________________________________________________ ActorSelection
@@ -558,7 +545,7 @@ class ActorSelection: public ActorRef {
 //
 // per thread data
 //
-class Thread: public Ref, public NativeThread {
+class Thread: public Label, public NativeThread {
 		Msg _txd;
 		Msg _rxd;
 		MessageDispatcher* _dispatcher;
@@ -576,7 +563,6 @@ class Thread: public Ref, public NativeThread {
 //__________________________________________________________ MessageDispatcher
 class MessageDispatcher {
 		std::list<ActorCell*> _actorCells;
-		ActorCell* _unhandledCell;
 
 		uint32_t _threadCount = 1;
 		uint32_t _throughput = 10;
@@ -678,9 +664,9 @@ class Props {
 
 };
 //___________________________________________________________ ActorSystem
-class ActorSystem: public Ref {
+class ActorSystem: public Label {
 		Props _defaultProps;
-		std::vector<ActorRef*> _actorRefs;
+		std::unordered_map<uid_type,ActorRef*> _actorRefs;
 		MessageDispatcher& _defaultDispatcher;
 
 	public:
@@ -709,7 +695,7 @@ class ActorSystem: public Ref {
 		ActorRef* create(Actor* actor, const char* name, Props& props);
 		MessageDispatcher& defaultDispatcher();
 		Mailbox& defaultMailbox();
-		std::vector<ActorRef*>& actorRefs();
+		std::unordered_map<uid_type,ActorRef*>& actorRefs();
 };
 //____________________________________________________________ Eventbus
 
@@ -742,7 +728,7 @@ class EventBus<Event, Subscriber, Classifier> {
 		}
 
 		bool unsubscribe(Subscriber, Classifier) {
-			return false; // TODO not implemented yet
+			return false; //TODO not implemented yet
 		}
 
 		void unsubscribe(Subscriber) {
@@ -752,6 +738,10 @@ class EventBus<Event, Subscriber, Classifier> {
 		virtual void push(Event& event, Subscriber subscriber) = 0;
 		virtual int compareSubscribers(Subscriber a, Subscriber b) = 0;
 		virtual ~EventBus() {
+		}
+
+		std::list<SubscriberClassifier<Subscriber, Classifier>*>&  subscribers() {
+			return _list;
 		}
 };
 
@@ -768,20 +758,22 @@ class MessageClassifier {
 			_src = msg.src();
 			_cls = msg.cls();
 		}
-		MessageClassifier(ActorRef& uidSrc, Label uidCls) {
-			_src = uidSrc.id();
-			_cls = uidCls.id();
+		MessageClassifier(ActorRef& refSrc, Label labelCls) {
+			_src = refSrc.id();
+			_cls = labelCls.id();
 		}
 
-		MessageClassifier(Label uidSrc, Label uidCls) {
-			_src = uidSrc.id();
-			_cls = uidCls.id();
+		MessageClassifier(Label labelSrc, Label labelCls) {
+			_src = labelSrc.id();
+			_cls = labelCls.id();
 		}
 
 		bool operator==(MessageClassifier a) {
 			return ((a._src == 0 || _src == 0 || a._src == _src)
 			        && (a._cls == 0 || _cls == 0 || a._cls == _cls));
 		}
+		uid_type src() { return _src;};
+		uid_type cls() { return _cls; };
 };
 
 class ActorMsgBus: public EventBus<Msg, ActorRef&, MessageClassifier> {

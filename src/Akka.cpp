@@ -49,7 +49,7 @@ uid_type Label::id() {
 	return _pl->_uid;
 }
 const char* Label::label() {
-	if ( _pl->_label )  return _pl->_label;
+	if (_pl->_label) return _pl->_label;
 	return "unknown";
 }
 
@@ -82,9 +82,10 @@ uid_type Ref::id() {
 	return _pr->_label.id();
 }
 
-Ref Ref::findRef(uid_type id) {
+Ref Ref::findRef(uid_type id,uid_type cls) {
 	auto r = _refs.find(id);
 	if (r == _refs.end()) return 0;
+	if ( r->second->_cls.id() != cls) return 0;
 	return r->second;
 }
 
@@ -112,7 +113,8 @@ Msg::Msg()
 	add(UD_DST, (uid_type) 0);
 }
 
-Msg::Msg(const Msg& src):Xdr((Xdr&)src) {
+Msg::Msg(const Msg& src)
+	: Xdr((Xdr&) src) {
 }
 
 Msg::Msg(uint32_t size)
@@ -229,7 +231,7 @@ MsgClass MsgClass::PoisonPill() {
 	return m;
 }
 
-MsgClass MsgClass::AnyClass("AnyClass") ;
+MsgClass MsgClass::AnyClass("AnyClass");
 
 MsgClass MsgClass::Properties() {
 	static MsgClass m("Properties");
@@ -243,7 +245,6 @@ MsgClass MsgClass::PropertiesReply() {
 
 //_________________________________________________ Actor
 
-
 std::list<Actor*> Actor::_actors;
 
 Actor::Actor()
@@ -255,7 +256,7 @@ void Actor::context(ActorCell* context) {
 }
 
 Actor::~Actor() {
-	WARN(" actor '%s' delete",self().path());
+	WARN(" actor '%s' delete", self().path());
 }
 
 ActorRef& Actor::self() {
@@ -296,17 +297,22 @@ ActorRef& Actor::sender() {
 //_______________________________________________ ActorRef
 //
 
+std::unordered_map<uid_type,ActorRef*> ActorRef::_actorRefs;
+
 ActorRef& ActorRef::NoSender() {
 	return *ActorRef::lookup(Label("NoSender").id());
 }
 
 ActorRef::ActorRef(Label label)
-	: Ref(label, this, "ActorRef") {
+	: Label(label) {
 	INFO(" created ActorRef '%s' = %d", label.label(), label.id());
+	if ( _actorRefs.find(label.id())==_actorRefs.end())
+		_actorRefs.emplace(label.id(),this);
 }
 
 ActorRef::~ActorRef() {
-
+	WARN(" ActorRef destroyed : %s ",path());
+	_actorRefs.erase(id());
 }
 
 bool ActorRef::operator==(ActorRef& v) {
@@ -333,10 +339,9 @@ LocalActorRef::~LocalActorRef() {
 }
 
 ActorRef* ActorRef::lookup(uid_type uid) {
-	Ref ref = Ref::findRef(uid);
-	if (ref == Ref::NotFound) return 0;
-	assert(UID("ActorRef")==ref.cls().id());
-	return (ActorRef*) ref.object();
+	auto search = _actorRefs.find(uid);
+	if (search == _actorRefs.end()) return 0;
+	return search->second;
 }
 
 //______________________________________________ LocalActorRef
@@ -361,7 +366,11 @@ void LocalActorRef::signalFromIsr(uint32_t signal) {
 }
 
 void LocalActorRef::forward(Msg& msg, ActorContext& context) {
+	//TODO define
+}
 
+bool LocalActorRef::isLocal() {
+	return true;
 }
 
 Mailbox& LocalActorRef::mailbox() {
@@ -377,8 +386,34 @@ ActorCell& LocalActorRef::cell() {
 
 RemoteActorRef::RemoteActorRef(Label label, ActorRef& bridge)
 	: ActorRef(label), _bridge(bridge) {
-
 }
+
+void RemoteActorRef::tell(Msg& msg) {
+	msg.dst(this->id());
+//			INFO(" remoting %s ",msg.toString().c_str());
+	((LocalActorRef&) _bridge).cell().sendMessage(msg);
+//			_bridge.tell(msg);
+}
+void RemoteActorRef::tell(Msg& msg, ActorRef& src) {
+	msg.src(src.id());
+	msg.dst(this->id());
+//			INFO(" remoting %s ",msg.toString().c_str());
+	((LocalActorRef&) _bridge).cell().sendMessage(msg);
+}
+void RemoteActorRef::forward(Msg& message, ActorContext& context) {
+}
+
+bool RemoteActorRef::operator==(ActorRef& src) {
+	return id() == src.id();
+}
+
+bool RemoteActorRef::isLocal() {
+	return false;
+}
+
+void RemoteActorRef::signalFromIsr(uint32_t signal) {
+}
+
 
 //____________________________________________________________ ActorSelection
 
@@ -395,7 +430,9 @@ Mailbox::Mailbox(ActorCell& cell, uint32_t queueSize)
 int Mailbox::enqueue(Msg& msg) {
 	Msg* px = new Msg(msg.size());
 	*px = msg;
-	if(msg.cls() == 0) WARN(" msg.cls==0 to %s from %s ",Label::label(msg.dst()),Label::label(msg.src()));
+	if (msg.cls() == 0)
+		WARN(" msg.cls==0 to %s from %s ", Label::label(msg.dst()), Label::label(msg
+		        .src()));
 	int rc = send(px, 10);
 	if (rc != 0) {
 		WARN("'%s' enqueue failed to '%s'", Label::label(msg.cls()), name());
@@ -414,7 +451,6 @@ int Mailbox::enqueueFromIsr(Msg& msg) {
 	return 0;
 }
 
-
 int Mailbox::dequeue(Msg& msg, uint32_t time) {
 	Msg* px;
 	int rce = recv(&px, time);
@@ -423,7 +459,7 @@ int Mailbox::dequeue(Msg& msg, uint32_t time) {
 		return ENOENT;
 	};
 	(Msg&) msg = *px;
-	if ( msg.cls() != SignalFromIsr.id() ) delete px;
+	if (msg.cls() != SignalFromIsr.id()) delete px;
 	return 0;
 }
 
@@ -505,7 +541,7 @@ const char* Mailbox::name() {
 //_______________________________________________________ ActorSystem
 //
 ActorSystem::ActorSystem(Label label, MessageDispatcher& defaultDispatcher)
-	: Ref(label, this, "ActorSystem"), _defaultDispatcher(defaultDispatcher) {
+	: Label(label), _defaultDispatcher(defaultDispatcher) {
 	Label(AKKA_DST);
 	Label(AKKA_SRC);
 	Label(AKKA_CLS);
@@ -532,7 +568,7 @@ ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props) {
 	actor->preStart();
 	actorCell.become(actor->createReceive(), true);
 	INFO("[%u] actor '%s'created", localActorRef->id(), localActorRef->path());
-	_actorRefs.push_back(localActorRef);
+	_actorRefs.emplace(localActorRef->id(),localActorRef);
 //	props.dispatcher().attach(actorCell);
 	return localActorRef;
 }
@@ -541,7 +577,7 @@ MessageDispatcher& ActorSystem::defaultDispatcher() {
 	return _defaultDispatcher;
 }
 
-std::vector<ActorRef*>& ActorSystem::actorRefs() {
+std::unordered_map<uid_type,ActorRef*>& ActorSystem::actorRefs() {
 	return _actorRefs;
 }
 
@@ -760,13 +796,14 @@ void ActorCell::actor(Actor* actor) {
 	_actor = actor;
 }
 
-
 void ActorCell::invoke(Msg& msg) {
 	/*	while (xSemaphoreTake(_semaphore, (TickType_t)1) != pdTRUE) {
 	 printf(" xSemaphoreTake()  timed out ");
 	 }*/
-	if(_receive) _receive->receive(*this, msg);
-	else WARN(" no receive defined for %s for message %s ",self().path(),msg.toString().c_str());
+	if (_receive)
+		_receive->receive(*this, msg);
+	else WARN(" no receive defined for %s for message %s ", self().path(), msg
+		          .toString().c_str());
 	/*	if (xSemaphoreGive(_semaphore) != pdTRUE) {
 	 printf("xSemaphoreGive() failed");
 	 }*/
@@ -850,7 +887,7 @@ std::list<ActorCell*>& ActorCell::actorCells() {
 
 Thread::Thread(MessageDispatcher* dispatcher, const char* name,
                uint32_t stackSize, uint32_t priority, void* threadArg, TaskFunction f)
-	: Ref(name, this, "Thread"), NativeThread(name, stackSize, priority, this, f), _dispatcher(dispatcher) {
+	:Label(name), NativeThread(name, stackSize, priority, this, f), _dispatcher(dispatcher) {
 
 }
 
@@ -880,8 +917,6 @@ MessageDispatcher::MessageDispatcher(uint32_t threadCount, uint32_t stackSize,
 		string_format(name, "thread-%u", i);
 		_threads.push_back(new Thread(this, name.c_str(), stackSize, priority, 0, MessageDispatcher::handleMailbox));
 	}
-	_unhandledCell = 0;
-
 }
 
 void MessageDispatcher::attach(Mailbox& mailbox) {
@@ -894,11 +929,6 @@ void MessageDispatcher::attach(ActorCell& cell) {
 
 void MessageDispatcher::detach(ActorCell& cell) {
 	_actorCells.remove(&cell);
-}
-
-void MessageDispatcher::unhandled(ActorCell* cell) {
-
-	_unhandledCell = cell;
 }
 
 void MessageDispatcher::start() {

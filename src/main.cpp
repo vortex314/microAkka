@@ -66,10 +66,6 @@ Log logger(1024);
 ActorMsgBus eb;
 
 int main() {
-	INFO(" MAIN task started");
-//	test();
-//	exit(1);
-
 	Sys::init();
 	logger.setLogLevel('I');
 	config.load();
@@ -89,17 +85,11 @@ int main() {
 	ActorRef& mqtt =
 			actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
 	actorSystem.actorOf<System>("system", mqtt);
-	actorSystem.actorOf<Bridge>("bridge", mqtt);
+	ActorRef& bridge = actorSystem.actorOf<Bridge>("bridge", mqtt);
 	actorSystem.actorOf<Publisher>("publisher", mqtt);
-//	defaultDispatcher.start();
 
-//	defaultDispatcher.unhandled(bridge.cell());
 
-	Msg hello("hello");
-
-	eb.publish(hello);
 
 	sleep(6000000);
 	INFO(" MAIN task ended !! ");
-//	vTaskStartScheduler();
 }
