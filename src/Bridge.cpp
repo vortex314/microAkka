@@ -262,6 +262,8 @@ bool Bridge::valueToMessage(Msg& msg, std::string& topic, std::string& message) 
 		msg("data", jsonValue.as<double>());
 	} else if (jsonValue.is<bool>()) {
 		msg("data", jsonValue.as<bool>());
+	} else if (jsonValue.is<JsonObject>()) {
+		msg("data", message.c_str());
 	} else {
 		ERROR(" couldn't handle type : %s",message.c_str());
 		return false;

@@ -7,7 +7,7 @@ MsgClass ConfigActor::Get("get");
 MsgClass ConfigActor::Clear("clear");
 
 void ConfigActor::preStart() {
-	config.load();
+//	config.load();
 }
 
 Receive& ConfigActor::createReceive() {
@@ -17,10 +17,12 @@ Receive& ConfigActor::createReceive() {
 		config.save(output);
 		sender().tell(replyBuilder(msg)("config",output),self());
 	})
+
 	.match(Clear,[this](Msg& msg) {
 		config.clear();
 		sender().tell(replyBuilder(msg)("erc",0),self());
 	})
+
 	.match(Set, [this](Msg& msg) {
 		std::string ns;
 		std::string key;
