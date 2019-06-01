@@ -46,21 +46,6 @@ void Mqtt::preStart() {
 	mqttConnect();
 }
 
-void Mqtt::subscribeEventBus() {
-	for( auto subscriber:eb.subscribers()) {
-		auto cl = subscriber->_classifier;
-		INFO(" looking up : %s",Label::label(cl.src()));
-		ActorRef* ref = ActorRef::lookup(cl.src());
-		if ( ref!=0 && ref->isLocal()==false) {
-			std::string topic="src/";
-			topic += Label::label(cl.src());
-			topic += "/";
-			topic += Label::label(cl.cls());
-			mqttSubscribe(topic.c_str());
-		}
-	}
-}
-
 void Mqtt::mqttConnect() {
 	int rc;
 	INFO(" connecting to %s", _address.c_str());
@@ -114,7 +99,6 @@ void Mqtt::onConnect(void* context, MQTTAsync_successData* response) {
 	me->mqttSubscribe(topic.c_str());
 	topic += "/#";
 	me->mqttSubscribe(topic.c_str());
-	me->subscribeEventBus();
 }
 
 void Mqtt::onConnectionLost(void* context, char* cause) {

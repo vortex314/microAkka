@@ -3,21 +3,36 @@
 #include <unistd.h>
 // volatile MQTTAsync_token deliveredtoken;
 
+const MsgClass Bridge::Publish("Publish");
+
+
 Bridge::Bridge(ActorRef& mqtt)
 	: _mqtt(mqtt) {
 	_rxd = 0;
 	_txd = 0;
-	_connected = false;
+	_mqttConnected = false;
 }
-;
+
 Bridge::~Bridge() {
 }
 
 void Bridge::preStart() {
+	timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
+	_currentActorRef = context().system().actorRefs().begin();
 	timers().startPeriodicTimer("pubTimer", Msg("pubTimer"), 5000);
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::PublishRcvd));
+}
+
+ActorRef* Bridge::nextRef() {
+	if ( context().system().actorRefs().size()==0) return 0;
+	if (_currentActorRef == context().system().actorRefs().end()) {
+		_currentActorRef = context().system().actorRefs().begin();
+	}
+	ActorRef* pa = _currentActorRef->second;
+	++_currentActorRef;
+	return pa;
 }
 
 Receive& Bridge::createReceive() {
@@ -27,21 +42,26 @@ Receive& Bridge::createReceive() {
 		if (!(msg.dst() == self().id())) {
 			std::string message;
 			std::string topic;
-			messageToJson(topic,message, msg);
+			if ( msg.dst() ) {// cmd req/reply
+				messageToJsonEvent( msg);
+			} else { // event
+				messageToJsonCommand(topic,message,msg);
 //			INFO(" to MQTT : %s=%s",topic.c_str(),message.c_str());
-			_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("message",message),self());
-			_txd++;
+				_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("message",message),self());
+				_txd++;
+			}
 		}
 	})
 
 	.match(Mqtt::Connected, [this](Msg& env) {
 		INFO(" MQTT CONNECTED");
-		_connected=true;
+		_mqttConnected=true;
+		subscribeEventBus();
 	})
 
 	.match(Mqtt::Disconnected, [this](Msg& env) {
 		INFO(" MQTT DISCONNECTED");
-		_connected=false;
+		_mqttConnected=false;
 	})
 
 	.match(Mqtt::PublishRcvd, [this](Msg& env) {
@@ -52,7 +72,7 @@ Receive& Bridge::createReceive() {
 
 		if (env.get("topic",topic)==0
 		        && env.get("message",message)==0 ) {
-			if ( topic.rfind("dst/",0)==0  && jsonToMessage(msg,topic,message)) {
+			if ( topic.rfind("dst/",0)==0  && jsonCommandToMessage(msg,topic,message)) {
 
 				ActorRef* dst,*src;
 				if ( msg.dst() ==0 || (dst=ActorRef::lookup(msg.dst()))==0 ) {
@@ -64,7 +84,7 @@ Receive& Bridge::createReceive() {
 					_rxd++;
 //				INFO(" processed message %s", msg.toString().c_str());
 				}
-			} else  if ( topic.rfind("src/",0)==0  && valueToMessage(msg,topic,message)) {
+			} else  if ( topic.rfind("src/",0)==0  && jsonEventToMessage(msg,topic,message)) {
 				eb.publish(msg);
 			} else {
 				WARN(" processing failed : %s ", message.c_str());
@@ -76,10 +96,29 @@ Receive& Bridge::createReceive() {
 		std::string topic = "src/";
 		topic += context().system().label();
 		topic += "/system/alive";
-		if (_connected) {
+		if (_mqttConnected) {
 			_mqtt.tell(msgBuilder(Mqtt::Publish)("topic",topic)("data","true"),self());
 		}
 
+	})
+
+	.match(MsgClass::PropertiesReply(), [this](Msg& msg) {
+		if ( _mqttConnected == true ) {
+			messageToJsonEvent( msg);
+		}
+	})
+
+	.match(MsgClass("pollTimer"), [this](Msg& msg) {
+		if ( _mqttConnected == true ) {
+			ActorRef* ref=nextRef();
+			if ( ref ) ref->tell(msgBuilder(MsgClass::Properties()).src(self().id()).dst(ref->id()));
+		}
+	})
+
+	.match(Publish, [this](Msg& msg) {
+		if ( _mqttConnected == true ) {
+			messageToJsonEvent(msg);
+		}
 	})
 
 	.match(MsgClass::Properties(), [this](Msg& msg) {
@@ -92,7 +131,58 @@ Receive& Bridge::createReceive() {
 	.build();
 }
 
-bool Bridge::messageToJson(std::string& topic, std::string& message, Msg& msg) {
+
+bool Bridge::messageToJsonEvent(Msg& msg) {
+	std::string topic;
+
+	msg.rewind();
+	Msg& pub=msgBuilder(Mqtt::Publish);
+	while (msg.hasData()) {
+		Tag tag(msg.peek());
+		Label tag_uid(tag.uid);
+		if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS
+		        || tag.uid == UD_ID) {
+			msg.skip();
+		} else {
+			_jsonDoc.clear();
+			JsonVariant variant = _jsonDoc.to<JsonVariant>();
+			topic = "src/";
+			topic += sender().path();
+			topic += "/";
+			topic += tag_uid.label();
+			std::string message ;
+			if (tag.type == Xdr::BYTES) {
+				std::string bytes;
+				msg.get(tag.uid, bytes);
+				variant.set(bytes);
+			} else if (tag.type == Xdr::UINT) {
+				uint64_t ui64;
+				msg.get(tag.uid, ui64);
+				variant.set(ui64);
+			} else if (tag.type == Xdr::INT) {
+				int64_t i64;
+				msg.get(tag.uid, i64);
+				variant.set( i64);
+			} else if (tag.type == Xdr::FLOAT) {
+				double d;
+				msg.get(tag.uid, d);
+				variant.set( d);
+			} else if (tag.type == Xdr::BOOL) {
+				bool b;
+				msg.get(tag.uid, b);
+				variant.set(b);
+			} else {
+				msg.skip();
+			}
+			serializeJson(_jsonDoc,message);
+			pub("topic", topic)("message", message);
+		}
+	}
+	_mqtt.tell(pub,self());
+	return true;
+}
+
+bool Bridge::messageToJsonCommand(std::string& topic, std::string& message, Msg& msg) {
 	topic = "dst/";
 	topic += Label::label(msg.dst());
 	topic += "/";
@@ -101,8 +191,8 @@ bool Bridge::messageToJson(std::string& topic, std::string& message, Msg& msg) {
 
 	Tag tag(0);
 	msg.rewind();
-	_jsonBuffer.clear();
-	JsonObject jsonObject = _jsonBuffer.to<JsonObject>();
+	_jsonDoc.clear();
+	JsonObject jsonObject = _jsonDoc.to<JsonObject>();
 
 	std::string str;
 	while (msg.hasData()) {
@@ -154,10 +244,10 @@ bool Bridge::messageToJson(std::string& topic, std::string& message, Msg& msg) {
  *
  */
 
-bool Bridge::jsonToMessage(Msg& msg, std::string& topic, std::string& message) {
-	_jsonBuffer.clear();
-	auto error = deserializeJson(_jsonBuffer, message.data());
-	JsonObject jsonObject = _jsonBuffer.as<JsonObject>();
+bool Bridge::jsonCommandToMessage(Msg& msg, std::string& topic, std::string& message) {
+	_jsonDoc.clear();
+	auto error = deserializeJson(_jsonDoc, message.data());
+	JsonObject jsonObject = _jsonDoc.as<JsonObject>();
 
 	if (error || jsonObject.isNull()) {
 		WARN(" Invalid Json : %s ", message.c_str());
@@ -224,7 +314,7 @@ bool Bridge::jsonToMessage(Msg& msg, std::string& topic, std::string& message) {
 }
 
 
-bool Bridge::valueToMessage(Msg& msg, std::string& topic, std::string& message) {
+bool Bridge::jsonEventToMessage(Msg& msg, std::string& topic, std::string& message) {
 
 	uint32_t offsets[3] = { 0, 0, 0 };
 	uint32_t prevOffset = 0;
@@ -244,13 +334,13 @@ bool Bridge::valueToMessage(Msg& msg, std::string& topic, std::string& message) 
 	msg.src(uidSrc);
 	msg.cls(uidCls);
 
-	_jsonBuffer.clear();
-	auto rc = deserializeJson(_jsonBuffer, message.data());
+	_jsonDoc.clear();
+	auto rc = deserializeJson(_jsonDoc, message.data());
 	if ( ! (rc==DeserializationError::Ok ) ) { // just read this as a string
 		msg("data",message.c_str());
 		return true;
 	}
-	JsonVariant jsonValue = _jsonBuffer.as<JsonVariant>();
+	JsonVariant jsonValue = _jsonDoc.as<JsonVariant>();
 
 	if (jsonValue.is<char*>()) {
 		msg("data", jsonValue.as<char*>());
@@ -271,4 +361,20 @@ bool Bridge::valueToMessage(Msg& msg, std::string& topic, std::string& message) 
 
 //	INFO("%s", msg.toString().c_str());
 	return true;
+}
+
+
+void Bridge::subscribeEventBus() {
+	for( auto subscriber:eb.subscribers()) {
+		auto cl = subscriber->_classifier;
+		INFO(" looking up : %s",Label::label(cl.src()));
+		ActorRef* ref = ActorRef::lookup(cl.src());
+		if ( ref!=0 && ref->isLocal()==false) {
+			std::string topic="src/";
+			topic += Label::label(cl.src());
+			topic += "/";
+			topic += Label::label(cl.cls());
+			_mqtt.tell(msgBuilder(Mqtt::Subscribe)("topic",topic.c_str()),self());
+		}
+	}
 }

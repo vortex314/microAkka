@@ -5,7 +5,6 @@
 #include <NeuralPid.h>
 #include <Sender.h>
 #include <System.h>
-#include <Publisher.h>
 //#include <malloc.h>
 #include <ConfigActor.h>
 
@@ -83,10 +82,9 @@ int main() {
 //	actorSystem.actorOf<ConfigActor>("config");
 //	actorSystem.actorOf<NeuralPid>("neuralPid");
 	ActorRef& mqtt =
-			actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
+	    actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
 	actorSystem.actorOf<System>("system", mqtt);
 	ActorRef& bridge = actorSystem.actorOf<Bridge>("bridge", mqtt);
-	actorSystem.actorOf<Publisher>("publisher", mqtt);
 
 
 

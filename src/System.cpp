@@ -5,7 +5,7 @@
 const MsgClass System::Exit("exit");
 
 System::System(ActorRef& mqtt)
-		: _mqtt(mqtt) {
+	: _mqtt(mqtt) {
 }
 System::~System() {
 }
@@ -20,12 +20,12 @@ Receive& System::createReceive() {
 	return receiveBuilder()
 	.match(Exit, [](Msg& msg) {exit(0);})
 	.match(MsgClass::Properties(),[this](Msg& msg) {
-				INFO(" Properties requested ");
-				sender().tell(replyBuilder(msg)
-						("build",__DATE__ " " __TIME__)
-						("cpu","x86_64")
-						("hostname",Sys::hostname()),self());
-			})
+		INFO(" Properties requested ");
+		sender().tell(replyBuilder(msg)
+		              ("build",__DATE__ " " __TIME__)
+		              ("cpu","x86_64")
+		              ("hostname",Sys::hostname()),self());
+	})
 	.build();
 }
 #endif
@@ -43,16 +43,15 @@ Receive& System::createReceive() {
 	.match(Exit, [](Msg& msg) {exit(0);})
 
 	.match(MsgClass::Properties(), [this](Msg& msg) {
-		INFO(" Properties requested ");
 		struct sysinfo info;
 		sysinfo(&info);
 		sender().tell(replyBuilder(msg)
-				("build",__DATE__ " " __TIME__)
-				("cpu","x86_64")
-				("procs",get_nprocs())
-				("upTime",(uint64_t)info.uptime*1000)
-				("ram",(uint64_t)info.totalram)
-				("hostname",Sys::hostname()),self());
+		              ("build",__DATE__ " " __TIME__)
+		              ("cpu","x86_64")
+		              ("procs",get_nprocs())
+		              ("upTime",(uint64_t)info.uptime*1000)
+		              ("ram",(uint64_t)info.totalram)
+		              ("hostname",Sys::hostname()),self());
 	}).build();
 }
 #endif
@@ -66,16 +65,16 @@ Receive& System::createReceive() {
 	.match(ConfigRequest, [](Msg& msg) {})
 	.match(ConfigReply, [](Msg& msg) {})
 	.match(Properties(),[this](Msg& msg) {
-				INFO(" Properties requested ");
+		INFO(" Properties requested ");
 
-				sender().tell(replyBuilder(msg)
-						("build",__DATE__ " " __TIME__)
-						("cpu","esp8266")("framework","Arduino")
-						("freq",ESP.getCpuFreqMHz())
-						("flash",ESP.getFlashChipSize())
-						("upTime",Sys::millis())
-						("hostname",Sys::hostname()),self());
-			})
+		sender().tell(replyBuilder(msg)
+		              ("build",__DATE__ " " __TIME__)
+		              ("cpu","esp8266")("framework","Arduino")
+		              ("freq",ESP.getCpuFreqMHz())
+		              ("flash",ESP.getFlashChipSize())
+		              ("upTime",Sys::millis())
+		              ("hostname",Sys::hostname()),self());
+	})
 	.build();
 }
 #endif

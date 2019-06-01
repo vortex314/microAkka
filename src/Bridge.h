@@ -14,25 +14,31 @@
 #define TIMEOUT 10000L
 
 class Bridge : public Actor {
-
-		bool _connected;
-		StaticJsonDocument<3000> _jsonBuffer;
+		StaticJsonDocument<3000> _jsonDoc;
 		std::string _address;
 		ActorRef& _mqtt;
 		uint32_t _rxd;
 		uint32_t _txd;
+		std::unordered_map<uid_type,ActorRef*>::iterator _currentActorRef;
+		bool _mqttConnected=false;
 
 	public:
+		static const MsgClass Publish;
+
 		Bridge(ActorRef& mqtt);
 		~Bridge();
 		void preStart();
 		Receive& createReceive();
 		enum { Connected=H("Connected") };
+		ActorRef* nextRef();
 
-		bool valueToMessage(Msg& msg,std::string& topic,std::string& message);
-		bool jsonToMessage(Msg& msg,std::string& topic,std::string& message);
-		bool messageToJson(std::string& topic,std::string& message,Msg& msg);
+		bool jsonEventToMessage(Msg& msg,std::string& topic,std::string& message);
+		bool jsonCommandToMessage(Msg& msg,std::string& topic,std::string& message);
+
+		bool messageToJsonCommand(std::string& topic,std::string& message,Msg& msg);
+		bool messageToJsonEvent(Msg& msg);
 
 		bool handleMqttMessage(const char* message);
+		void subscribeEventBus();
 };
 #endif
