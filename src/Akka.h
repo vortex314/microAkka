@@ -229,7 +229,7 @@ class Msg: public Xdr {
 			add((uid_type) key.id(), v);
 			return *this;
 		}
-		;
+		
 		template<typename T> Msg& operator()(uid_type key, T v) {
 			add(key, v);
 			return *this;

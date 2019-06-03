@@ -38,6 +38,9 @@ class Bridge : public Actor {
 		bool messageToJsonCommand(std::string& topic,std::string& message,Msg& msg);
 		bool messageToJsonEvent(Msg& msg);
 
+		bool topicToMsg(Msg& msg,std::string& topic);
+		bool messageToMsg(Msg& msg,std::string& message);
+
 		bool handleMqttMessage(const char* message);
 		void subscribeEventBus();
 };

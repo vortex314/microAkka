@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Lieven
-Date                   :=01/06/19
+Date                   :=03/06/19
 CodeLitePath           :=/home/lieven/.codelite
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -35,13 +35,13 @@ PreprocessOnlySwitch   :=-E
 ObjectsFileList        :="microAkka.txt"
 PCHCompileFlags        :=
 MakeDirCommand         :=mkdir -p
-LinkOptions            :=  -pthread -lrt
+LinkOptions            :=  -pthread -lrt -l:libpaho-mqtt3c.a
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). $(IncludeSwitch)src $(IncludeSwitch)../Common $(IncludeSwitch)../paho.mqtt.c/src $(IncludeSwitch)../ArduinoJson/src $(IncludeSwitch)../FreeRTOS/Source/include $(IncludeSwitch)../freertos-addons/Linux/portable/GCC/Linux 
 IncludePCH             := 
 RcIncludePath          := 
-Libs                   := $(LibrarySwitch)Common $(LibrarySwitch)paho-mqtt3a-static 
-ArLibs                 :=  "Common" "libpaho-mqtt3a-static" 
-LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../Common/Debug $(LibraryPathSwitch)../paho.mqtt.c/src 
+Libs                   := $(LibrarySwitch)Common 
+ArLibs                 :=  "Common" 
+LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../Common/Debug $(LibraryPathSwitch)../paho.mqtt.c/build/output 
 
 ##
 ## Common variables
@@ -60,8 +60,8 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Hash.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) \
-	$(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Native.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/src_main.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Sender.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Machinelearning.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Hash.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_System.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Echo.cpp$(ObjectSuffix) \
+	$(IntermediateDirectory)/src_Native.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_Metric.cpp$(ObjectSuffix) $(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) 
 
 
 
@@ -123,14 +123,6 @@ $(IntermediateDirectory)/src_Machinelearning.cpp$(DependSuffix): src/Machinelear
 $(IntermediateDirectory)/src_Machinelearning.cpp$(PreprocessSuffix): src/Machinelearning.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Machinelearning.cpp$(PreprocessSuffix) src/Machinelearning.cpp
 
-$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix): src/NeuralPid.cpp $(IntermediateDirectory)/src_NeuralPid.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/NeuralPid.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_NeuralPid.cpp$(DependSuffix): src/NeuralPid.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_NeuralPid.cpp$(DependSuffix) -MM src/NeuralPid.cpp
-
-$(IntermediateDirectory)/src_NeuralPid.cpp$(PreprocessSuffix): src/NeuralPid.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_NeuralPid.cpp$(PreprocessSuffix) src/NeuralPid.cpp
-
 $(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix): src/ConfigActor.cpp $(IntermediateDirectory)/src_ConfigActor.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/ConfigActor.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_ConfigActor.cpp$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/src_ConfigActor.cpp$(DependSuffix): src/ConfigActor.cpp
@@ -138,14 +130,6 @@ $(IntermediateDirectory)/src_ConfigActor.cpp$(DependSuffix): src/ConfigActor.cpp
 
 $(IntermediateDirectory)/src_ConfigActor.cpp$(PreprocessSuffix): src/ConfigActor.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_ConfigActor.cpp$(PreprocessSuffix) src/ConfigActor.cpp
-
-$(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix): src/Bridge.cpp $(IntermediateDirectory)/src_Bridge.cpp$(DependSuffix)
-	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Bridge.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IncludePath)
-$(IntermediateDirectory)/src_Bridge.cpp$(DependSuffix): src/Bridge.cpp
-	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_Bridge.cpp$(DependSuffix) -MM src/Bridge.cpp
-
-$(IntermediateDirectory)/src_Bridge.cpp$(PreprocessSuffix): src/Bridge.cpp
-	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Bridge.cpp$(PreprocessSuffix) src/Bridge.cpp
 
 $(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix): src/Akka.cpp $(IntermediateDirectory)/src_Akka.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Akka.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Akka.cpp$(ObjectSuffix) $(IncludePath)
@@ -162,6 +146,14 @@ $(IntermediateDirectory)/src_Hash.cpp$(DependSuffix): src/Hash.cpp
 
 $(IntermediateDirectory)/src_Hash.cpp$(PreprocessSuffix): src/Hash.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Hash.cpp$(PreprocessSuffix) src/Hash.cpp
+
+$(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix): src/Bridge.cpp $(IntermediateDirectory)/src_Bridge.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Bridge.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/src_Bridge.cpp$(DependSuffix): src/Bridge.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_Bridge.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_Bridge.cpp$(DependSuffix) -MM src/Bridge.cpp
+
+$(IntermediateDirectory)/src_Bridge.cpp$(PreprocessSuffix): src/Bridge.cpp
+	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Bridge.cpp$(PreprocessSuffix) src/Bridge.cpp
 
 $(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix): src/Mqtt.cpp $(IntermediateDirectory)/src_Mqtt.cpp$(DependSuffix)
 	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/Mqtt.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_Mqtt.cpp$(ObjectSuffix) $(IncludePath)
@@ -202,6 +194,14 @@ $(IntermediateDirectory)/src_Metric.cpp$(DependSuffix): src/Metric.cpp
 
 $(IntermediateDirectory)/src_Metric.cpp$(PreprocessSuffix): src/Metric.cpp
 	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_Metric.cpp$(PreprocessSuffix) src/Metric.cpp
+
+$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix): src/NeuralPid.cpp $(IntermediateDirectory)/src_NeuralPid.cpp$(DependSuffix)
+	$(CXX) $(IncludePCH) $(SourceSwitch) "/home/lieven/workspace/microAkka/src/NeuralPid.cpp" $(CXXFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/src_NeuralPid.cpp$(DependSuffix): src/NeuralPid.cpp
+	@$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/src_NeuralPid.cpp$(ObjectSuffix) -MF$(IntermediateDirectory)/src_NeuralPid.cpp$(DependSuffix) -MM src/NeuralPid.cpp
+
+$(IntermediateDirectory)/src_NeuralPid.cpp$(PreprocessSuffix): src/NeuralPid.cpp
+	$(CXX) $(CXXFLAGS) $(IncludePCH) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/src_NeuralPid.cpp$(PreprocessSuffix) src/NeuralPid.cpp
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

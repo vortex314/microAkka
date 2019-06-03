@@ -64,30 +64,26 @@ Receive& Bridge::createReceive() {
 		_mqttConnected=false;
 	})
 
-	.match(Mqtt::PublishRcvd, [this](Msg& env) {
+	.match(Mqtt::PublishRcvd, [this](Msg& msg) {
 		std::string topic;
 		std::string message;
-		Msg msg;
-//		INFO("envelope %s",env.toString().c_str());
 
-		if (env.get("topic",topic)==0
-		        && env.get("message",message)==0 ) {
-			if ( topic.rfind("dst/",0)==0  && jsonCommandToMessage(msg,topic,message)) {
-
+		if (msg.get("topic",topic)==0
+		        && msg.get("message",message)==0 ) {
+			Msg& m=msgBuilder((uid_type)0);
+			if ( topicToMsg(m,topic) && messageToMsg(m,message)) {
 				ActorRef* dst,*src;
-				if ( msg.dst() ==0 || (dst=ActorRef::lookup(msg.dst()))==0 ) {
-					WARN(" dst invalid %u ",msg.dst());
-				} else if ( msg.src()==0 && (src=ActorRef::lookup(msg.src()))==0) {
-					WARN(" src invalid %u ",msg.src());
-				} else {
-					dst->tell(msg);
+				if ( m.dst() !=0 && (dst=ActorRef::lookup(m.dst()))!=0 ) {
+					dst->tell(m);
 					_rxd++;
-//				INFO(" processed message %s", msg.toString().c_str());
+				} else if ( m.src()!=0 && (src=ActorRef::lookup(m.src()))!=0) {
+					eb.publish(m);
+					_rxd++;
+				} else {
+					WARN(" src / dst invalid %u / % u",m.src(),m.dst());
 				}
-			} else  if ( topic.rfind("src/",0)==0  && jsonEventToMessage(msg,topic,message)) {
-				eb.publish(msg);
 			} else {
-				WARN(" processing failed : %s ", message.c_str());
+				WARN(" couldn't handle topic/message %s=%s",topic.c_str(),message.c_str());
 			}
 		}
 	})
@@ -197,7 +193,7 @@ bool Bridge::messageToJsonCommand(std::string& topic, std::string& message, Msg&
 	std::string str;
 	while (msg.hasData()) {
 		tag.ui32 = msg.peek();
-//		Label tagLabel=Label(tag.uid);
+		//		Label tagLabel=Label(tag.uid);
 		switch (tag.type) {
 			case Xdr::BYTES: {
 					msg.getNext(tag.uid, str);
@@ -243,7 +239,7 @@ bool Bridge::messageToJsonCommand(std::string& topic, std::string& message, Msg&
  *
  *
  */
-
+/*
 bool Bridge::jsonCommandToMessage(Msg& msg, std::string& topic, std::string& message) {
 	_jsonDoc.clear();
 	auto error = deserializeJson(_jsonDoc, message.data());
@@ -361,6 +357,96 @@ bool Bridge::jsonEventToMessage(Msg& msg, std::string& topic, std::string& messa
 
 //	INFO("%s", msg.toString().c_str());
 	return true;
+}*/
+
+bool Bridge::messageToMsg(Msg& msg,std::string& message) {
+	_jsonDoc.clear();
+	auto rc = deserializeJson(_jsonDoc, message.data());
+	if ( ! (rc==DeserializationError::Ok ) ) { // just read this as a string
+		msg("data",message.c_str());
+		return true;
+	}
+
+	JsonObject jsonObject = _jsonDoc.as<JsonObject>();
+	if ( ! jsonObject.isNull()) {
+		for (JsonPair kv : jsonObject) {
+			if (strcmp(kv.key().c_str(), AKKA_SRC) == 0) {
+				msg.src(Label(kv.value().as<char*>()).id());
+			} else {
+				if (kv.value().is<char*>()) {
+					msg(kv.key().c_str(), kv.value().as<char*>());
+				} else if (kv.value().is<unsigned long>()) {
+					msg(kv.key().c_str(), kv.value().as<uint64_t>());
+				} else if (kv.value().is<long>()) {
+					msg(kv.key().c_str(), kv.value().as<int64_t>());
+				} else if (kv.value().is<double>()) {
+					msg(kv.key().c_str(), kv.value().as<double>());
+				} else if (kv.value().is<bool>()) {
+					msg(kv.key().c_str(), kv.value().as<bool>());
+				}
+			}
+		}
+		return true;
+	} else  {
+		JsonVariant jsonValue = _jsonDoc.as<JsonVariant>();
+		if ( !jsonValue.isNull() ) {
+			if (jsonValue.is<char*>()) {
+				msg("data", jsonValue.as<char*>());
+			} else if (jsonValue.is<unsigned long>()) {
+				msg("data", jsonValue.as<uint64_t>());
+			} else if (jsonValue.is<long>()) {
+				msg("data", jsonValue.as<int64_t>());
+			} else if (jsonValue.is<double>()) {
+				msg("data", jsonValue.as<double>());
+			} else if (jsonValue.is<bool>()) {
+				msg("data", jsonValue.as<bool>());
+			} else if (jsonValue.is<JsonObject>()) {
+				msg("data", message.c_str());
+			} else {
+				ERROR(" couldn't handle type : %s",message.c_str());
+				return false;
+			}
+			return true;
+		} else {
+			ERROR(" not a JsonObject or JsonVariant ? '%s'",message.c_str());
+			return false;
+		}
+	}
+}
+
+
+
+bool Bridge::topicToMsg(Msg& msg,std::string& topic) {
+	uint32_t offsets[3] = { 0, 0, 0 };
+	uint32_t prevOffset = 0;
+	for (uint32_t i = 0; i < 3; i++) {
+		uint64_t offset = topic.find('/', prevOffset); // uint64_t to support 64 bit architecture ;-)
+		if (offset == std::string::npos) break;
+		offsets[i] = offset;
+		prevOffset = offset + 1;
+	}
+	if (offsets[0] == 0 || offsets[2] == 0) {
+		WARN(" invalid topic : %s", topic.c_str());
+		return false;
+	}
+	uid_type uid = Label(topic.substr(offsets[0] + 1, offsets[2] - offsets[0]
+	                                  - 1).c_str()).id();
+	uid_type uidCls = Label(topic.substr(offsets[2] + 1).c_str()).id();
+	if ( topic.rfind("dst/",0)==0 )	{
+		ActorRef* dst = ActorRef::lookup(uid);
+		if (dst == 0) {
+			WARN(" local Actor : %s not found ", Label::label(uid));
+			return false;
+		}
+		msg.dst(uid);
+	} else if ( topic.rfind("src/",0)==0) {
+		ActorRef* src = ActorRef::lookup(uid);
+		if (src == 0) { //TODO -> bridge mailbox, no cell, tell & forward diff
+			src = new RemoteActorRef(Label(uid), self());
+		}
+		msg.src(uid);
+	}
+	msg.cls(uidCls);
 }
 
 
