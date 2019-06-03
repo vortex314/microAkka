@@ -35,7 +35,7 @@ PreprocessOnlySwitch   :=-E
 ObjectsFileList        :="microAkka.txt"
 PCHCompileFlags        :=
 MakeDirCommand         :=mkdir -p
-LinkOptions            :=  -pthread -lrt -l:libpaho-mqtt3c.a
+LinkOptions            :=  -pthread -lrt -l:libpaho-mqtt3c.a -lwiringPi
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). $(IncludeSwitch)src $(IncludeSwitch)../Common $(IncludeSwitch)../paho.mqtt.c/src $(IncludeSwitch)../ArduinoJson/src $(IncludeSwitch)../FreeRTOS/Source/include $(IncludeSwitch)../freertos-addons/Linux/portable/GCC/Linux 
 IncludePCH             := 
 RcIncludePath          := 
@@ -50,7 +50,7 @@ LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../Common/De
 AR       := /usr/bin/ar rcu
 CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
-CXXFLAGS :=  -g -std=c++11 -Wall -DLINUX_PORT_DEBUG $(Preprocessors)
+CXXFLAGS :=  -g -std=c++11 -Wall -DLINUX_PORT_DEBUG -DWIRING_PI $(Preprocessors)
 CFLAGS   :=  -g -O0 -Wall -DLINUX_PORT_DEBUG $(Preprocessors)
 ASFLAGS  := 
 AS       := /usr/bin/as
