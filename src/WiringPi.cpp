@@ -23,7 +23,7 @@ Receive& WiringPi::createReceive() {
 		std::string mode;
 		rc=0;
 		if ( msg.get("pin",pin)==0 ) {
-			INFO(" pin %d",pin);
+			INFO(" pin %u",pin);
 			if ( msg.get("mode",mode)==0 ) {
 				INFO(" mode %s",mode.c_str());
 				if ( mode=="out") {
@@ -32,20 +32,21 @@ Receive& WiringPi::createReceive() {
 					pinMode(pin,INPUT);
 				}
 			};
-			if ( msg.get("write",write)) {
+			if ( msg.get("write",write)==0) {
+				INFO(" write %d",write);
 				if ( write ) digitalWrite(pin,HIGH);
 				else digitalWrite(pin,LOW);
 			}
 		} else {
 			rc = EINVAL;
 		}
-		sender().tell(replyBuilder(msg)("rc",rc),self());
+//		sender().tell(replyBuilder(msg)("rc",rc),self());
 	})
 	
 	.match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
 		INFO(" no messages received recently ! ");
-
 	})
+	
 	.match(MsgClass::Properties(), [this](Msg& msg) {
 	}).build();
 }
