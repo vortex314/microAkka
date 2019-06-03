@@ -1,5 +1,7 @@
 
 cd $HOME/workspace/
+git clone https://github.com/eclipse/paho.mqtt.c.git
+git clone https://github.com/bblanchon/ArduinoJson.git
 git clone https://github.com/vortex314/Common.git
 git clone https://github.com/vortex314/microAkka.git
 git clone https://github.com/vortex314/stm32prog.git
