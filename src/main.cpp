@@ -8,6 +8,9 @@
 //#include <malloc.h>
 #include <ConfigActor.h>
 
+#ifdef WIRING_PI
+#include <WiringPi.h>
+#endif
 //______________________________________________________________
 /*
  * sender : actor to start benchmark of messages send, will also start echo actor
@@ -84,7 +87,11 @@ int main() {
 	ActorRef& mqtt =
 	    actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
 	actorSystem.actorOf<System>("system", mqtt);
-	actorSystem.actorOf<Bridge>("bridge", mqtt);
+	ActorRef& bridge = actorSystem.actorOf<Bridge>("bridge", mqtt);
+	(void)bridge;
+#ifdef WIRING_PI
+	actorSystem.actorOf<WiringPi>("wiring",bridge);
+#endif
 	sleep(6000000);
 	INFO(" MAIN task ended !! ");
 }

@@ -21,6 +21,8 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="src/WiringPi.cpp"/>
+    <File Name="src/WiringPi.h"/>
     <File Name="src/FreeRTOSConfig.h"/>
     <File Name="src/Mqtt.h"/>
     <File Name="src/Mqtt.cpp"/>
