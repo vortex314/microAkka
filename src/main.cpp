@@ -84,10 +84,7 @@ int main() {
 	ActorRef& mqtt =
 	    actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
 	actorSystem.actorOf<System>("system", mqtt);
-	ActorRef& bridge = actorSystem.actorOf<Bridge>("bridge", mqtt);
-
-
-
+	actorSystem.actorOf<Bridge>("bridge", mqtt);
 	sleep(6000000);
 	INFO(" MAIN task ended !! ");
 }

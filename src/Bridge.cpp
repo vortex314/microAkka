@@ -447,6 +447,7 @@ bool Bridge::topicToMsg(Msg& msg,std::string& topic) {
 		msg.src(uid);
 	}
 	msg.cls(uidCls);
+	return true;
 }
 
 
