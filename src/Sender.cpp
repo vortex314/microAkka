@@ -53,7 +53,7 @@ Receive& Sender::createReceive() {
 
 void Sender::handlePong(Msg& msg) {
 	if (_testing) {
-		assert(msg.get(UID("counter"), _counter)==0);
+		assert(msg.get(UID("counter"), _counter));
 		sender().tell(msgBuilder(Echo::PING)(UID("counter"), _counter), self());
 	}
 }

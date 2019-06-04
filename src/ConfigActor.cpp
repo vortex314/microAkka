@@ -27,8 +27,9 @@ Receive& ConfigActor::createReceive() {
 		std::string ns;
 		std::string key;
 		std::string value;
-		if ( msg.get("namespace",ns)==0 && msg.get("key",key)==0 ) {
-			if ( msg.get("value",value)==0 ) { // string
+		if ( msg.get("namespace",ns) && msg.get("key",key) ) {
+			if ( msg.get("value",value) ) { // string
+				INFO(" config set %s:%s = %s from %s ",ns.c_str(),key.c_str(),value.c_str(),sender().path());
 				config.setNameSpace(ns.c_str());
 				config.set(key.c_str(),value);
 				config.save();

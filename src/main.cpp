@@ -82,7 +82,7 @@ int main() {
 
 	actorSystem.actorOf<Sender>("sender");
 
-//	actorSystem.actorOf<ConfigActor>("config");
+	actorSystem.actorOf<ConfigActor>("config");
 //	actorSystem.actorOf<NeuralPid>("neuralPid");
 	ActorRef& mqtt =
 	    actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");

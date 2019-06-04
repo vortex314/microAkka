@@ -42,7 +42,7 @@ Receive& Bridge::createReceive() {
 		if (!(msg.dst() == self().id())) {
 			std::string message;
 			std::string topic;
-			if ( msg.dst() ) {// cmd req/reply
+			if ( msg.dst()==0 ) {// cmd req/reply
 				messageToJsonEvent( msg);
 			} else { // event
 				messageToJsonCommand(topic,message,msg);
@@ -68,8 +68,8 @@ Receive& Bridge::createReceive() {
 		std::string topic;
 		std::string message;
 
-		if (msg.get("topic",topic)==0
-		        && msg.get("message",message)==0 ) {
+		if (msg.get("topic",topic)
+		        && msg.get("message",message)) {
 			Msg& m=msgBuilder((uid_type)0);
 			if ( topicToMsg(m,topic) && messageToMsg(m,message)) {
 				ActorRef* dst,*src;
@@ -371,7 +371,8 @@ bool Bridge::messageToMsg(Msg& msg,std::string& message) {
 	if ( ! jsonObject.isNull()) {
 		for (JsonPair kv : jsonObject) {
 			if (strcmp(kv.key().c_str(), AKKA_SRC) == 0) {
-				msg.src(Label(kv.value().as<char*>()).id());
+				RemoteActorRef* lr=new RemoteActorRef(Label(kv.value().as<char*>()),self());
+				msg.src(lr->id());
 			} else {
 				if (kv.value().is<char*>()) {
 					msg(kv.key().c_str(), kv.value().as<char*>());

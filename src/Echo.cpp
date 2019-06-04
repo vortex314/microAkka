@@ -15,9 +15,9 @@ void Echo::preStart() {
 Receive& Echo::createReceive() {
 	return receiveBuilder().match(PING, [this](Msg& msg) {
 		uint32_t counter;
-		assert(msg.get("counter", counter)==0);
+		assert(msg.get("counter", counter));
 //		INFO("counter:%d",counter);
-		sender().tell(msgBuilder(PONG)("counter",counter+1),self());
+		sender().tell(replyBuilder(msg)("counter",counter+1),self());
 	}).match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
 		INFO(" no messages received recently ! ");
 

@@ -12,7 +12,7 @@ WiringPi::~WiringPi() {
 
 void WiringPi::preStart() {
 	context().setReceiveTimeout(1000);
-	  wiringPiSetup () ;
+	wiringPiSetup () ;
 }
 
 Receive& WiringPi::createReceive() {
@@ -22,9 +22,9 @@ Receive& WiringPi::createReceive() {
 		uint32_t pin,write,rc;
 		std::string mode;
 		rc=0;
-		if ( msg.get("pin",pin)==0 ) {
+		if ( msg.get("pin",pin) ) {
 			INFO(" pin %d",pin);
-			if ( msg.get("mode",mode)==0 ) {
+			if ( msg.get("mode",mode) ) {
 				INFO(" mode %s",mode.c_str());
 				if ( mode=="out") {
 					pinMode(pin,OUTPUT);
@@ -41,7 +41,7 @@ Receive& WiringPi::createReceive() {
 		}
 		sender().tell(replyBuilder(msg)("rc",rc),self());
 	})
-	
+
 	.match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
 		INFO(" no messages received recently ! ");
 
