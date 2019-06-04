@@ -25,6 +25,7 @@ Receive& WiringPi::createReceive() {
 		if ( msg.get("pin",pin) ) {
 			INFO(" pin %d",pin);
 			if ( msg.get("mode",mode) ) {
+
 				INFO(" mode %s",mode.c_str());
 				if ( mode=="out") {
 					pinMode(pin,OUTPUT);
@@ -32,7 +33,8 @@ Receive& WiringPi::createReceive() {
 					pinMode(pin,INPUT);
 				}
 			};
-			if ( msg.get("write",write)) {
+			if ( msg.get("write",write)==0) {
+				INFO(" write %d",write);
 				if ( write ) digitalWrite(pin,HIGH);
 				else digitalWrite(pin,LOW);
 			}
@@ -44,8 +46,8 @@ Receive& WiringPi::createReceive() {
 
 	.match(MsgClass::ReceiveTimeout(), [](Msg& msg) {
 		INFO(" no messages received recently ! ");
-
 	})
+
 	.match(MsgClass::Properties(), [this](Msg& msg) {
 	}).build();
 }
