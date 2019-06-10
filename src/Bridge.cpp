@@ -398,7 +398,7 @@ bool Bridge::messageToMsg(Msg& msg,std::string& message)
         return true;
     } else  {
         JsonVariant jsonValue = _jsonDoc.as<JsonVariant>();
-        msg.src(0);
+        msg.src(ActorRef::NoSender().id());
         if ( !jsonValue.isNull() ) {
             if (jsonValue.is<char*>()) {
                 msg("data", jsonValue.as<char*>());
@@ -466,7 +466,7 @@ void Bridge::subscribeEventBus()
 {
     for( auto subscriber:eb.subscribers()) {
         auto cl = subscriber->_classifier;
-        INFO(" looking up : %s",Label::label(cl.src()));
+        DEBUG(" looking up : %s",Label::label(cl.src()));
         ActorRef* ref = ActorRef::lookup(cl.src());
         if ( ref!=0 && ref->isLocal()==false) {
             std::string topic="src/";

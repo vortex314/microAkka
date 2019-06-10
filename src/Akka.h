@@ -357,7 +357,6 @@ public:
     void signalFromIsr(uint32_t) {};
 };
 
-extern EmptyLocalActorRef NoSender();
 
 
 //__________________________________________________________ TimerScheduler

@@ -349,15 +349,10 @@ ActorRef& Actor::sender()
 
 std::unordered_map<uid_type,ActorRef*> ActorRef::_actorRefs;
 
-ActorRef& ActorRef::NoSender()
-{
-    return *ActorRef::lookup(Label("NoSender").id());
-}
-
 ActorRef::ActorRef(Label label)
     : Label(label)
 {
-    INFO(" created ActorRef '%s' = %d", label.label(), label.id());
+    DEBUG(" created ActorRef '%s' = %d", label.label(), label.id());
     if ( _actorRefs.find(label.id())==_actorRefs.end())
         _actorRefs.emplace(label.id(),this);
 }
@@ -441,6 +436,13 @@ ActorCell& LocalActorRef::cell()
     return _cell;
 }
 
+//____________________________________________________________ EmptyLocalActorRef
+//
+ActorRef& ActorRef::NoSender()
+{
+    static EmptyLocalActorRef noSender;
+    return noSender;
+}
 //____________________________________________________________ RemoteActorRef
 //
 
@@ -647,7 +649,7 @@ ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props)
     actor->context(&actorCell);
     actor->preStart();
     actorCell.become(actor->createReceive(), true);
-    INFO("[%u] actor '%s'created", localActorRef->id(), localActorRef->path());
+    DEBUG("[%u] actor '%s'created", localActorRef->id(), localActorRef->path());
     _actorRefs.emplace(localActorRef->id(),localActorRef);
 //	props.dispatcher().attach(actorCell);
     return localActorRef;
@@ -708,7 +710,7 @@ Timer::Timer(Label key, bool autoReload, uint32_t interval, const Msg& m,
              TimerScheduler& scheduler)
     : Label(key), NativeTimer(key.label(), autoReload, interval, this, callBack), _timerScheduler(scheduler)
 {
-    INFO("[%X] timer created %s : %u ", this, label(), interval);
+    DEBUG("[%X] timer created %s : %u ", this, label(), interval);
     _msg = new Msg();
     *_msg = m;
     _msg->dst(scheduler.ref().id());
@@ -719,7 +721,7 @@ Timer::Timer(Label key, bool autoReload, uint32_t interval, const Msg& m,
 
 Timer::~Timer()
 {
-    INFO("[%X] timer dtor", this);
+    DEBUG("[%X] timer dtor", this);
     delete _msg;
 }
 
