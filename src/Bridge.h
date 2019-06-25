@@ -24,6 +24,9 @@ class Bridge : public Actor {
 
 	public:
 		static const MsgClass Publish;
+		static const MsgClass Properties;
+		static const MsgClass PropertiesReply;
+
 
 		Bridge(ActorRef& mqtt);
 		~Bridge();
@@ -35,8 +38,10 @@ class Bridge : public Actor {
 		bool jsonEventToMessage(Msg& msg,std::string& topic,std::string& message);
 		bool jsonCommandToMessage(Msg& msg,std::string& topic,std::string& message);
 
-		bool messageToJsonCommand(std::string& topic,std::string& message,Msg& msg);
-		bool messageToJsonEvent(Msg& msg);
+		bool msgToJson(Msg& msg,std::string& topic,std::string& message);
+		bool msgToJsonCmd(Msg& msg,std::string& topic,std::string& message;
+		bool msgToJsonEvents(Msg& msg);
+		uint32_t fields(Msg& msg);
 
 		bool topicToMsg(Msg& msg,std::string& topic);
 		bool messageToMsg(Msg& msg,std::string& message);
