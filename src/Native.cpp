@@ -101,7 +101,9 @@ void NativeThread::wait() {
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifndef __APPLE__
 #include <sys/msg.h>
+#endif
 #include <sys/types.h>
 #include <errno.h>
 #include <Native.h>

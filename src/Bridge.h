@@ -39,9 +39,10 @@ class Bridge : public Actor {
 		bool jsonCommandToMessage(Msg& msg,std::string& topic,std::string& message);
 
 		bool msgToJson(Msg& msg,std::string& topic,std::string& message);
-		bool msgToJsonCmd(Msg& msg,std::string& topic,std::string& message;
+		bool msgToJsonCmd(std::string& topic,std::string& message,Msg& msg);
 		bool msgToJsonEvents(Msg& msg);
-		uint32_t fields(Msg& msg);
+		uint32_t fields(Msg& msg,Tag& tag);
+
 
 		bool topicToMsg(Msg& msg,std::string& topic);
 		bool messageToMsg(Msg& msg,std::string& message);

@@ -83,15 +83,17 @@ public:
 };
 
 #endif
-
 #if defined( __linux__ ) || defined(__APPLE__)
+
+#ifndef __APPLE__
+#include <sys/msg.h>
+#endif
 
 #include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/msg.h>
 #include <sys/types.h>
 #include <errno.h>
 //#include <signal.h>

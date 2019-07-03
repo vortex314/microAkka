@@ -5,10 +5,6 @@
       <![CDATA[00010001N0005Debug000000000000]]>
     </Plugin>
   </Plugins>
-  <File Name="src/portmacro.h"/>
-  <File Name="src/Native.h"/>
-  <File Name="src/Native.cpp"/>
-  <File Name="src/Hash.cpp"/>
   <Reconciliation>
     <Regexes/>
     <Excludepaths/>
@@ -21,6 +17,10 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="src/portmacro.h"/>
+    <File Name="src/Native.h"/>
+    <File Name="src/Native.cpp"/>
+    <File Name="src/Hash.cpp"/>
     <File Name="src/WiringPi.cpp"/>
     <File Name="src/WiringPi.h"/>
     <File Name="src/FreeRTOSConfig.h"/>
@@ -60,7 +60,7 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="Debug" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Debug" CompilerType="clang( tags/RELEASE_600/final )" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-g;-std=c++11;-Wall;-DLINUX_PORT_DEBUG" C_Options="-g;-O0;-Wall;-DLINUX_PORT_DEBUG" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="src"/>
@@ -70,7 +70,7 @@
         <IncludePath Value="../FreeRTOS/Source/include"/>
         <IncludePath Value="../freertos-addons/Linux/portable/GCC/Linux"/>
       </Compiler>
-      <Linker Options="-pthread;-lrt;-l:libpaho-mqtt3c.a" Required="yes">
+      <Linker Options="-l:libpaho-mqtt3c.a" Required="yes">
         <LibraryPath Value="../Common/Debug"/>
         <LibraryPath Value="../paho.mqtt.c/build/output"/>
         <Library Value="Common"/>

@@ -5,56 +5,80 @@
 
 /*
  * use cases :
- * 1/ send&receive simple properties 
- * 				RXD ==> src/drive/motor/rpmMeasured = 122 -> dst=0 src=remoteRef cls=rpmMeasured value=122
+ * 1/ send&receive simple properties
+ * 				RXD ==> src/drive/motor/rpmMeasured = 122 ->
+ dst=0 src=remoteRef cls=rpmMeasured value=122
  * 				TXD ==> src=localRef cls=rpmMeasured value=122
  * 2/ send&receive complex properties
- * 				RXD ==> src/anchor1/dwm1000/location = { "x":1234 ,"y":6777 ,"id":8769} -> dst=0 src=remoteRef cls=location x=1234 y=6777 id=8769
- * 				TXD ==> src=localRef cls=location x=12234 y=6777 id=8769
- * 3/ send&receive simple commands	
- * 				RXD ==> dst/motor/drive/targetRpm = 134 -> dst=localRef cls=targetRpm value=134
- * 				TXD ==> dst=remoteRef , src=localRef , cls=targetRpm value=134
- * 4/ send&receive complex commands	==> dst/motor/drive/set = { "$SRC":"dst/brain/pathFinder", "targetRpm":134,"$ID":1299 ,"maxAmp":1.5 }
- * 				RXD ==> dst/motor/lps/location  = { "x":1222,"y":66776 } -> dst=localRef src=0 cls=location x=1222 y=66776
- * 				TXD ==> dst=remoteRef , src=localRef , cls=set , targetRpm=134
- * 				RXD ==> dst/esp321/system/reset = { "pass":"Anakwaboe" } -> dst=localRef cls=reset
- * 
- *  5/ Properties reply 
- * 				TXD ==> src=localRef cls=PropertiesReply k1=v1 k2=v2 --> src/localRef/k1 = v1 .....
- * 
+ * 				RXD ==> src/anchor1/dwm1000/location = {
+ "x":1234
+ ,"y":6777 ,"id":8769} -> dst=0 src=remoteRef cls=location x=1234 y=6777 id=8769
+ * 				TXD ==> src=localRef cls=location x=12234 y=6777
+ id=8769
+ * 3/ send&receive simple commands
+ * 				RXD ==> dst/motor/drive/targetRpm = 134 ->
+ dst=localRef cls=targetRpm value=134
+ * 				TXD ==> dst=remoteRef , src=localRef ,
+ cls=targetRpm value=134
+ * 4/ send&receive complex commands	==> dst/motor/drive/set = {
+ "$SRC":"dst/brain/pathFinder", "targetRpm":134,"$ID":1299 ,"maxAmp":1.5 }
+ * 				RXD ==> dst/motor/lps/location  = {
+ "x":1222,"y":66776 } -> dst=localRef src=0 cls=location x=1222 y=66776
+ * 				TXD ==> dst=remoteRef , src=localRef , cls=set ,
+ targetRpm=134
+ * 				RXD ==> dst/esp321/system/reset = {
+ "pass":"Anakwaboe" } -> dst=localRef cls=reset
+ *
+ *  5/ Properties reply
+ * 				TXD ==> src=localRef cls=PropertiesReply k1=v1
+ k2=v2 --> src/localRef/k1 = v1 .....
+ *
  *  6/ To Bridge => local Subscribe
- * 				TXD ==> dst=bridge src=localRef cls=Subscribe "class":clsId --> local events will be published when dst==0
+ * 				TXD ==> dst=bridge src=localRef cls=Subscribe
+ "class":clsId --> local events will be published when dst==0
  * 							eb.subscribe
- * 
- * 	1 to 1 mapping of MQTT & Xdr 
- * Bridge subscribe at demand for local events 
+ *
+ *  rule : json read, fill src or dst, cls and get Json
+ * 		-> JsValue => "value"=value
+ * 		-> JsObject => get fields and values
+ * 	if ( dst==0 ) eb.publish
+ * 	else dst.tell
+ *
+ *  rule : Msg
+ * 		-> fields=1
+ *
+ *
+ * 	1 to 1 mapping of MQTT & Xdr
+ * Bridge subscribe at demand for local events
  * Bridge will subscribe to remote events by eventbus subscribers
- * Bridge can be asked to publish explicitly "publish" 
+ * Bridge can be asked to publish explicitly "publish"
 
  LIST : properties , setters
- * 
+ *
  * eb.subscribe(RemoteActorRef("device/actor"),AnyClass)  => src/device/actor/+
  * dst=0 : no destination
  * src=0 : no source ==  NoSenderRef
  *
  * msgToJson(msg,topic,message)
- * 
+ *
  * src&dst/device/actor/property value => event & set property simple or complex
- * 
+ *
  * Xdr : nested object set {"":"","":true,"":1234}
- * 
- * 
- * if ( dst()==0 & src!=0)  
- * 	
- * 	if fields(msg)==1 
- * 		create primit JsonVariant => Number,Bool,String 
+ *
+ *
+ * if ( dst()==0 & src!=0)
+ *
+ * 	if fields(msg)==1
+ * 		create primit JsonVariant => Number,Bool,String
  * 	else
  * 		create JsonObject
- * 	
- * 	dst/dev1/act1/msg1 = {"$SRC":"dev2/act2","$DST":"dev1/act1","$ID":123,"$CLS":"msg1","value":1.23} => 1.23
+ *
+ * 	dst/dev1/act1/msg1 =
+ {"$SRC":"dev2/act2","$DST":"dev1/act1","$ID":123,"$CLS":"msg1","value":1.23} =>
+ 1.23
  * 	src/dev1/act1/msg1 = {}
  * 	src/dev1/lps/anchor = {"x":1222,"y":33,"id":5432,"distance":7786}
- * 
+ *
  * 	eventSimple("temp",1.234)
  * 	eventObject("x",111)("y",888)
  * 	cmdSimple
@@ -80,10 +104,10 @@
  * .match(MsgClass("rpmTarget")){
  * 			msg.get("value",rpmTarget)
  * 			sender().tell(replyBuilder()("erc",0))
- * 
+ *
  * dst/esp32/config/host "hello"
  * dst/esp32/config/set {"host":"hello","ip":"192.168.1.4"}
- * 
+ *
  * Dst("esp32/config/set",""" { "host":"$value" }""")
  * Dst("esp32/config/host");
  *
@@ -133,7 +157,7 @@ Receive& Bridge::createReceive() {
                        if (msg.dst() == 0) { // cmd req/reply
                            msgToJsonEvents(msg);
                        } else { // event
-                           msgToJsonCmd(msg, topic, message);
+                           msgToJsonCmd(topic, message, msg);
                            //			INFO(" to MQTT :
                            //%s=%s",topic.c_str(),message.c_str());
                            _mqtt.tell(msgBuilder(Mqtt::Publish)("topic", topic)(
@@ -246,12 +270,13 @@ bool Bridge::msgToJson(Msg& msg, std::string& topic, std::string& message) {
         topic += Label::label(msg.dst());
         topic += "/";
         topic += Label::label(msg.cls());
-        msgToJsonCmd(msg, topic, message);
+        return msgToJsonCmd(topic, message, msg);
     } else if (msg.src()) {
-        msgToJsonEvents(msg);
-    }
+        return msgToJsonEvents(msg);
+    } else
+        return false;
 }
-
+// TODO check for 1 value or multiple => JsVariant or JsObject
 bool Bridge::msgToJsonEvents(Msg& msg) {
     std::string topic;
     std::string message;
@@ -302,8 +327,11 @@ bool Bridge::msgToJsonEvents(Msg& msg) {
     _mqtt.tell(pub, self());
     return true;
 }
-
-uint32_t Bridge : fields(Msg& msg, Tag& tag) {
+/*
+ * count fields excluding dst,src,cls
+ * tag references the last one found
+ */
+uint32_t Bridge::fields(Msg& msg, Tag& tag) {
     Tag cursor(0);
     uint32_t fields = 0;
     msg.rewind();
@@ -320,17 +348,22 @@ uint32_t Bridge : fields(Msg& msg, Tag& tag) {
 }
 
 bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg) {
+    Tag tag(0);
+    std::string str;
+
+    msg.rewind();
+    _jsonDoc.clear();
+    JsonObject jsonObject = _jsonDoc.to<JsonObject>();
     topic = "dst/";
     topic += Label::label(msg.dst());
     topic += "/";
     topic += Label::label(msg.cls());
 
-    uid_type tag;
     if (fields(msg, tag) == 1) {
         switch (tag.type) {
         case Xdr::BYTES: {
             msg.getNext(tag.uid, str);
-            variant =
+            jsonObject[Label::label(tag.uid)] =
                 (char*)str.c_str(); // cast to char * to enforce copy
             break;
         }
@@ -359,57 +392,52 @@ bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg) {
         }
         default: { msg.skip(); }
         }
-    }
 
-    // serialize the object and send the result to Serial
-    serializeJson(doc, message);
-    return true;
-}
+        // serialize the object and send the result to Serial
+        serializeJson(jsonObject, message);
+        return true;
+    } else {
 
-Tag tag(0);
-msg.rewind();
-_jsonDoc.clear();
-JsonObject jsonObject = _jsonDoc.to<JsonObject>();
-
-std::string str;
-while (msg.hasData()) {
-    tag.ui32 = msg.peek();
-    //		Label tagLabel=Label(tag.uid);
-    switch (tag.type) {
-    case Xdr::BYTES: {
-        msg.getNext(tag.uid, str);
-        jsonObject[Label::label(tag.uid)] =
-            (char*)str.c_str(); // cast to char * to enforce copy
-        break;
+        while (msg.hasData()) {
+            tag.ui32 = msg.peek();
+            //		Label tagLabel=Label(tag.uid);
+            switch (tag.type) {
+            case Xdr::BYTES: {
+                msg.getNext(tag.uid, str);
+                jsonObject[Label::label(tag.uid)] =
+                    (char*)str.c_str(); // cast to char * to enforce copy
+                break;
+            }
+            case Xdr::UINT: {
+                uint64_t u64;
+                msg.getNext(tag.uid, u64);
+                if (tag.uid == UD_DST || tag.uid == UD_SRC ||
+                    tag.uid == UD_CLS) {
+                    if (tag.uid == UD_SRC)
+                        jsonObject[Label::label(tag.uid)] = Label::label(u64);
+                } else {
+                    jsonObject[Label::label(tag.uid)] = u64;
+                }
+                break;
+            }
+            case Xdr::INT: {
+                int64_t i64;
+                msg.getNext(tag.uid, i64);
+                jsonObject[Label::label(tag.uid)] = i64;
+                break;
+            }
+            case Xdr::FLOAT: {
+                double d;
+                msg.getNext(tag.uid, d);
+                jsonObject[Label::label(tag.uid)] = d;
+                break;
+            }
+            default: { msg.skip(); }
+            }
+        };
+        serializeJson(jsonObject, message);
+        return true;
     }
-    case Xdr::UINT: {
-        uint64_t u64;
-        msg.getNext(tag.uid, u64);
-        if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS) {
-            if (tag.uid == UD_SRC)
-                jsonObject[Label::label(tag.uid)] = Label::label(u64);
-        } else {
-            jsonObject[Label::label(tag.uid)] = u64;
-        }
-        break;
-    }
-    case Xdr::INT: {
-        int64_t i64;
-        msg.getNext(tag.uid, i64);
-        jsonObject[Label::label(tag.uid)] = i64;
-        break;
-    }
-    case Xdr::FLOAT: {
-        double d;
-        msg.getNext(tag.uid, d);
-        jsonObject[Label::label(tag.uid)] = d;
-        break;
-    }
-    default: { msg.skip(); }
-    }
-};
-serializeJson(jsonObject, message);
-return true;
 }
 /*
  *  dst/actorSystem/actor/message_type
@@ -431,13 +459,15 @@ message) {
         }
 
         if (!jsonObject.containsKey(AKKA_SRC)) {
-                WARN(" missing source in json message : %s ", message.c_str());
+                WARN(" missing source in json message : %s ",
+message.c_str());
                 return false;
         }
         uint32_t offsets[3] = { 0, 0, 0 };
         uint32_t prevOffset = 0;
         for (uint32_t i = 0; i < 3; i++) {
-                uint64_t offset = topic.find('/', prevOffset); // uint64_t to
+                uint64_t offset = topic.find('/', prevOffset); // uint64_t
+to
 support 64 bit architecture ;-)
                 if (offset == std::string::npos) break;
                 offsets[i] = offset;
@@ -460,7 +490,8 @@ offsets[0]
         uid_type uidCls = Label(topic.substr(offsets[2] + 1).c_str()).id();
         msg.dst(uidDst);
         msg.cls(uidCls);
-        uid_type uidSrc = Label(jsonObject[AKKA_SRC].as<const char*>()).id();
+        uid_type uidSrc = Label(jsonObject[AKKA_SRC].as<const
+char*>()).id();
         msg.src(uidSrc);
 
         ActorRef* dst = ActorRef::lookup(uidDst);
@@ -469,7 +500,8 @@ offsets[0]
                 return false;
         }
         ActorRef* src = ActorRef::lookup(uidSrc);
-        if (src == 0) { //TODO -> bridge mailbox, no cell, tell & forward diff
+        if (src == 0) { //TODO -> bridge mailbox, no cell, tell & forward
+diff
                 src = new RemoteActorRef(Label(uidSrc), self());
         }
 
@@ -477,14 +509,17 @@ offsets[0]
                 if (strcmp(kv.key().c_str(), AKKA_SRC) == 0) {
                 } else {
                         if (kv.value().is<char*>()) {
-                                msg(kv.key().c_str(), kv.value().as<char*>());
+                                msg(kv.key().c_str(),
+kv.value().as<char*>());
                         } else if (kv.value().is<unsigned long>()) {
                                 msg(kv.key().c_str(),
 kv.value().as<uint64_t>());
                         } else if (kv.value().is<long>()) {
-                                msg(kv.key().c_str(), kv.value().as<int64_t>());
+                                msg(kv.key().c_str(),
+kv.value().as<int64_t>());
                         } else if (kv.value().is<double>()) {
-                                msg(kv.key().c_str(), kv.value().as<double>());
+                                msg(kv.key().c_str(),
+kv.value().as<double>());
                         }
                 }
         }
@@ -500,7 +535,8 @@ message) {
         uint32_t offsets[3] = { 0, 0, 0 };
         uint32_t prevOffset = 0;
         for (uint32_t i = 0; i < 3; i++) {
-                uint64_t offset = topic.find('/', prevOffset); // uint64_t to
+                uint64_t offset = topic.find('/', prevOffset); // uint64_t
+to
 support 64 bit architecture ;-)
                 if (offset == std::string::npos) break;
                 offsets[i] = offset;
@@ -519,7 +555,8 @@ offsets[0]
 
         _jsonDoc.clear();
         auto rc = deserializeJson(_jsonDoc, message.data());
-        if ( ! (rc==DeserializationError::Ok ) ) { // just read this as a string
+        if ( ! (rc==DeserializationError::Ok ) ) { // just read this as a
+string
                 msg(H("value"),message.c_str());
                 return true;
         }
