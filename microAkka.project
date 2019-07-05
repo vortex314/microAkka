@@ -60,7 +60,7 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="Debug" CompilerType="clang( tags/RELEASE_600/final )" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Debug" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-g;-std=c++11;-Wall;-DLINUX_PORT_DEBUG" C_Options="-g;-O0;-Wall;-DLINUX_PORT_DEBUG" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="src"/>
@@ -70,9 +70,8 @@
         <IncludePath Value="../FreeRTOS/Source/include"/>
         <IncludePath Value="../freertos-addons/Linux/portable/GCC/Linux"/>
       </Compiler>
-      <Linker Options="-l:libpaho-mqtt3c.a" Required="yes">
+      <Linker Options="../paho.mqtt.c/build/output/libpaho-mqtt3c.a" Required="yes">
         <LibraryPath Value="../Common/Debug"/>
-        <LibraryPath Value="../paho.mqtt.c/build/output"/>
         <Library Value="Common"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>

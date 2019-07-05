@@ -13,10 +13,10 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Lieven Merckx
-Date                   :=03/07/2019
+Date                   :=05/07/2019
 CodeLitePath           :="/Users/lieven/Library/Application Support/CodeLite"
-LinkerName             :=/usr/bin/clang++
-SharedObjectLinkerName :=/usr/bin/clang++ -dynamiclib -fPIC
+LinkerName             :=/usr/bin/g++
+SharedObjectLinkerName :=/usr/bin/g++ -dynamiclib -fPIC
 ObjectSuffix           :=.o
 DependSuffix           :=.o.d
 PreprocessSuffix       :=.i
@@ -35,21 +35,21 @@ PreprocessOnlySwitch   :=-E
 ObjectsFileList        :="microAkka.txt"
 PCHCompileFlags        :=
 MakeDirCommand         :=mkdir -p
-LinkOptions            :=  -l:libpaho-mqtt3c.a
+LinkOptions            :=  ../paho.mqtt.c/build/output/libpaho-mqtt3c.a
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). $(IncludeSwitch)src $(IncludeSwitch)../Common $(IncludeSwitch)../paho.mqtt.c/src $(IncludeSwitch)../ArduinoJson/src $(IncludeSwitch)../FreeRTOS/Source/include $(IncludeSwitch)../freertos-addons/Linux/portable/GCC/Linux 
 IncludePCH             := 
 RcIncludePath          := 
 Libs                   := $(LibrarySwitch)Common 
 ArLibs                 :=  "Common" 
-LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../Common/Debug $(LibraryPathSwitch)../paho.mqtt.c/build/output 
+LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../Common/Debug 
 
 ##
 ## Common variables
 ## AR, CXX, CC, AS, CXXFLAGS and CFLAGS can be overriden using an environment variables
 ##
 AR       := /usr/bin/ar rcu
-CXX      := /usr/bin/clang++
-CC       := /usr/bin/clang
+CXX      := /usr/bin/g++
+CC       := /usr/bin/gcc
 CXXFLAGS :=  -g -std=c++11 -Wall -DLINUX_PORT_DEBUG $(Preprocessors)
 CFLAGS   :=  -g -O0 -Wall -DLINUX_PORT_DEBUG $(Preprocessors)
 ASFLAGS  := 
@@ -77,7 +77,7 @@ $(OutputFile): $(IntermediateDirectory)/.d "../.build-debug/Common" $(Objects)
 	@$(MakeDirCommand) $(@D)
 	@echo "" > $(IntermediateDirectory)/.d
 	@echo $(Objects0)  > $(ObjectsFileList)
-	$(LinkerName) $(OutputSwitch)$(OutputFile) @$(ObjectsFileList) $(LibPath) $(Libs) $(LinkOptions)
+	$(LinkerName) $(OutputSwitch)$(OutputFile) $(Objects) $(LibPath) $(Libs) $(LinkOptions)
 
 "../.build-debug/Common":
 	@$(MakeDirCommand) "../.build-debug"
