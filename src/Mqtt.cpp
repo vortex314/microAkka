@@ -10,13 +10,18 @@ Mqtt::Mqtt(const char* address) {
 	config.setNameSpace("mqtt");
 };
 Mqtt::~Mqtt() {}
-
+/*
 MsgClass Mqtt::PublishRcvd("Mqtt/Publish");
 MsgClass Mqtt::Connected("Mqtt/Connected");
 MsgClass Mqtt::Disconnected("Mqtt/Disconnected");
 MsgClass Mqtt::Publish("Mqtt/Publish");
 MsgClass Mqtt::Subscribe("Mqtt/Subscribe");
-
+*/
+MsgClass Mqtt::PublishRcvd("mqttPublishRcvd");
+MsgClass Mqtt::Connected("mqttConnected");
+MsgClass Mqtt::Disconnected("mqttDisconnected");
+MsgClass Mqtt::Publish("mqttPublish");
+MsgClass Mqtt::Subscribe("mqttSubscribe");
 
 
 void Mqtt::preStart() {
@@ -65,7 +70,7 @@ void Mqtt::mqttDisconnect() {
 
 Receive& Mqtt::createReceive() {
 	return receiveBuilder()
-	
+
 	.match(MsgClass("pubTimer"),[this](Msg& msg) {
 		std::string topic = "src/";
 		topic += context().system().label();
@@ -74,7 +79,7 @@ Receive& Mqtt::createReceive() {
 			mqttPublish(topic.c_str(), "true");
 		}
 	})
-	
+
 	.match(Mqtt::Publish,
 	[this](Msg& msg) {
 		std::string topic;
@@ -155,7 +160,6 @@ void Mqtt::onSubscribeFailure(void* context,
 }
 
 void Mqtt::onSubscribe(void* context, MQTTAsync_successData* response) {
-	//    Mqtt* me = (Mqtt*)context;
 	INFO("Subscribe success");
 }
 // send myself message as this is invoked by another thread
