@@ -73,6 +73,7 @@
       <Linker Options="../paho.mqtt.c/build/output/libpaho-mqtt3c.a" Required="yes">
         <LibraryPath Value="../Common/Debug"/>
         <Library Value="Common"/>
+        <Library Value="pthread"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Debug" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>

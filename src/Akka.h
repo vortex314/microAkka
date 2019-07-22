@@ -230,7 +230,7 @@ class Msg : public Xdr {
     uid_type src();
     uid_type dst();
     uid_type cls();
-    uint32_t id();
+    const uint32_t id();
 
     Msg& operator=(const Msg&);
     std::string toString();

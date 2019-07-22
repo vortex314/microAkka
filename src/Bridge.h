@@ -23,9 +23,9 @@ class Bridge : public Actor {
 		bool _mqttConnected=false;
 
 	public:
-		static const MsgClass Publish;
-		static const MsgClass Properties;
-		static const MsgClass PropertiesReply;
+		static  MsgClass Publish;
+		static  MsgClass Properties;
+		static  MsgClass PropertiesReply;
 
 
 		Bridge(ActorRef& mqtt);
@@ -41,7 +41,7 @@ class Bridge : public Actor {
 		bool msgToJson(Msg& msg,std::string& topic,std::string& message);
 		bool msgToJsonCmd(std::string& topic,std::string& message,Msg& msg);
 		bool msgToJsonEvents(Msg& msg);
-		uint32_t fields(Msg& msg,Tag& tag);
+		uint32_t fieldCount(Msg& msg,Tag& tag);
 
 
 		bool topicToMsg(Msg& msg,std::string& topic);

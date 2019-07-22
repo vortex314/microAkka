@@ -88,10 +88,10 @@ int main() {
 	    actorSystem.actorOf<Mqtt>("mqtt", "tcp://limero.ddns.net:1883");
 	actorSystem.actorOf<System>("system", mqtt);
 	ActorRef& bridge = actorSystem.actorOf<Bridge>("bridge", mqtt);
-	(void)bridge;
+	(void)bridge; //avoid unused var message
 #ifdef WIRING_PI
 	actorSystem.actorOf<WiringPi>("wiring",bridge);
 #endif
-	sleep(6000000);
+	sleep(6000000); // keep thread running otherwise, something got killed
 	INFO(" MAIN task ended !! ");
 }

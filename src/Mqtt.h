@@ -6,8 +6,8 @@ extern "C" {
 #include "MQTTClientPersistence.h"
 }
 #include <Akka.h>
-#define ARDUINOJSON_ENABLE_STD_STRING 1
-#include <ArduinoJson.h>
+//#define ARDUINOJSON_ENABLE_STD_STRING 1
+//#include <ArduinoJson.h>
 
 // #define ADDRESS "tcp://test.mosquitto.org:1883"
 //#define CLIENTID "microAkka"

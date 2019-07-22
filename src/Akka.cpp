@@ -172,7 +172,7 @@ Msg& Msg::clear()
     return *this;
 }
 
-uint32_t Msg::id()
+const uint32_t Msg::id()
 {
     uint32_t id = 0;
     get(UD_ID, id);

@@ -6,116 +6,48 @@
 /*
  * use cases :
  * 1/ send&receive simple properties
- * 				RXD ==> src/drive/motor/rpmMeasured = 122 ->
- dst=0 src=remoteRef cls=rpmMeasured value=122
- * 				TXD ==> src=localRef cls=rpmMeasured value=122
+ * 	RXD ==> src/drive/motor/rpmMeasured = 122
+ * 				-> dst=0 src=remoteRef cls=rpmMeasured value=122
+ * 	TXD ==> src=localRef cls=rpmMeasured value=122
+ *
  * 2/ send&receive complex properties
- * 				RXD ==> src/anchor1/dwm1000/location = {
- "x":1234
- ,"y":6777 ,"id":8769} -> dst=0 src=remoteRef cls=location x=1234 y=6777 id=8769
- * 				TXD ==> src=localRef cls=location x=12234 y=6777
- id=8769
+ * 	RXD ==> src/anchor1/dwm1000/location = {"x":1234,"y":6777 ,"id":8769}
+ * 				-> dst=0 src=remoteRef cls=location x=1234
+ * y=6777
+ * id=8769
+ * 	TXD ==> src=localRef cls=location x=12234 y=6777 id=8769
+ *
  * 3/ send&receive simple commands
- * 				RXD ==> dst/motor/drive/targetRpm = 134 ->
- dst=localRef cls=targetRpm value=134
- * 				TXD ==> dst=remoteRef , src=localRef ,
- cls=targetRpm value=134
- * 4/ send&receive complex commands	==> dst/motor/drive/set = {
- "$SRC":"dst/brain/pathFinder", "targetRpm":134,"$ID":1299 ,"maxAmp":1.5 }
- * 				RXD ==> dst/motor/lps/location  = {
- "x":1222,"y":66776 } -> dst=localRef src=0 cls=location x=1222 y=66776
- * 				TXD ==> dst=remoteRef , src=localRef , cls=set ,
- targetRpm=134
- * 				RXD ==> dst/esp321/system/reset = {
- "pass":"Anakwaboe" } -> dst=localRef cls=reset
+ * 	RXD ==> dst/motor/drive/targetRpm = 134
+ * 				-> dst=localRef cls=targetRpm value=134
+ * 	TXD ==> dst=remoteRef , src=localRef ,cls=targetRpm value=134
+ *
+ * 4/ send&receive complex commands
+ * 		==> dst/motor/drive/set = {"$SRC":"dst/brain/pathFinder",
+ * "targetRpm":134,"$ID":1299 ,"maxAmp":1.5 }
+ * 	RXD ==> dst/motor/lps/location  = {"x":1222,"y":66776 }
+ * 			-> dst=localRef src=0 cls=location x=1222 y=66776
+ * 	TXD ==> dst=remoteRef , src=localRef , cls=set ,targetRpm=134
+ * 	RXD ==> dst/esp321/system/reset = {"pass":"Anakwaboe" }
+ * 			-> dst=localRef cls=reset
  *
  *  5/ Properties reply
- * 				TXD ==> src=localRef cls=PropertiesReply k1=v1
- k2=v2 --> src/localRef/k1 = v1 .....
+ * 	TXD ==> src=localRef cls=PropertiesReply k1=v1,k2=v2 --> src/localRef/k1
+ * = v1 .....
  *
  *  6/ To Bridge => local Subscribe
  * 				TXD ==> dst=bridge src=localRef cls=Subscribe
- "class":clsId --> local events will be published when dst==0
- * 							eb.subscribe
- *
- *  rule : json read, fill src or dst, cls and get Json
- * 		-> JsValue => "value"=value
- * 		-> JsObject => get fields and values
- * 	if ( dst==0 ) eb.publish
- * 	else dst.tell
- *
- *  rule : Msg
- * 		-> fields=1
- *
  *
  * 	1 to 1 mapping of MQTT & Xdr
  * Bridge subscribe at demand for local events
  * Bridge will subscribe to remote events by eventbus subscribers
  * Bridge can be asked to publish explicitly "publish"
-
- LIST : properties , setters
- *
- * eb.subscribe(RemoteActorRef("device/actor"),AnyClass)  => src/device/actor/+
- * dst=0 : no destination
- * src=0 : no source ==  NoSenderRef
- *
- * msgToJson(msg,topic,message)
- *
- * src&dst/device/actor/property value => event & set property simple or complex
- *
- * Xdr : nested object set {"":"","":true,"":1234}
- *
- *
- * if ( dst()==0 & src!=0)
- *
- * 	if fields(msg)==1
- * 		create primit JsonVariant => Number,Bool,String
- * 	else
- * 		create JsonObject
- *
- * 	dst/dev1/act1/msg1 =
- {"$SRC":"dev2/act2","$DST":"dev1/act1","$ID":123,"$CLS":"msg1","value":1.23} =>
- 1.23
- * 	src/dev1/act1/msg1 = {}
- * 	src/dev1/lps/anchor = {"x":1222,"y":33,"id":5432,"distance":7786}
- *
- * 	eventSimple("temp",1.234)
- * 	eventObject("x",111)("y",888)
- * 	cmdSimple
- * 	cmdComplex
- *
- * Properties updates
- *  MQTT => src/<device>/<actor>/<cls> = { "tag1":value1,"tag2":value2} <=>
- * src("device/actor"),cls(cls),tag1:value1,tag2:value2
- * 		=> src/<device>/<actor>/<cls> = value <=>
- * src("device/actor"),cls(cls),value:value
- * CMD Set sixple and complex
- * SIMPLE SET => dst/device/actor/cls = value <=> dst(device/actor),cls(cls),
- * value:value
- * COMPLEX SET => dst/device/actor/set = {"$SRC": src,"":... } ==>
- * dst(device/actor),src(src),cls(set),tag1:value1,..., can have a setReply if
- * src
- *
- *
- * CMD other
- * => dst/device/actor/cmd = {"$SRC": src,"":... } ==>
- * dst(actor),src(src),cls(cmd),tag1:value1,...
- *
- * .match(MsgClass("rpmTarget")){
- * 			msg.get("value",rpmTarget)
- * 			sender().tell(replyBuilder()("erc",0))
- *
- * dst/esp32/config/host "hello"
- * dst/esp32/config/set {"host":"hello","ip":"192.168.1.4"}
- *
- * Dst("esp32/config/set",""" { "host":"$value" }""")
- * Dst("esp32/config/host");
  *
  */
 
-const MsgClass Bridge::Publish("publish");
-const MsgClass Bridge::Properties("properties");
-const MsgClass Bridge::PropertiesReply("propertiesReply");
+MsgClass Bridge::Publish("publish");
+MsgClass Bridge::Properties("properties");
+MsgClass Bridge::PropertiesReply("propertiesReply");
 
 Bridge::Bridge(ActorRef& mqtt) : _mqtt(mqtt) {
     _rxd = 0;
@@ -280,58 +212,147 @@ bool Bridge::msgToJson(Msg& msg, std::string& topic, std::string& message) {
 bool Bridge::msgToJsonEvents(Msg& msg) {
     std::string topic;
     std::string message;
-
-    msg.rewind();
-    Msg& pub = msgBuilder(Mqtt::Publish);
-    while (msg.hasData()) {
-        Tag tag(msg.peek());
-        Label tag_uid(tag.uid);
-        if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS ||
-            tag.uid == UD_ID) {
-            msg.skip();
-        } else {
-            _jsonDoc.clear();
-            JsonVariant variant = _jsonDoc.to<JsonVariant>();
-            topic = "src/";
-            topic += sender().path();
-            topic += "/";
-            topic += tag_uid.label();
-            std::string message;
-            if (tag.type == Xdr::BYTES) {
-                std::string bytes;
-                msg.get(tag.uid, bytes);
-                variant.set(bytes);
-            } else if (tag.type == Xdr::UINT) {
-                uint64_t ui64;
-                msg.get(tag.uid, ui64);
-                variant.set(ui64);
-            } else if (tag.type == Xdr::INT) {
-                int64_t i64;
-                msg.get(tag.uid, i64);
-                variant.set(i64);
-            } else if (tag.type == Xdr::FLOAT) {
-                double d;
-                msg.get(tag.uid, d);
-                variant.set(d);
-            } else if (tag.type == Xdr::BOOL) {
-                bool b;
-                msg.get(tag.uid, b);
-                variant.set(b);
-            } else {
+    Tag tag(0);
+    if (msg.cls() == PropertiesReply.id()) {
+        msg.rewind();
+        Msg& pub = msgBuilder(Mqtt::Publish);
+        while (msg.hasData()) {
+            Tag tag(msg.peek());
+            Label tag_uid(tag.uid);
+            if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS ||
+                tag.uid == UD_ID) {
                 msg.skip();
+            } else {
+                _jsonDoc.clear();
+                JsonVariant variant = _jsonDoc.to<JsonVariant>();
+                topic = "src/";
+                topic += sender().path();
+                topic += "/";
+                topic += tag_uid.label();
+                std::string message;
+                if (tag.type == Xdr::BYTES) {
+                    std::string bytes;
+                    msg.get(tag.uid, bytes);
+                    variant.set(bytes);
+                } else if (tag.type == Xdr::UINT) {
+                    uint64_t ui64;
+                    msg.get(tag.uid, ui64);
+                    variant.set(ui64);
+                } else if (tag.type == Xdr::INT) {
+                    int64_t i64;
+                    msg.get(tag.uid, i64);
+                    variant.set(i64);
+                } else if (tag.type == Xdr::FLOAT) {
+                    double d;
+                    msg.get(tag.uid, d);
+                    variant.set(d);
+                } else if (tag.type == Xdr::BOOL) {
+                    bool b;
+                    msg.get(tag.uid, b);
+                    variant.set(b);
+                } else {
+                    msg.skip();
+                }
+                serializeJson(_jsonDoc, message);
+                pub("topic", topic)("message", message);
             }
-            serializeJson(_jsonDoc, message);
-            pub("topic", topic)("message", message);
         }
+        _mqtt.tell(pub, self());
+        return true;
+    } else if (fieldCount(msg, tag) == 1) {
+        msg.rewind();
+        Msg& pub = msgBuilder(Mqtt::Publish);
+        topic = "src/";
+        topic += sender().path();
+        topic += "/";
+        topic += Label::label(msg.cls());
+
+        _jsonDoc.clear();
+        JsonVariant variant = _jsonDoc.to<JsonVariant>();
+        std::string message;
+        if (tag.type == Xdr::BYTES) {
+            std::string bytes;
+            msg.get(tag.uid, bytes);
+            variant.set(bytes);
+        } else if (tag.type == Xdr::UINT) {
+            uint64_t ui64;
+            msg.get(tag.uid, ui64);
+            variant.set(ui64);
+        } else if (tag.type == Xdr::INT) {
+            int64_t i64;
+            msg.get(tag.uid, i64);
+            variant.set(i64);
+        } else if (tag.type == Xdr::FLOAT) {
+            double d;
+            msg.get(tag.uid, d);
+            variant.set(d);
+        } else if (tag.type == Xdr::BOOL) {
+            bool b;
+            msg.get(tag.uid, b);
+            variant.set(b);
+        } else {
+            msg.skip();
+        }
+        serializeJson(_jsonDoc, message);
+        pub("topic", topic)("message", message);
+
+        _mqtt.tell(pub, self());
+        return true;
+    } else {
+        _jsonDoc.clear();
+        JsonObject jsonObject = _jsonDoc.to<JsonObject>();
+        topic = "src/";
+        topic += sender().path();
+        topic += "/";
+        topic += Label::label(msg.cls());
+        msg.rewind();
+
+        Msg& pub = msgBuilder(Mqtt::Publish);
+        while (msg.hasData()) {
+            Tag tag(msg.peek());
+            Label tag_uid(tag.uid);
+            if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS ||
+                tag.uid == UD_ID) {
+                msg.skip();
+            } else {
+
+                std::string message;
+                if (tag.type == Xdr::BYTES) {
+                    std::string bytes;
+                    msg.get(tag.uid, bytes);
+                    jsonObject[Label::label(tag.uid)] = bytes;
+                } else if (tag.type == Xdr::UINT) {
+                    uint64_t ui64;
+                    msg.get(tag.uid, ui64);
+                    jsonObject[Label::label(tag.uid)] = ui64;
+                } else if (tag.type == Xdr::INT) {
+                    int64_t i64;
+                    msg.get(tag.uid, i64);
+                    jsonObject[Label::label(tag.uid)] = i64;
+                } else if (tag.type == Xdr::FLOAT) {
+                    double d;
+                    msg.get(tag.uid, d);
+                    jsonObject[Label::label(tag.uid)] = d;
+                } else if (tag.type == Xdr::BOOL) {
+                    bool b;
+                    msg.get(tag.uid, b);
+                    jsonObject[Label::label(tag.uid)] = b;
+                } else {
+                    msg.skip();
+                }
+            }
+        }
+        serializeJson(_jsonDoc, message);
+        pub("topic", topic)("message", message);
+        _mqtt.tell(pub, self());
+        return true;
     }
-    _mqtt.tell(pub, self());
-    return true;
 }
 /*
  * count fields excluding dst,src,cls
  * tag references the last one found
  */
-uint32_t Bridge::fields(Msg& msg, Tag& tag) {
+uint32_t Bridge::fieldCount(Msg& msg, Tag& tag) {
     Tag cursor(0);
     uint32_t fields = 0;
     msg.rewind();
@@ -359,12 +380,13 @@ bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg) {
     topic += "/";
     topic += Label::label(msg.cls());
 
-    if (fields(msg, tag) == 1) {
+    if (fieldCount(msg, tag) == 1) {
         switch (tag.type) {
         case Xdr::BYTES: {
             msg.getNext(tag.uid, str);
             jsonObject[Label::label(tag.uid)] =
-                (char*)str.c_str(); // cast to char * to enforce copy
+                (char*)str.c_str(); // cast to char * to enforce copy into
+                                    // ArduinoJson buffer
             break;
         }
         case Xdr::UINT: {

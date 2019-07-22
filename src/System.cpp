@@ -36,9 +36,9 @@ Receive& System::createReceive() {
 Receive& System::createReceive() {
 	return receiveBuilder()
 
-	.match(Mqtt::Connected, [this](Msg& msg) {INFO(" MQTT CONNECTED ");})
+	.match(Mqtt::Connected, [](Msg& msg) {INFO(" MQTT CONNECTED ");})
 
-	.match(Mqtt::Disconnected, [this](Msg& msg) {INFO(" MQTT DISCONNECTED ");})
+	.match(Mqtt::Disconnected, [](Msg& msg) {INFO(" MQTT DISCONNECTED ");})
 
 	.match(Exit, [](Msg& msg) {exit(0);})
 
@@ -74,6 +74,9 @@ Receive& System::createReceive() {
 		              ("flash",ESP.getFlashChipSize())
 		              ("upTime",Sys::millis())
 		              ("hostname",Sys::hostname()),self());
+	})
+	.match(MsgClass("exit"),[](Msg& msg) {
+		exit(-1);
 	})
 	.build();
 }

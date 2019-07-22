@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Lieven Merckx
-Date                   :=05/07/2019
+Date                   :=22/07/2019
 CodeLitePath           :="/Users/lieven/Library/Application Support/CodeLite"
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -dynamiclib -fPIC
@@ -39,8 +39,8 @@ LinkOptions            :=  ../paho.mqtt.c/build/output/libpaho-mqtt3c.a
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). $(IncludeSwitch)src $(IncludeSwitch)../Common $(IncludeSwitch)../paho.mqtt.c/src $(IncludeSwitch)../ArduinoJson/src $(IncludeSwitch)../FreeRTOS/Source/include $(IncludeSwitch)../freertos-addons/Linux/portable/GCC/Linux 
 IncludePCH             := 
 RcIncludePath          := 
-Libs                   := $(LibrarySwitch)Common 
-ArLibs                 :=  "Common" 
+Libs                   := $(LibrarySwitch)Common $(LibrarySwitch)pthread 
+ArLibs                 :=  "Common" "pthread" 
 LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../Common/Debug 
 
 ##
