@@ -24,8 +24,6 @@ class Bridge : public Actor {
 
 	public:
 		static  MsgClass Publish;
-		static  MsgClass Properties;
-		static  MsgClass PropertiesReply;
 
 
 		Bridge(ActorRef& mqtt);
