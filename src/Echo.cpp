@@ -26,7 +26,7 @@ Receive& Echo::createReceive() {
 
                })
 
-        .match(MsgClass::Properties(), [this](Msg& msg) {})
+        .match(MsgClass::Properties(), [](Msg& msg) {})
 
         .build();
 }

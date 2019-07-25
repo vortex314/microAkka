@@ -7,8 +7,8 @@ class Sender : public Actor {
 		uint64_t startTime;
 		ActorRef* _echo;
 		uint32_t _counter=0;
-		Label _startTest;
-		Label _endTest;
+		Uid _startTest;
+		Uid _endTest;
 		bool _testing;
 
 	public:

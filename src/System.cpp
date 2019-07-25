@@ -11,7 +11,7 @@ System::~System() {
 }
 
 void System::preStart() {
-//	_propTimer = timers().startPeriodicTimer("propTimer", TimerExpired(), 5000);
+	timers().startPeriodicTimer("propTimer", Msg("propTimer"), 5000);
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Connected));
 	eb.subscribe(self(), MessageClassifier(_mqtt, Mqtt::Disconnected));
 }
@@ -25,6 +25,9 @@ Receive& System::createReceive() {
 		              ("build",__DATE__ " " __TIME__)
 		              ("cpu","x86_64")
 		              ("hostname",Sys::hostname()),self());
+	})
+	.match(MsgClass("propTimer"),[](Msg& msg){
+		
 	})
 	.build();
 }

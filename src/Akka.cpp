@@ -7,7 +7,7 @@
 //============================================================================
 #include "Akka.h"
 
-MsgClass SignalFromIsr(LABEL("SignalFromIsr"));
+MsgClass SignalFromIsr(UID("SignalFromIsr"));
 //_____________________________________________ STATIC
 
 typedef void (*MsgHandler)(void);
@@ -18,52 +18,53 @@ const char* cloneString(const char* s)
     return (const char*) ps;
 }
 
-//_______________________________________________ Label
+//_______________________________________________ Uid
 //
-std::unordered_map<uid_type, Label::LabelStruct*>* Label::_labels;
+/*
+std::unordered_map<uid_type, Uid::UidStruct*>* Uid::_labels;
 
-std::unordered_map<uid_type, Label::LabelStruct*>* Label::labels()
+std::unordered_map<uid_type, Uid::UidStruct*>* Uid::labels()
 {
     if (_labels == 0) {
-        _labels = new std::unordered_map<uid_type, LabelStruct*>();
+        _labels = new std::unordered_map<uid_type, UidStruct*>();
     }
     return _labels;
 }
 
-Label::Label(const char* label)
-    : Label(H(label), label)
+Uid::Uid(const char* label)
+    : Uid(H(label), label)
 {
 }
 
-Label::Label(uid_type id)
-    : Label(id, "unknown")
+Uid::Uid(uid_type id)
+    : Uid(id, "unknown")
 {
 }
 
-Label::Label()
-    : Label(H("unknown"))
+Uid::Uid()
+    : Uid(H("unknown"))
 {
 
 }
 
-bool Label::operator==(Label& other)
+bool Uid::operator==(Uid& other)
 {
     return other._pl->_uid == _pl->_uid;
 }
 
-uid_type Label::id()
+uid_type Uid::id()
 {
     return _pl->_uid;
 }
-const char* Label::label()
+const char* Uid::label()
 {
     if (_pl->_label) return _pl->_label;
     return "unknown";
 }
 
-const char* Label::label(uid_type uid)
+const char* Uid::label(uid_type uid)
 {
-    std::unordered_map<uid_type, LabelStruct*>::const_iterator p = labels()
+    std::unordered_map<uid_type, UidStruct*>::const_iterator p = labels()
             ->find(uid);
     if (p == labels()->end()) return "NONE";
     return (p->second->_label);
@@ -71,7 +72,7 @@ const char* Label::label(uid_type uid)
 
 const char* uidToString(uid_type uid)
 {
-    return Label::label(uid);
+    return Uid::label(uid);
 }
 
 //_______________________________________________ Ref
@@ -103,7 +104,7 @@ Ref Ref::findRef(uid_type id,uid_type cls)
     return r->second;
 }
 
-Label Ref::cls()
+Uid Ref::cls()
 {
     return _pr->_cls;
 }
@@ -117,7 +118,7 @@ bool Ref::operator==(Ref& that)
 {
     return this->_pr == that._pr;
 }
-
+*/
 //_________________________________________________ MsgClass
 
 //_________________________________________________ Msg
@@ -154,7 +155,7 @@ Msg::Msg(MsgClass cls)
     add(UD_SRC, (uid_type) 0);
     add(UD_DST, (uid_type) 0);
 }
-Msg::Msg(Label cls, Label src)
+Msg::Msg(Uid cls, Uid src)
     : Xdr(12)
 {
 //	INFO("ctor %X : [%d]",this,capacity());
@@ -191,14 +192,14 @@ Msg& Msg::reply(Msg& req)
     std::string s = "request";
     uint32_t rq;
     rq = req.cls();
-    const char* sRq = Label::label(rq);
+    const char* sRq = Uid::label(rq);
     if (sRq != 0)
         s = sRq;
     else WARN(" no label %u ", rq);
     s += "Reply";
     dst(req.src());
     src(req.dst());
-    cls(Label(s.c_str()).id());
+    cls(Uid(s.c_str()).id());
     id(req.id());
     return *this;
 }
@@ -246,11 +247,11 @@ Msg& Msg::operator=(const Msg& src)
 std::string Msg::toString()
 {
     std::string result;
-    result += Label::label(src());
+    result += Uid::label(src());
     result += " = ";
-    result += Label::label(cls());
+    result += Uid::label(cls());
     result += "> ";
-    result += Label::label(dst());
+    result += Uid::label(dst());
 //	result+= Xdr::toString();
     return result;
 }
@@ -333,8 +334,8 @@ TimerScheduler& Actor::timers()
 
 void Actor::unhandled(Msg& msg)
 {
-    WARN(" unhandled : '%s'=>'%s'=>'%s'", Label::label(msg.src()), Label::label(msg
-            .cls()), Label::label(msg.dst()));
+    WARN(" unhandled : '%s'=>'%s'=>'%s'", Uid::label(msg.src()), Uid::label(msg
+            .cls()), Uid::label(msg.dst()));
 }
 
 ActorRef& Actor::sender()
@@ -349,8 +350,8 @@ ActorRef& Actor::sender()
 
 std::unordered_map<uid_type,ActorRef*> ActorRef::_actorRefs;
 
-ActorRef::ActorRef(Label label)
-    : Label(label)
+ActorRef::ActorRef(Uid label)
+    : Uid(label)
 {
     DEBUG(" created ActorRef '%s' = %d", label.label(), label.id());
     if ( _actorRefs.find(label.id())==_actorRefs.end())
@@ -374,7 +375,7 @@ const char* ActorRef::path()
 }
 
 //_______________________________________________ LocalActorRef
-LocalActorRef::LocalActorRef(Label label, ActorSystem& system, Props& props,
+LocalActorRef::LocalActorRef(Uid label, ActorSystem& system, Props& props,
                              MessageDispatcher& dispatcher)
     : ActorRef(label), _cell(*new ActorCell(system, *this, dispatcher, props))
 {
@@ -446,7 +447,7 @@ ActorRef& ActorRef::NoSender()
 //____________________________________________________________ RemoteActorRef
 //
 
-RemoteActorRef::RemoteActorRef(Label label, ActorRef& bridge)
+RemoteActorRef::RemoteActorRef(Uid label, ActorRef& bridge)
     : ActorRef(label), _bridge(bridge)
 {
 }
@@ -502,11 +503,11 @@ int Mailbox::enqueue(Msg& msg)
     Msg* px = new Msg(msg.size());
     *px = msg;
     if (msg.cls() == 0)
-        WARN(" msg.cls==0 to %s from %s ", Label::label(msg.dst()), Label::label(msg
+        WARN(" msg.cls==0 to %s from %s ", Uid::label(msg.dst()), Uid::label(msg
                 .src()));
     int rc = send(px, 10);
     if (rc != 0) {
-        WARN("'%s' enqueue failed to '%s'", Label::label(msg.cls()), name());
+        WARN("'%s' enqueue failed to '%s'", Uid::label(msg.cls()), name());
         delete px;
         return rc;
     }
@@ -517,7 +518,7 @@ int Mailbox::enqueueFromIsr(Msg& msg)
 {
     int rc = sendFromIsr(&msg);
     if (rc != 0) {
-        WARN("[%X] enqueue failed %s", this, Label::label(_cell.self().id()));
+        WARN("[%X] enqueue failed %s", this, Uid::label(_cell.self().id()));
         return ENOENT;
     }
     return 0;
@@ -620,14 +621,14 @@ const char* Mailbox::name()
 
 //_______________________________________________________ ActorSystem
 //
-ActorSystem::ActorSystem(Label label, MessageDispatcher& defaultDispatcher)
-    : Label(label), _defaultDispatcher(defaultDispatcher)
+ActorSystem::ActorSystem(Uid label, MessageDispatcher& defaultDispatcher)
+    : Uid(label), _defaultDispatcher(defaultDispatcher)
 {
-    Label(AKKA_DST);
-    Label(AKKA_SRC);
-    Label(AKKA_CLS);
-    Label(AKKA_ID);
-    Label(AKKA_TIMER);
+    Uid(AKKA_DST);
+    Uid(AKKA_SRC);
+    Uid(AKKA_CLS);
+    Uid(AKKA_ID);
+    Uid(AKKA_TIMER);
     _defaultDispatcher.start();
 }
 
@@ -636,7 +637,7 @@ ActorRef* ActorSystem::create(Actor* actor, const char* name, Props& props)
     std::string path = label();
     path += "/";
     path += name;
-    Label label(path.c_str());
+    Uid label(path.c_str());
     LocalActorRef* localActorRef;
     if (!(ActorRef::lookup(label.id()) == 0)) {
         WARN(" actor with '%s'this'' name already exist , not created", name);
@@ -706,9 +707,9 @@ void Timer::callBack(void* arg)
     me->_timerScheduler.timerCallback(*me);
 }
 
-Timer::Timer(Label key, bool autoReload, uint32_t interval, const Msg& m,
+Timer::Timer(Uid key, bool autoReload, uint32_t interval, const Msg& m,
              TimerScheduler& scheduler)
-    : Label(key), NativeTimer(key.label(), autoReload, interval, this, callBack), _timerScheduler(scheduler)
+    : Uid(key), NativeTimer(key.label(), autoReload, interval, this, callBack), _timerScheduler(scheduler)
 {
     DEBUG("[%X] timer created %s : %u ", this, label(), interval);
     _msg = new Msg();
@@ -738,7 +739,7 @@ void Timer::msg(const Msg& msg)
     _msg->src(_timerScheduler.ref().id());
 }
 
-Label Timer::key()
+Uid Timer::key()
 {
     return id();
 }
@@ -764,7 +765,7 @@ TimerScheduler::TimerScheduler(ActorRef& ref)
 {
 }
 
-Timer* TimerScheduler::find(Label key)
+Timer* TimerScheduler::find(Uid key)
 {
     for (Timer* timer : _timers) {
         if (timer->key() == key) return timer;
@@ -772,7 +773,7 @@ Timer* TimerScheduler::find(Label key)
     return 0;
 }
 
-Label TimerScheduler::startPeriodicTimer(Label key, const Msg& msg,
+Uid TimerScheduler::startPeriodicTimer(Uid key, const Msg& msg,
         uint32_t msec)
 {
     Timer* timer = find(key.id());
@@ -786,7 +787,7 @@ Label TimerScheduler::startPeriodicTimer(Label key, const Msg& msg,
     return key.id();
 }
 
-Label TimerScheduler::startSingleTimer(Label key, const Msg& msg,
+Uid TimerScheduler::startSingleTimer(Uid key, const Msg& msg,
                                        uint32_t msec)
 {
     Timer* timer = find(key.id());
@@ -800,7 +801,7 @@ Label TimerScheduler::startSingleTimer(Label key, const Msg& msg,
     return key.id();
 }
 
-void TimerScheduler::cancel(Label key)
+void TimerScheduler::cancel(Uid key)
 {
     Timer* timer = find(key);
     if (timer)
@@ -1017,7 +1018,7 @@ std::list<ActorCell*>& ActorCell::actorCells()
 
 Thread::Thread(MessageDispatcher* dispatcher, const char* name,
                uint32_t stackSize, uint32_t priority, void* threadArg, TaskFunction f)
-    :Label(name), NativeThread(name, stackSize, priority, this, f), _dispatcher(dispatcher)
+    :Uid(name), NativeThread(name, stackSize, priority, this, f), _dispatcher(dispatcher)
 {
 
 }

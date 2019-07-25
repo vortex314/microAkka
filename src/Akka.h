@@ -21,7 +21,7 @@
 #include <atomic>
 // using namespace std;
 // Common
-//#include <Label.h>
+#include <Uid.h>
 #include <Xdr.h>
 #include <Native.h>
 
@@ -52,10 +52,10 @@ const uid_type UD_TIMER = H(AKKA_TIMER);
  // Description : Akka alike framework in C++ for embedded systems : low RAM
  //
  *
- * Label  => ActorRef => ActorCell => ActorContext => AbstractActor
+ * Uid  => ActorRef => ActorCell => ActorContext => AbstractActor
  *                                  => Mailbox
- * Label  => Abs
- * Label  => MsgClass
+ * Uid  => Abs
+ * Uid  => MsgClass
  * mailbox N => 1 thread(Dispatcher) 1 => N Receive 1 => 1 Actor
  * 1 ActorRef => 1 mailbox
  *
@@ -107,85 +107,9 @@ extern MsgClass SignalFromIsr;
 
 const char* cloneString(const char* s);
 
-
-//_____________________________________________________________________ Message
-
-//______________________________JUST an IDEA _______________________________ Ref
-//
-#define UID(x) std::integral_constant<uint16_t, H(x)>::value
-
-#define LABEL(__str__) Label(UID(__str__), __str__)
-
-const char* uidToString(uid_type);
-
-class Label {
-    typedef struct {
-        uid_type _uid;
-        const char* _label;
-    } LabelStruct;
-    LabelStruct* _pl = 0; // single element to use in varargs, on stack
-    static std::unordered_map<uid_type, LabelStruct*>* _labels;
-
-  public:
-    Label(uid_type uid, const char* label) {
-        if (labels()->find(uid) == labels()->end()) {
-            _pl = new LabelStruct;
-            _pl->_label = new char[strlen(label) + 1];
-            strcpy((char*)_pl->_label, label);
-            _pl->_uid = uid;
-            labels()->emplace(uid, _pl);
-        } else {
-            _pl = labels()->find(uid)->second;
-        }
-    }
-    Label(const char* label);
-    Label(uid_type id);
-    Label();
-    static const char* label(uid_type);
-    static std::unordered_map<uint16_t, LabelStruct*>* labels();
-    uid_type id();
-    const char* label();
-    bool operator==(Label& that);
-};
-
-class Ref : public Label {
-    typedef struct {
-        Label _label;
-        void* _object;
-        Label _cls;
-    } RefStruct;
-    RefStruct* _pr;
-    static std::unordered_map<uid_type, RefStruct*> _refs;
-
-  public:
-    Ref(Label label, void* object, Label cls) {
-        if (_refs.find(label.id()) == _refs.end()) {
-            _pr = new RefStruct({label, object, cls});
-            _refs.emplace(label.id(), _pr);
-        } else {
-            auto r = _refs.find(label.id());
-            if (!(r->second->_cls == cls)) {
-                //					delete r->second;
-                _pr = new RefStruct({label, object, cls});
-                _refs.emplace(label.id(), _pr);
-            }
-        }
-    }
-    Ref(RefStruct* pr) : _pr(pr) {}
-    const char* label();
-    uid_type id();
-    Label cls();
-    void* object();
-
-    ~Ref(); // the object destruction should lead to Ref lookup destruction
-    static Ref findRef(uid_type id, uid_type cls);
-    static Ref NotFound;
-    bool operator==(Ref&);
-};
-
 //_____________________________________________________________ MsgClass
 //
-class MsgClass : public Label {
+class MsgClass : public Uid {
   public:
     static MsgClass ReceiveTimeout();
     static MsgClass SignalFromIsr();
@@ -194,16 +118,16 @@ class MsgClass : public Label {
     static MsgClass AnyClass;
     static MsgClass Properties();
     static MsgClass PropertiesReply();
-    MsgClass() : Label("NONE") {}
-    MsgClass(Label label) : Label(label) {}
-    MsgClass(uid_type id) : Label(id) {}
-    MsgClass(const char* name) : Label(name) {}
+    MsgClass() : Uid("NONE") {}
+    MsgClass(Uid uid) : Uid(uid.id()) {}
+    MsgClass(uid_type id) : Uid(id) {}
+    MsgClass(const char* name) : Uid(name) {}
     bool operator==(MsgClass b) { return id() == b.id(); }
 };
 //____________________________________________________________ Msg
 //
 class Msg : public Xdr {
-    enum { OFF_CLS = 1, OFF_SRC = 3, OFF_DST = 5, OFF_ID };
+    enum { OFF_CLS = 1, OFF_SRC = 3, OFF_DST = 5, OFF_ID=7 };
 
   public:
     Msg();
@@ -211,10 +135,10 @@ class Msg : public Xdr {
     ~Msg();
     Msg(MsgClass cls);
     Msg(uint32_t);
-    Msg(Label cls, Label src);
+    Msg(Uid cls, Uid src);
     Msg& reply(Msg& req);
     Msg& clear();
-    template <typename T> Msg& operator()(Label key, T v) {
+    template <typename T> Msg& operator()(Uid key, T v) {
         add((uid_type)key.id(), v);
         return *this;
     }
@@ -243,33 +167,33 @@ typedef std::function<bool(Msg&)> MessageMatcher;
 //_________________________________________________________________ Timer
 //
 
-class Timer : public Label, public NativeTimer {
+class Timer : public Uid, public NativeTimer {
     Msg* _msg;
     bool _autoReload;
     TimerScheduler& _timerScheduler;
 
   public:
-    Timer(Label key, bool autoReload, uint32_t interval, const Msg& msg,
+    Timer(Uid key, bool autoReload, uint32_t interval, const Msg& msg,
           TimerScheduler&);
     ~Timer();
     static void callBack(void*);
 
     bool operator==(Timer&);
-    Label key();
+    Uid key();
     Msg& msg();
     void msg(const Msg&);
 };
 
 //__________________________________________________________ ActorRef
 
-class ActorRef : public Label {
+class ActorRef : public Uid {
     static std::unordered_map<uid_type, ActorRef*> _actorRefs;
 
   public:
     static ActorRef& NoSender();
     static ActorRef* lookup(uid_type id);
 
-    ActorRef(Label);
+    ActorRef(Uid);
     bool operator==(ActorRef&);
     const char* path();
 
@@ -288,7 +212,7 @@ class LocalActorRef : public ActorRef {
     ActorCell& _cell;
 
   public:
-    LocalActorRef(Label, ActorSystem&, Props&, MessageDispatcher&);
+    LocalActorRef(Uid, ActorSystem&, Props&, MessageDispatcher&);
     ~LocalActorRef();
 
     Mailbox& mailbox();
@@ -308,7 +232,7 @@ class LocalActorRef : public ActorRef {
 //___________________________________________________ EmptyLocalActorRef
 class EmptyLocalActorRef : public ActorRef {
   public:
-    EmptyLocalActorRef() : ActorRef(Label(0, "NoSender")){};
+    EmptyLocalActorRef() : ActorRef(Uid(0, "NoSender")){};
     void tell(Msg& msg){};
     void tell(Msg& msg, ActorRef& src){};
     void forward(Msg& message, ActorContext& context){};
@@ -327,13 +251,13 @@ class TimerScheduler {
   public:
     void timerCallback(Timer&);
     TimerScheduler(ActorRef&);
-    Timer* find(Label key);
+    Timer* find(Uid key);
     Timer* findNextTimeout();
-    Label startPeriodicTimer(Label key, const Msg&, uint32_t msec);
-    Label startSingleTimer(Label key, const Msg&, uint32_t msec);
-    void cancel(Label key);
+    Uid startPeriodicTimer(Uid key, const Msg&, uint32_t msec);
+    Uid startSingleTimer(Uid key, const Msg&, uint32_t msec);
+    void cancel(Uid key);
     void cancelAll();
-    bool isTimerActive(Label key);
+    bool isTimerActive(Uid key);
     ActorRef& ref();
 };
 
@@ -507,7 +431,7 @@ class RemoteActorRef : public ActorRef {
     ActorRef& _bridge;
 
   public:
-    RemoteActorRef(Label, ActorRef&);
+    RemoteActorRef(Uid, ActorRef&);
     void tell(Msg& msg);
     void tell(Msg& msg, ActorRef& src);
     void forward(Msg& message, ActorContext& context);
@@ -520,14 +444,14 @@ class RemoteActorRef : public ActorRef {
 
 class ActorSelection : public ActorRef {
   public:
-    ActorSelection(Label id);
+    ActorSelection(Uid id);
 };
 
 //__________________________________________________________ Thread
 //
 // per thread data
 //
-class Thread : public Label, public NativeThread {
+class Thread : public Uid, public NativeThread {
     Msg _txd;
     Msg _rxd;
     MessageDispatcher* _dispatcher;
@@ -636,14 +560,14 @@ class Props {
     MessageDispatcher& dispatcher() { return *_dispatcher; }
 };
 //___________________________________________________________ ActorSystem
-class ActorSystem : public Label {
+class ActorSystem : public Uid {
     Props _defaultProps;
     std::unordered_map<uid_type, ActorRef*> _actorRefs;
     MessageDispatcher& _defaultDispatcher;
 
   public:
-    ActorSystem(Label, MessageDispatcher& defaultDispatcher);
-    Label uniqueId(const char* name);
+    ActorSystem(Uid, MessageDispatcher& defaultDispatcher);
+    Uid uniqueId(const char* name);
     ActorRef& actorFor(const char* address);
 
     template <class T, typename... Args>
@@ -728,14 +652,14 @@ class MessageClassifier {
         _src = msg.src();
         _cls = msg.cls();
     }
-    MessageClassifier(ActorRef& refSrc, Label labelCls) {
+    MessageClassifier(ActorRef& refSrc, Uid UidCls) {
         _src = refSrc.id();
-        _cls = labelCls.id();
+        _cls = UidCls.id();
     }
 
-    MessageClassifier(Label labelSrc, Label labelCls) {
-        _src = labelSrc.id();
-        _cls = labelCls.id();
+    MessageClassifier(Uid UidSrc, Uid UidCls) {
+        _src = UidSrc.id();
+        _cls = UidCls.id();
     }
 
     bool operator==(MessageClassifier a) {
@@ -751,7 +675,7 @@ class ActorMsgBus : public EventBus<Msg, ActorRef&, MessageClassifier> {
     void push(Msg& msg, ActorRef& ref) {
         msg.dst(ref.id());
         //			INFO(" event : %s on mailbox : %s
-        //",msg.toString().c_str(),ref.label());
+        //",msg.toString().c_str(),ref.Uid());
         ref.tell(msg);
     }
     MessageClassifier classify(Msg& msg) { return MessageClassifier(msg); }

@@ -28,8 +28,8 @@ Receive& NeuralPid::createReceive() {
 	return receiveBuilder()
 	       .match(("sample"),
 	[this](Msg& msg) {
-		INFO(" message received %s:%s:%s in %s", Label::label(msg.src()),
-		     Label::label(msg.dst()), Label::label(msg.cls()),
+		INFO(" message received %s:%s:%s in %s", Uid::label(msg.src()),
+		     Uid::label(msg.dst()), Uid::label(msg.cls()),
 		     context().self().path());
 		//
 	})

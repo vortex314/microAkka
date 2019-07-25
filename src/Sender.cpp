@@ -13,7 +13,7 @@ void Sender::preStart() {
 	_startTest =
 	    timers().startPeriodicTimer("START_TEST", Msg("StartTest"), 5000);
 	context().setReceiveTimeout(1000);
-	Label("counter");
+	Uid("counter");
 	_echo = &context().system().actorOf<Echo>("echo");
 }
 

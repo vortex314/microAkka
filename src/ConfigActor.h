@@ -6,8 +6,8 @@
 class ConfigActor : public Actor {
 		uint64_t startTime;
 		uint32_t _counter;
-		Label _startTest;
-		Label _endTest;
+		Uid _startTest;
+		Uid _endTest;
 		bool _testing;
 
 	public:
