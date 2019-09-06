@@ -25,7 +25,6 @@
     <File Name="src/WiringPi.h"/>
     <File Name="src/FreeRTOSConfig.h"/>
     <File Name="src/Mqtt.h"/>
-    <File Name="src/Mqtt.cpp"/>
     <File Name="src/Bridge.h"/>
     <File Name="src/Bridge.cpp"/>
     <File Name="src/ConfigActor.cpp"/>

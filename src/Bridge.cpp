@@ -46,7 +46,8 @@
 
 MsgClass Bridge::Publish("publish");
 
-Bridge::Bridge(ActorRef& mqtt) : _mqtt(mqtt) {
+Bridge::Bridge(ActorRef& mqtt) : _mqtt(mqtt)
+{
     _rxd = 0;
     _txd = 0;
     _mqttConnected = false;
@@ -54,7 +55,8 @@ Bridge::Bridge(ActorRef& mqtt) : _mqtt(mqtt) {
 
 Bridge::~Bridge() {}
 
-void Bridge::preStart() {
+void Bridge::preStart()
+{
     timers().startPeriodicTimer("publish", Msg("pollTimer"), 1000);
     _currentActorRef = context().system().actorRefs().begin();
     timers().startPeriodicTimer("pubTimer", Msg("pubTimer"), 5000);
@@ -64,7 +66,8 @@ void Bridge::preStart() {
     Uid("value");
 }
 
-ActorRef* Bridge::nextRef() {
+ActorRef* Bridge::nextRef()
+{
     if (context().system().actorRefs().size() == 0)
         return 0;
     if (_currentActorRef == context().system().actorRefs().end()) {
@@ -75,119 +78,120 @@ ActorRef* Bridge::nextRef() {
     return pa;
 }
 
-Receive& Bridge::createReceive() {
+Receive& Bridge::createReceive()
+{
     return receiveBuilder()
 
-        .match(MsgClass::AnyClass,
-               [this](Msg& msg) {
-                   if (!(msg.dst() == self().id())) {
-                       std::string message;
-                       std::string topic;
-                       if (msg.dst() == 0) { // cmd req/reply
-                           msgToJsonEvents(msg);
-                       } else { // event
-                           msgToJsonCmd(topic, message, msg);
-                           _mqtt.tell(msgBuilder(Mqtt::Publish)("topic", topic)(
-                                          "message", message),
-                                      self());
-                           _txd++;
-                       }
-                   }
-               })
+           .match(MsgClass::AnyClass,
+    [this](Msg& msg) {
+        if (!(msg.dst() == self().id())) {
+            std::string message;
+            std::string topic;
+            if (msg.dst() == 0) { // cmd req/reply
+                msgToJsonEvents(msg);
+            } else { // event
+                msgToJsonCmd(topic, message, msg);
+                _mqtt.tell(msgBuilder(Mqtt::Publish)("topic", topic)(
+                               "message", message),
+                           self());
+                _txd++;
+            }
+        }
+    })
 
-        .match(Mqtt::Connected,
-               [this](Msg& env) {
-                   INFO(" MQTT CONNECTED");
-                   _mqttConnected = true;
-                   subscribeEventBus();
-               })
+    .match(Mqtt::Connected,
+    [this](Msg& env) {
+        INFO(" MQTT CONNECTED");
+        _mqttConnected = true;
+        subscribeEventBus();
+    })
 
-        .match(Mqtt::Disconnected,
-               [this](Msg& env) {
-                   INFO(" MQTT DISCONNECTED");
-                   _mqttConnected = false;
-               })
+    .match(Mqtt::Disconnected,
+    [this](Msg& env) {
+        INFO(" MQTT DISCONNECTED");
+        _mqttConnected = false;
+    })
 
-        .match(Mqtt::PublishRcvd,
-               [this](Msg& msg) {
-                   std::string topic;
-                   std::string message;
+    .match(Mqtt::PublishRcvd,
+    [this](Msg& msg) {
+        std::string topic;
+        std::string message;
 
-                   if (msg.get("topic", topic) && msg.get("message", message)) {
-                       Msg& m = msgBuilder((uid_type)0);
-                       m.src(ActorRef::NoSender().id());
+        if (msg.get("topic", topic) && msg.get("message", message)) {
+            Msg& m = msgBuilder((uid_type)0);
+            m.src(ActorRef::NoSender().id());
 
-                       if (topicToMsg(m, topic) && messageToMsg(m, message)) {
-                           ActorRef *dst, *src;
-                           if (m.dst() != 0 &&
-                               (dst = ActorRef::lookup(m.dst())) != 0) {
-                               dst->tell(m);
-                               _rxd++;
-                           } else if (m.src() != 0 &&
-                                      (src = ActorRef::lookup(m.src())) != 0) {
-                               eb.publish(m);
-                               _rxd++;
-                           } else {
-                               WARN(" src / dst invalid %u / % u", m.src(),
-                                    m.dst());
-                           }
-                       } else {
-                           WARN(" couldn't handle topic/message %s=%s",
-                                topic.c_str(), message.c_str());
-                       }
-                   }
-               })
+            if (topicToMsg(m, topic) && messageToMsg(m, message)) {
+                ActorRef *dst, *src;
+                if (m.dst() != 0 &&
+                    (dst = ActorRef::lookup(m.dst())) != 0) {
+                    dst->tell(m);
+                    _rxd++;
+                } else if (m.src() != 0 &&
+                           (src = ActorRef::lookup(m.src())) != 0) {
+                    eb.publish(m);
+                    _rxd++;
+                } else {
+                    WARN(" src / dst invalid %u / % u", m.src(),
+                         m.dst());
+                }
+            } else {
+                WARN(" couldn't handle topic/message %s=%s",
+                     topic.c_str(), message.c_str());
+            }
+        }
+    })
 
-        .match(MsgClass("pubTimer"),
-               [this](Msg& msg) {
-                   std::string topic = "src/";
-                   topic += context().system().label();
-                   topic += "/system/alive";
-                   if (_mqttConnected) {
-                       _mqtt.tell(msgBuilder(Mqtt::Publish)("topic", topic)(
-                                      "message", "true"),
-                                  self());
-                   }
-                   self().tell(msgBuilder(Publish)("simple", 1123), self());
+    .match(MsgClass("pubTimer"),
+    [this](Msg& msg) {
+        std::string topic = "src/";
+        topic += context().system().label();
+        topic += "/system/alive";
+        if (_mqttConnected) {
+            _mqtt.tell(msgBuilder(Mqtt::Publish)("topic", topic)(
+                           "message", "true"),
+                       self());
+        }
+        self().tell(msgBuilder(Publish)("simple", 1123), self());
 
-                   Xdr xdr(10);
-                   xdr("a", 1)("b", true)("c", "a string")("e", 3.14);
-                   self().tell(msgBuilder(Publish)("complex", xdr), self());
+        Xdr xdr(10);
+        xdr("a", 1)("b", true)("c", "a string")("e", 3.14);
+        self().tell(msgBuilder(Publish)("complex", xdr), self());
 
-               })
+    })
 
-        .match(MsgClass::PropertiesReply(),
-               [this](Msg& msg) {
-                   if (_mqttConnected == true) {
-                       msgToJsonEvents(msg);
-                   }
-               })
+    .match(MsgClass::PropertiesReply(),
+    [this](Msg& msg) {
+        if (_mqttConnected == true) {
+            msgToJsonEvents(msg);
+        }
+    })
 
-        .match(MsgClass("pollTimer"),
-               [this](Msg& msg) {
-                   if (_mqttConnected == true) {
-                       ActorRef* ref = nextRef();
-                       if (ref)
-                           ref->tell(msgBuilder(MsgClass::Properties())
-                                         .src(self().id())
-                                         .dst(ref->id()));
-                   }
-               })
+    .match(MsgClass("pollTimer"),
+    [this](Msg& msg) {
+        if (_mqttConnected == true) {
+            ActorRef* ref = nextRef();
+            if (ref)
+                ref->tell(msgBuilder(MsgClass::Properties())
+                          .src(self().id())
+                          .dst(ref->id()));
+        }
+    })
 
-        .match(Publish,
-               [this](Msg& msg) {
-                   if (_mqttConnected == true) {
-                       msgToJsonEvents(msg);
-                   }
-               })
+    .match(Publish,
+    [this](Msg& msg) {
+        if (_mqttConnected == true) {
+            msgToJsonEvents(msg);
+        }
+    })
 
-        .match(MsgClass::Properties(),
-               [this](Msg& msg) {
-                   sender().tell(replyBuilder(msg)("txd", _txd)("rxd", _rxd),
-                                 self());
-               })
+    .match(MsgClass::Properties(),
+    [this](Msg& msg) {
+        sender().tell(replyBuilder(msg)("txd", _txd)("rxd", _rxd),
+                      self());
+    })
 
-        .build();
+    .build();
 }
 /*
  * cls==Publish or cls==PropertiesReply
@@ -198,7 +202,63 @@ Receive& Bridge::createReceive() {
  *
  */
 
-bool xdrToJson(JsonVariant variant, Xdr& xdr) {
+bool xdrToJson(JsonVariant variant, Xdr& xdr);
+
+
+bool xdrTagToJson(JsonVariant variant,Xdr& xdr,Tag& tag)
+{
+    Uid tag_uid(tag.uid);
+    if (tag.type == Xdr::BYTES) {
+        std::string bytes;
+        xdr.getNext(tag.uid, bytes);
+        if (variant.isNull())
+            variant.set(bytes);
+        else if (variant.is<JsonObject>())
+            variant[tag_uid.label()] = bytes;
+    } else if (tag.type == Xdr::UINT) {
+        uint64_t ui64;
+        xdr.getNext(tag.uid, ui64);
+        if (variant.isNull())
+            variant.set(ui64);
+        else if (variant.is<JsonObject>())
+            variant[tag_uid.label()] = ui64;
+    } else if (tag.type == Xdr::INT) {
+        int64_t i64;
+        xdr.getNext(tag.uid, i64);
+        if (variant.isNull())
+            variant.set(i64);
+        else if (variant.is<JsonObject>())
+            variant[tag_uid.label()] = i64;
+    } else if (tag.type == Xdr::FLOAT) {
+        double d;
+        xdr.getNext(tag.uid, d);
+        if (variant.isNull())
+            variant.set(d);
+        else if (variant.is<JsonObject>())
+            variant[tag_uid.label()] = d;
+    } else if (tag.type == Xdr::BOOL) {
+        bool b;
+        xdr.get(tag.uid, b);
+        if (variant.isNull())
+            variant.set(b);
+        else if (variant.is<JsonObject>())
+            variant[tag_uid.label()] = b;
+    } else if (tag.type == Xdr::OBJECT) {
+        Xdr xdrChild(20);
+        xdr.getNext(tag.uid, xdrChild);
+        Tag childTag(xdrChild.peek());
+        JsonObject object = variant.to<JsonObject>();
+        //                  variant.createNestedObject(tag_uid.label());
+        xdrChild.rewind();
+        xdrToJson(object, xdrChild);
+    } else {
+        WARN(" unknown xdr Type ");
+        xdr.skip();
+    }
+}
+
+bool xdrToJson(JsonVariant variant, Xdr& xdr)
+{
     std::string js;
     serializeJson(variant, js);
     while (xdr.hasData()) {
@@ -208,59 +268,14 @@ bool xdrToJson(JsonVariant variant, Xdr& xdr) {
             tag.uid == UD_ID) {
             xdr.skip();
         } else {
-            if (tag.type == Xdr::BYTES) {
-                std::string bytes;
-                xdr.getNext(tag.uid, bytes);
-                if (variant.isNull())
-                    variant.set(bytes);
-                else if (variant.is<JsonObject>())
-                    variant[tag_uid.label()] = bytes;
-            } else if (tag.type == Xdr::UINT) {
-                uint64_t ui64;
-                xdr.getNext(tag.uid, ui64);
-                if (variant.isNull())
-                    variant.set(ui64);
-                else if (variant.is<JsonObject>())
-                    variant[tag_uid.label()] = ui64;
-            } else if (tag.type == Xdr::INT) {
-                int64_t i64;
-                xdr.getNext(tag.uid, i64);
-                if (variant.isNull())
-                    variant.set(i64);
-                else if (variant.is<JsonObject>())
-                    variant[tag_uid.label()] = i64;
-            } else if (tag.type == Xdr::FLOAT) {
-                double d;
-                xdr.getNext(tag.uid, d);
-                if (variant.isNull())
-                    variant.set(d);
-                else if (variant.is<JsonObject>())
-                    variant[tag_uid.label()] = d;
-            } else if (tag.type == Xdr::BOOL) {
-                bool b;
-                xdr.get(tag.uid, b);
-                if (variant.isNull())
-                    variant.set(b);
-                else if (variant.is<JsonObject>())
-                    variant[tag_uid.label()] = b;
-            } else if (tag.type == Xdr::OBJECT) {
-                Xdr xdrChild(20);
-                xdr.getNext(tag.uid, xdrChild);
-                Tag childTag(xdrChild.peek());
-                JsonObject object = variant.to<JsonObject>();
-                //                  variant.createNestedObject(tag_uid.label());
-                xdrChild.rewind();
-                xdrToJson(object, xdrChild);
-            } else {
-                WARN(" unknown xdr Type ");
-                xdr.skip();
-            }
+            xdrTagToJson(variant,xdr,tag);
         }
     }
     return true;
 }
 
-bool Bridge::msgToJson(Msg& msg, std::string& topic, std::string& message) {
+bool Bridge::msgToJson(Msg& msg, std::string& topic, std::string& message)
+{
     if (msg.dst()) {
         topic = "dst/";
         topic += Uid::label(msg.dst());
@@ -273,66 +288,41 @@ bool Bridge::msgToJson(Msg& msg, std::string& topic, std::string& message) {
         return false;
 }
 // TODO check for 1 value or multiple => JsVariant or JsObject
-bool Bridge::msgToJsonEvents(Msg& msg) {
+bool Bridge::msgToJsonEvents(Msg& msg)
+{
     std::string topic;
     std::string message;
     Tag tag(0);
-    if (msg.cls() == MsgClass::PropertiesReply().id()) {
-        msg.rewind();
-        Msg& pub = msgBuilder(Mqtt::Publish);
-        while (msg.hasData()) {
-            Tag tag(msg.peek());
-            Uid tag_uid(tag.uid);
-            if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS ||
-                tag.uid == UD_ID) {
-                msg.skip();
-            } else {
-                _jsonDoc.clear();
-                message.clear();
-                JsonVariant variant = _jsonDoc.to<JsonVariant>();
-                topic = "src/";
-                topic += sender().path();
-                topic += "/";
-                topic += tag_uid.label();
-                xdrToJson(variant, msg);
-                serializeJson(_jsonDoc, message);
-                pub("topic", topic)("message", message);
-            }
-        }
-        _mqtt.tell(pub, self());
-        return true;
-    } else {
-        _jsonDoc.clear();
-        JsonVariant variant = _jsonDoc.to<JsonVariant>();
-
-        msg.rewind();
-        Msg& pub = msgBuilder(Mqtt::Publish);
-        while (msg.hasData()) {
-            Tag tag(msg.peek());
-            Uid tag_uid(tag.uid);
+    msg.rewind();
+    Msg& pub = msgBuilder(Mqtt::Publish);
+    while (msg.hasData()) {
+        Tag tag(msg.peek());
+        Uid tag_uid(tag.uid);
+        if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS ||
+            tag.uid == UD_ID) {
+            msg.skip();
+        } else {
+            _jsonDoc.clear();
+            message.clear();
+            JsonVariant variant = _jsonDoc.to<JsonVariant>();
             topic = "src/";
             topic += sender().path();
             topic += "/";
             topic += tag_uid.label();
-            if (tag.uid == UD_DST || tag.uid == UD_SRC || tag.uid == UD_CLS ||
-                tag.uid == UD_ID) {
-                msg.skip();
-            } else {
-                xdrToJson(variant, msg);
-                serializeJson(_jsonDoc, message);
-                pub("topic", topic)("message", message);
-                _mqtt.tell(pub, self());
-            }
+            xdrTagToJson(variant, msg,tag);
+            serializeJson(_jsonDoc, message);
+            pub("topic", topic)("message", message);
         }
-
-        return true;
     }
+    _mqtt.tell(pub, self());
+    return true;
 }
 /*
  * count fields excluding dst,src,cls
  * tag references the last one found
  */
-uint32_t Bridge::fieldCount(Msg& msg, Tag& tag) {
+uint32_t Bridge::fieldCount(Msg& msg, Tag& tag)
+{
     Tag cursor(0);
     uint32_t fields = 0;
     msg.rewind();
@@ -348,7 +338,8 @@ uint32_t Bridge::fieldCount(Msg& msg, Tag& tag) {
     return fields;
 }
 
-bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg) {
+bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg)
+{
     Tag tag(0);
     std::string str;
 
@@ -392,7 +383,9 @@ bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg) {
             jsonObject[Uid::label(tag.uid)] = d;
             break;
         }
-        default: { msg.skip(); }
+        default: {
+            msg.skip();
+        }
         }
 
         // serialize the object and send the result to Serial
@@ -434,7 +427,9 @@ bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg) {
                 jsonObject[Uid::label(tag.uid)] = d;
                 break;
             }
-            default: { msg.skip(); }
+            default: {
+                msg.skip();
+            }
             }
         };
         serializeJson(jsonObject, message);
@@ -442,7 +437,8 @@ bool Bridge::msgToJsonCmd(std::string& topic, std::string& message, Msg& msg) {
     }
 }
 
-bool jsonToXdr(Xdr& xdr, const char* name, JsonVariant variant) {
+bool jsonToXdr(Xdr& xdr, const char* name, JsonVariant variant)
+{
     if (variant.is<JsonObject>()) {
         JsonObject jsonObject = variant.as<JsonObject>();
         for (JsonPair kv : jsonObject) {
@@ -483,10 +479,11 @@ bool jsonToXdr(Xdr& xdr, const char* name, JsonVariant variant) {
         WARN(" unhandled JSON type ");
         return false;
     }
-	return true;
+    return true;
 }
 
-bool Bridge::messageToMsg(Msg& msg, std::string& message) {
+bool Bridge::messageToMsg(Msg& msg, std::string& message)
+{
     _jsonDoc.clear();
     auto rc = deserializeJson(_jsonDoc, message.data());
     if (!(rc == DeserializationError::Ok)) { // just read this as a string
@@ -512,12 +509,13 @@ bool Bridge::messageToMsg(Msg& msg, std::string& message) {
     }
 }
 
-bool Bridge::topicToMsg(Msg& msg, std::string& topic) {
+bool Bridge::topicToMsg(Msg& msg, std::string& topic)
+{
     uint32_t offsets[3] = {0, 0, 0};
     uint32_t prevOffset = 0;
     for (uint32_t i = 0; i < 3; i++) {
         uint64_t offset = topic.find(
-            '/', prevOffset); // uint64_t to support 64 bit architecture ;-)
+                              '/', prevOffset); // uint64_t to support 64 bit architecture ;-)
         if (offset == std::string::npos)
             break;
         offsets[i] = offset;
@@ -529,7 +527,7 @@ bool Bridge::topicToMsg(Msg& msg, std::string& topic) {
     }
     uid_type uid =
         Uid(topic.substr(offsets[0] + 1, offsets[2] - offsets[0] - 1).c_str())
-            .id();
+        .id();
     uid_type uidCls = Uid(topic.substr(offsets[2] + 1).c_str()).id();
     if (topic.rfind("dst/", 0) == 0) {
         ActorRef* dst = ActorRef::lookup(uid);
@@ -549,7 +547,8 @@ bool Bridge::topicToMsg(Msg& msg, std::string& topic) {
     return true;
 }
 
-void Bridge::subscribeEventBus() {
+void Bridge::subscribeEventBus()
+{
     for (auto subscriber : eb.subscribers()) {
         auto cl = subscriber->_classifier;
         DEBUG(" looking up : %s", Uid::label(cl.src()));
